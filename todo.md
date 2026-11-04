@@ -75,6 +75,27 @@ Checked against `js/game.js` on `main`. Notes stay `open` in the table until Jim
 - [x] **Zoom out to fit, spots keep their size** (Level 5, note `ee7f`). Built: spots keep the same size on screen at any zoom, so they overlap on dense maps when zoomed out. The 44 px minimum is no longer needed. Confirmed by Jimmy (convo v0.6, question 2).
 - [ ] **Test note** (`4a1aa905`, Level 4 Valley). Nothing to build. Mark done when Jimmy confirms (convo v0.6 question 3).
 
+## Round 7 (version 2.14): provinces, terrain, rivers, upgrades (convo v0.13)
+
+Built with the defaults listed in convo v0.13 for Jimmy to check.
+
+- [x] **15 provinces per nation.** Every nation is split into exactly 15 provinces (convo v0.13).
+- [x] **Neutral terrain between provinces.** Lakes (3), dense forests (6) and mountains (6) are neutral Voronoi cells. Troops cross them at a cost: lake 2 steps and 10% of the army, forest 1 step and 5%, mountain 1 step (and +1 defence on the slope).
+- [x] **Rivers along the province borders.** Two rivers, drawn along the borders they follow; crossing one costs a step, as before.
+- [x] **Zoomed in looks like version 1.** The 🍄 🏘️ 🏰 🏯 icons, with terrain icons when zoomed.
+- [x] **AI chooses the province to upgrade** (card buttons), and zooming in lets you tap a pop centre or its ⬆ arrow to upgrade it by hand, paid in gold.
+- [x] **Soldiers buy out their contracts or are disbanded for gold,** which pays for upgrades.
+- [ ] **Soldiers per province.** Soldiers are still one pool for the nation. Each province holding its own soldiers is open (convo v0.13 question 2).
+- [ ] **City to fortress in gold.** Still paid in stone (convo v0.13 question 3).
+
+## Round 8 (version 2.15): seeded maps, a small start, neutral land
+
+- [x] **Maps from a seed.** Type a map seed next to New country to make that map again; blank is random. The seed is shown in the log.
+- [x] **Start small.** Each nation starts with two villages and a town near its capital. The other 12 provinces in its region are neutral.
+- [x] **Claim neutral land.** Tap a neutral province to claim it with a share of your army. Its garrison (2 to 6 soldiers, growing back slowly) defends it.
+- [x] **Cautious neutral nations.** Neutrals claim, attack and declare less often than the other computer nations, need a bigger lead, and rarely ally.
+- [ ] **Balance.** Claim and garrison numbers are first guesses. Play full games and tune them.
+
 ## Later
 
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.

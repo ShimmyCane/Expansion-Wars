@@ -1,8 +1,8 @@
 // Expansion Wars — version 2: the country layer.
-// Each population centre is a province: a point on the map with its own cell. A nation holds provinces,
-// and the border between two nations is the edge between their provinces, so it moves when a province changes hands.
-// Nations keep their regions. Rivers and lakes make the ground harder to cross; mountains are strong ground.
-// A turn lasts 60 seconds. Everyone queues actions, and they play out together when the turn ends or on Ready.
+// Each nation is split into 15 provinces. A province is a point on the map with its own cell, and the border between
+// two nations is the edge between their provinces, so it moves when a province changes hands.
+// Between provinces sit neutral terrain cells: lakes, dense forests and mountains. Troops can cross them, at a cost.
+// Rivers run along the borders between provinces. A turn lasts 60 seconds. Everyone queues actions, and they play out together when the turn ends or on Ready.
 (function () {
   'use strict';
 
@@ -14,6 +14,8 @@
   // Growing a province: village to town and town to city cost gold, city to fortress costs stone.
   var GROW = { v: { to: 't', gold: 10 }, t: { to: 'c', gold: 20 }, c: { to: 'f', stone: 15 } };
   var LABEL = { e: 'empty dot', v: 'village', t: 'town', c: 'city', f: 'fortress' };
+  // Zoomed in, a province shows the same icons as version 1 (mushroom, castle, fort). An empty dot is a small circle.
+  var ICON = { v: '🍄', t: '🏘️', c: '🏰', f: '🏯' };
   var DIPLO = [
     { type: 'trade', text: 'Trade route (' + TRADE_SETUP + ' gold to set up)' },
     { type: 'ally', text: 'Neutral alliance' },
@@ -28,8 +30,8 @@
   var OCC_PENALTY = 0.4, RESTORE_TURNS = 10;
   // Battles: three waves; overpowered at twice the defence means surrender.
   var WAVES = 3, SURRENDER = 2;
-  // Distance: an attack reaches MAX_DIST (steps, with a river or a mountain counting one extra). Far away costs strength,
-  // hostile provinces on the way wear the army down, and allied land is free passage.
+  // Distance: an attack reaches MAX_DIST (steps; crossing terrain or a river costs extra). Far away costs strength,
+  // hostile provinces and terrain on the way wear the army down, and allied land is free passage.
   var MAX_DIST = 4;
   var FAR_PER_STEP = 0.1, FAR_PER_RIVER = 0.08, FAR_MAX = 0.5;
   var CHIP_PER_HOSTILE = 0.05, CHIP_MAX = 0.4;
@@ -37,9 +39,23 @@
   var TAILWIND = 1.25, TAILWIND_TURNS = 10;
   // Unrest: a spot may revolt from 70 (certain at 90).
   var REVOLT_AT = 70, REVOLT_CERTAIN = 90;
-  var PROV_GAP = 45;   // least distance between two provinces
+  var PROVS = 15;      // every nation is split into exactly this many provinces
+  var PROV_GAP = 45;   // least distance between two provinces (eased only if the land is too crowded)
+  // Neutral terrain: a Voronoi cell of its own, between provinces. Troops can cross it, with these caveats.
+  // step: extra steps to cross; wear: share of the army lost crossing; r: the clear ring kept around each one.
+  var TERRAIN = {
+    lake: { n: 3, r: 40, step: 2, wear: 0.1, icon: '🌊', name: 'Lake', note: 'boats only: crossing costs 2 extra steps and 10% of the army' },
+    forest: { n: 6, r: 26, step: 1, wear: 0.05, icon: '🌲', name: 'Dense forest', note: 'crossing costs 1 extra step and 5% of the army in the trees' },
+    mountain: { n: 6, r: 22, step: 1, wear: 0, icon: '⛰️', name: 'Mountain', note: 'crossing costs 1 extra step; provinces on the slope defend better' }
+  };
   var TIER_RANK = { e: 0, v: 1, t: 2, c: 3, f: 4 };
   var DOWN = { e: 'e', v: 'v', t: 'v', c: 't', f: 'c' };   // a captured province drops one grade
+  // Soldiers can leave a nation for gold: their contracts are bought out (more gold) or they are disbanded (less).
+  var RELEASE_CHUNK = 10, BUYOUT_GOLD = 2, DISBAND_GOLD = 0.5, RELEASE_MIN = 2;
+  // A nation starts with two villages and a town, near its capital. The rest of its land is neutral, to be claimed.
+  var START_VILLAGES = 2, START_TOWNS = 1;
+  // Neutral land is held by a small garrison, which grows back slowly after a fight.
+  var NEUTRAL_MAX = 6, NEUTRAL_GROW = 0.5;
 
   var st = null, timer = null, selected = 0;
   var PCT_KEY = 'expansion-wars-send-pct';
@@ -65,7 +81,21 @@
     Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
     return e;
   }
-  function rnd(a, b) { return a + Math.random() * (b - a); }
+  // Maps are made from a seed, so the same seed gives the same map. The computer players are not seeded.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var gen = Math.random;   // map generation draws from this (seeded in newGame)
+  function rnd(a, b) { return a + gen() * (b - a); }
+  function parseSeed(text) {
+    var s = String(text || '').trim(), n = Number(s);
+    return s && Number.isInteger(n) && n > 0 ? n : null;
+  }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   // Voronoi cells (same method as the province maps).
@@ -119,54 +149,76 @@
     }
     return inside;
   }
-
-  // ---------- terrain: lakes, rivers and mountains ----------
-
-  function segPointDist(c, p, q) {
-    var dx = q.x - p.x, dy = q.y - p.y;
-    var t = ((c.x - p.x) * dx + (c.y - p.y) * dy) / ((dx * dx + dy * dy) || 1);
-    t = Math.max(0, Math.min(1, t));
-    return Math.hypot(p.x + dx * t - c.x, p.y + dy * t - c.y);
-  }
-  function lakeAt(p, pad) {
-    return st.lakes.some(function (L) { return Math.hypot(L.x - p.x, L.y - p.y) < L.r + pad; });
-  }
-  // A lake between two provinces stops them touching.
-  function lakeBetween(p, q) {
-    return st.lakes.some(function (L) { return segPointDist(L, p, q) < L.r; });
-  }
-  function ccw(p, q, r) { return (r.y - p.y) * (q.x - p.x) > (q.y - p.y) * (r.x - p.x); }
-  function segCross(a, b, c, d) { return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d); }
-  // A river between two provinces: the line between them crosses the river.
-  function riverBetween(p, q) {
-    for (var r = 0; r < st.rivers.length; r++) {
-      var R = st.rivers[r];
-      for (var k = 0; k < R.length - 1; k++) if (segCross(p, q, R[k], R[k + 1])) return true;
-    }
-    return false;
+  // The middle of a cell (the average of its corners), and the midpoint of a shared edge.
+  function cellCentre(poly) {
+    var x = 0, y = 0;
+    poly.forEach(function (p) { x += p.x; y += p.y; });
+    return { x: x / poly.length, y: y / poly.length };
   }
 
+  // ---------- terrain: neutral cells between provinces ----------
+
+  // Terrain seeds are placed first. Provinces keep clear of each one, so every terrain cell is a patch of its own.
   function makeTerrain(seeds) {
-    st.lakes = [];
-    for (var t = 0; st.lakes.length < 2 && t < 2000; t++) {
-      var c = { x: rnd(60, W - 60), y: rnd(60, H - 60), r: rnd(30, 46) };
-      if (seeds.every(function (q) { return dist(c, q) > c.r + 60; })) st.lakes.push(c);
+    var out = [];
+    Object.keys(TERRAIN).forEach(function (kind) {
+      var T = TERRAIN[kind], placed = 0;
+      for (var t = 0; placed < T.n && t < 4000; t++) {
+        var c = { x: rnd(60, W - 60), y: rnd(60, H - 60) };
+        var clear = seeds.every(function (q) { return dist(c, q) > 90; }) &&
+          out.every(function (q) { return dist(c, q) > 110; });
+        if (clear) { out.push({ x: c.x, y: c.y, kind: kind, r: T.r }); placed++; }
+      }
+    });
+    return out;
+  }
+
+  // Fifteen provinces inside a nation's region: kept apart from each other, and clear of the terrain.
+  function placeProvinces(region, terrain) {
+    var pts = [], gap = PROV_GAP;
+    for (var t = 0; pts.length < PROVS && t < 60000; t++) {
+      if (t > 0 && t % 2000 === 0) gap = Math.max(20, gap * 0.9);   // only if the land is too crowded
+      var c = { x: rnd(0, W), y: rnd(0, H) };
+      if (!inPoly(c, region)) continue;
+      if (terrain.some(function (T) { return dist(c, T) < T.r + 10; })) continue;
+      if (pts.every(function (q) { return dist(c, q) >= gap; })) pts.push(c);
     }
+    return pts;
+  }
+
+  // Rivers run along the borders between provinces. A river is a walk through neighbouring provinces from one edge of the
+  // map to the other; the borders it follows are river borders, and crossing one costs an extra step.
+  function riverWalk(horizontal) {
+    var P = st.provs, c = horizontal ? 'x' : 'y', L = horizontal ? W : H;
+    var starts = P.filter(function (p) { return p.kind === 'province' && p[c] < 140; });
+    for (var tries = 0; tries < 60 && starts.length; tries++) {
+      var cur = starts[Math.floor(gen() * starts.length)], path = [cur.id], seen = {};
+      seen[cur.id] = true;
+      for (var s = 0; s < 40 && cur[c] < L - 140; s++) {
+        var next = cur.adj.filter(function (q) { return P[q].kind === 'province' && !seen[q]; });
+        if (!next.length) break;
+        var pick = next.map(function (q) { return { q: q, v: P[q][c] + rnd(-60, 120) }; })
+          .sort(function (a, b) { return b.v - a.v; })[0].q;
+        seen[pick] = true; path.push(pick); cur = P[pick];
+      }
+      if (cur[c] >= L - 140) return path;
+    }
+    return null;
+  }
+  function makeRivers() {
+    var P = st.provs;
     st.rivers = [];
-    for (var k = 0; k < 2; k++) {
-      var left = Math.random() < 0.5;
-      st.rivers.push([
-        { x: left ? 0 : W, y: rnd(40, H - 40) },
-        { x: W * rnd(0.3, 0.4), y: rnd(60, H - 60) },
-        { x: W * rnd(0.6, 0.7), y: rnd(60, H - 60) },
-        { x: left ? W : 0, y: rnd(40, H - 40) }
-      ]);
-    }
-    st.mountains = [];
-    for (var m = 0; st.mountains.length < 8 && m < 2000; m++) {
-      var mp = { x: rnd(60, W - 60), y: rnd(60, H - 60) };
-      if (!lakeAt(mp, 20) && seeds.every(function (q) { return dist(mp, q) > 70; })) st.mountains.push(mp);
-    }
+    [true, false].forEach(function (horizontal) {
+      var path = riverWalk(horizontal);
+      if (!path) return;
+      st.rivers.push(path);
+      for (var s = 0; s < path.length - 1; s++) {
+        var a = P[path[s]], b = P[path[s + 1]];
+        a.adjRiver[a.adj.indexOf(b.id)] = true;
+        b.adjRiver[b.adj.indexOf(a.id)] = true;
+      }
+    });
+    P.forEach(function (p) { p.river = p.adjRiver.some(Boolean); });
   }
 
   // ---------- nations and provinces ----------
@@ -226,10 +278,14 @@
   }
   function weakestGrade(n) { return n.v > 0 ? 'v' : n.t > 0 ? 't' : n.c > 0 ? 'c' : 'f'; }
 
-  // The land route from one nation to another, over provinces. Each step costs 1; a river or a mountain costs one more.
-  // Returns the cost (dist), the steps (hops), river crossings, hostile provinces on the way (at war with the attacker),
-  // and the province reached in the target nation (entry). Allied and peaceful land is free passage.
-  function route(i, j) {
+  // The land route from one nation to another, over provinces and terrain. Each step costs 1, plus a river border,
+  // plus the extra steps of any terrain crossed. Returns the cost (dist), the steps (hops), river borders crossed,
+  // hostile provinces on the way (at war with the attacker), the share of the army worn away by terrain, the names of
+  // the terrain crossed, and the province reached in the target nation (entry). Allied and peaceful land is free passage.
+  function route(i, j) { return routeTo(i, function (p) { return p.owner === j; }); }
+  // The route to one neutral province, for a claim.
+  function routeProv(i, pid) { return routeTo(i, function (p) { return p.id === pid; }); }
+  function routeTo(i, isTarget) {
     var P = st.provs, d = {}, prev = {}, changed = true;
     P.forEach(function (p) { d[p.id] = p.owner === i ? 0 : Infinity; prev[p.id] = -1; });
     while (changed) {
@@ -238,36 +294,37 @@
         if (d[p.id] === Infinity) return;
         p.adj.forEach(function (q, k) {
           var Q = P[q];
-          var w = 1 + (p.adjRiver[k] ? 1 : 0) + (Q.terrain === 'mountain' ? 1 : 0);
+          var w = 1 + (p.adjRiver[k] ? 1 : 0) + (Q.kind === 'terrain' ? TERRAIN[Q.terrain].step : 0);
           if (d[p.id] + w < d[Q.id]) { d[Q.id] = d[p.id] + w; prev[Q.id] = p.id; changed = true; }
         });
       });
     }
     var best = null;
     P.forEach(function (p) {
-      if (p.owner === j && d[p.id] < Infinity && (!best || d[p.id] < best.d)) best = { id: p.id, d: d[p.id] };
+      if (isTarget(p) && d[p.id] < Infinity && (!best || d[p.id] < best.d)) best = { id: p.id, d: d[p.id] };
     });
     if (!best) return null;
     var path = [best.id], cur = best.id;
     while (prev[cur] !== -1) { cur = prev[cur]; path.unshift(cur); }
-    var rivers = 0, hostile = 0;
+    var rivers = 0, hostile = 0, wear = 0, crossed = [];
     for (var s = 0; s < path.length - 1; s++) {
       var a = P[path[s]], k = a.adj.indexOf(path[s + 1]);
       if (k >= 0 && a.adjRiver[k]) rivers++;
     }
     for (var h = 1; h < path.length - 1; h++) {
-      var o = P[path[h]].owner;
-      if (o !== i && o >= 0 && rel(i, o).war) hostile++;
+      var T = P[path[h]];
+      if (T.kind === 'terrain') { wear += TERRAIN[T.terrain].wear; crossed.push(TERRAIN[T.terrain].name.toLowerCase()); continue; }
+      if (T.owner !== i && T.owner >= 0 && rel(i, T.owner).war) hostile++;
     }
-    return { dist: Math.round(best.d), hops: path.length - 1, rivers: rivers, hostile: hostile, entry: best.id };
+    return { dist: Math.round(best.d), hops: path.length - 1, rivers: rivers, hostile: hostile, wear: wear, crossed: crossed, entry: best.id };
   }
 
-  // The effects of the route on an attack: far away, hostile chip, and the tailwind for land recently lost.
+  // The effects of the route on an attack: far away, hostile chip and terrain wear, and the tailwind for land recently lost.
   function attackFactors(i, R) {
     var entry = st.provs[R.entry];
     return {
       far: Math.min(FAR_MAX, FAR_PER_STEP * Math.max(0, R.hops - 1) + FAR_PER_RIVER * R.rivers),
-      chip: Math.min(CHIP_MAX, CHIP_PER_HOSTILE * R.hostile),
+      chip: Math.min(CHIP_MAX, CHIP_PER_HOSTILE * R.hostile + R.wear),
       tail: (entry.lostFrom === i && st.turn - entry.lostTurn <= TAILWIND_TURNS) ? TAILWIND : 1
     };
   }
@@ -330,16 +387,75 @@
       if (!r.war) return 'Declare war first.';
       if (a.soldiers < 2) return 'No soldiers to send.';
       var R = route(i, j);
-      if (!R) return 'No land route: lakes are in the way.';
+      if (!R) return 'No land route.';
       if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
     }
     return null;
+  }
+
+  // Claiming neutral land: a province nobody holds. The army attacks its garrison; winning takes the land.
+  function canClaim(i, pid) {
+    var p = st.provs[pid], a = st.n[i];
+    if (!p || p.kind !== 'province' || p.owner >= 0) return 'Already taken.';
+    if (a.soldiers < 2) return 'No soldiers to send.';
+    var R = routeProv(i, pid);
+    if (!R) return 'No land route.';
+    if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
+    return null;
+  }
+  function queueClaim(pid) {
+    var err = canClaim(0, pid);
+    if (err) { addLog(err); return; }
+    if (st.queue.some(function (x) { return x.type === 'claim' && x.from === 0 && x.prov === pid; })) return;
+    st.queue.push({ type: 'claim', from: 0, to: -1, prov: pid, pct: sendPct });
+    addLog('Queued: claim neutral land. It plays out when the turn ends.');
+  }
+  // Computer nations: the neutral province nearest their land that their army clearly beats. Neutrals need twice the strength.
+  function claimTarget(a) {
+    var best = null, need = a.neutral ? 2 : 1.3;
+    st.provs.forEach(function (p) {
+      if (p.kind !== 'province' || p.owner >= 0) return;
+      if (a.soldiers * 0.5 < need * p.gar) return;
+      var R = routeProv(a.id, p.id);
+      if (!R || R.dist > MAX_DIST) return;
+      var v = R.dist + p.gar / 10;
+      if (!best || v < best.v) best = { id: p.id, v: v };
+    });
+    return best ? best.id : null;
+  }
+  // Resolve one claim: the sent share of the army fights the garrison. Winning takes the province, and the survivors come home.
+  function claimLand(x) {
+    var i = x.from, a = st.n[i], p = st.provs[x.prov];
+    if (!a.alive || !p || p.owner >= 0) { addLog(a.name + ' could not claim that land: it is taken.'); return; }
+    var R = routeProv(i, p.id);
+    if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach that land.'); return; }
+    var sent0 = Math.floor(a.soldiers * (x.pct || 50) / 100);
+    if (sent0 < 1) return;
+    var F = attackFactors(i, R);
+    var sent = Math.floor(sent0 * (1 - F.chip));
+    a.soldiers -= sent0;
+    var front = featureDef(p) / 2;
+    var A = sent * quality(a) * (1 - F.far) * F.tail;
+    var D = p.gar * front * DEFENDER;
+    var what = p.tier === 'e' ? 'an empty dot' : 'a ' + LABEL[p.tier];
+    if (A > D) {
+      a.soldiers += sent * (A - D) / A;
+      p.owner = i; p.home = i; p.origTier = p.tier; p.gar = 0;
+      addLog(a.name + ' claims ' + what + ' from the neutral land.');
+    } else {
+      p.gar = Math.max(0, (D - A) / (front * DEFENDER));
+      addLog(a.name + "'s claim on the neutral land fails.");
+    }
   }
 
   // Upgrades get dearer as a nation holds more spots: each spot adds 10% to the base cost.
   function growCost(n, from) {
     var m = GROW[from], f = 1 + 0.1 * spots(n);
     return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
+  }
+  function canGrow(n, from) {
+    var c = growCost(n, from);
+    return n[from] > 0 && n.gold >= c.gold && n.stone >= c.stone;
   }
 
   // Villages are built by hand, paid in food or culture, on an empty dot. 40 at five spots, rising by 4 for each spot beyond five.
@@ -364,7 +480,7 @@
     return buildAt(n, list[0], pay);
   }
 
-  // Promote a chosen spot of yours one grade.
+  // Promote a chosen province of yours one grade.
   function growAt(n, p, from) {
     var m = GROW[from];
     if (!m) return 'That cannot grow.';
@@ -377,7 +493,7 @@
     p.tier = m.to;
     return null;
   }
-  // Computer nations: fortresses go on defensive ground, towns and cities on trade ground.
+  // The AI chooses which province to upgrade: fortresses go on defensive ground, towns and cities on trade ground.
   function grow(n, from) {
     if (!GROW[from]) return 'That cannot grow.';
     var list = ownedBy(n).filter(function (q) { return q.tier === from; });
@@ -385,6 +501,29 @@
     var want = from === 'c' ? 'defence' : 'trade';
     list.sort(function (p, q) { return score(q, want) - score(p, want); });
     return growAt(n, list[0], from);
+  }
+  // Zoomed in: a pop centre (or its arrow) upgrades that province by hand, paid in gold (a city costs stone).
+  function upgradeByHand(p) {
+    var from = p.tier, n = st.n[0];
+    if (!GROW[from]) return;
+    var err = growAt(n, p, from);
+    addLog(err || 'You upgraded a ' + LABEL[from] + ' to a ' + LABEL[p.tier] + '.');
+    render();
+  }
+
+  // Soldiers leave for gold. Buying out their contracts pays more than disbanding them.
+  function releaseOffer(n, how) {
+    var count = Math.max(0, Math.min(RELEASE_CHUNK, Math.floor(n.soldiers) - RELEASE_MIN));
+    var rate = how === 'buyout' ? BUYOUT_GOLD : DISBAND_GOLD;
+    return { count: count, gold: Math.floor(count * rate) };
+  }
+  function release(n, how) {
+    var o = releaseOffer(n, how);
+    if (o.count < 1) return 'Not enough soldiers to release.';
+    n.soldiers -= o.count;
+    n.gold += o.gold;
+    addLog((how === 'buyout' ? 'Contracts bought out' : 'Soldiers disbanded') + ': ' + o.count + ' soldiers leave for ' + o.gold + ' gold.');
+    return null;
   }
 
   function queue(type, to) {
@@ -438,7 +577,7 @@
     if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach ' + b.name + '.'); return; }
     var sent0 = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent0 < 1) return;
-    // Unrest costs one soldier in every 20 unrest before the march. Hostile land on the way and distance wear the army down.
+    // Unrest costs one soldier in every 20 unrest before the march. Hostile land, terrain and distance wear the army down.
     var flat = Math.min(sent0 - 1, Math.ceil(a.unrest / 20));
     var F = attackFactors(i, R);
     var sent = Math.floor((sent0 - flat) * (1 - F.chip));
@@ -493,7 +632,7 @@
     alive().forEach(function (a) {
       if (a.id === 0) return;
       var foes = alive().filter(function (b) { return b.id !== a.id && rel(a.id, b.id).war; });
-      if (foes.length && !a.neutral) {
+      if (foes.length) {
         // Scheme: choose the foe worth the most for the distance, that the army can beat. Not every turn.
         var best = null;
         foes.forEach(function (b) {
@@ -502,7 +641,8 @@
           var value = targetValue(b) / (1 + R.dist);
           if (!best || value > best.value) best = { b: b, value: value };
         });
-        if (best && a.soldiers * quality(a) >= 0.9 * best.b.soldiers * quality(best.b) && Math.random() < 0.6) {
+        // Cautious neutrals attack only with a clear lead, and not often.
+        if (best && a.soldiers * quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * quality(best.b) && Math.random() < (a.neutral ? 0.3 : 0.6)) {
           st.queue.push({ type: 'attack', from: a.id, to: best.b.id });
         }
         // Sue for peace when badly outmatched.
@@ -511,15 +651,16 @@
             st.queue.push({ type: 'ceasefire', from: a.id, to: b.id });
           }
         });
-      } else if (!a.neutral && Math.random() < 0.2) {
-        // A stronger neighbour declares war: a 20% lead is enough.
+      } else if (Math.random() < (a.neutral ? 0.03 : 0.2)) {
+        // A stronger neighbour declares war: a 20% lead is enough (neutrals need double the power).
         var prey = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
-          return b.alive && !rel(a.id, b.id).war && power(a) >= 1.2 * power(b);
+          return b.alive && !rel(a.id, b.id).war && power(a) >= (a.neutral ? 2 : 1.2) * power(b);
         });
         if (prey.length) st.queue.push({ type: 'declare', from: a.id, to: prey[0].id });
       }
       // Gang up: befriend a neighbour that is already at peace and well regarded, to stand together against a stronger one.
-      if (!a.neutral && Math.random() < 0.15) {
+      // Neutrals rarely make alliances.
+      if (Math.random() < (a.neutral ? 0.03 : 0.15)) {
         var pals = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
           var r = rel(a.id, b.id);
           return b.alive && !r.war && !r.ally && r.rep >= MIN_REP.ally;
@@ -532,6 +673,11 @@
           return b.alive && !r.war && !r.trade && r.rep >= -10 && a.gold >= TRADE_SETUP;
         });
         if (friends.length) st.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
+      }
+      // Expansion: claim a neutral province near the land when the garrison is outmatched. Neutrals claim less often.
+      if (Math.random() < (a.neutral ? 0.15 : 0.45)) {
+        var pid = claimTarget(a);
+        if (pid !== null) st.queue.push({ type: 'claim', from: a.id, to: -1, prov: pid, pct: 50 });
       }
       if (Math.random() < 0.3) {
         ['v', 't', 'c'].sort(function () { return Math.random() - 0.5; }).some(function (k) { return !grow(a, k); });
@@ -547,29 +693,20 @@
   // Food stock also helps culture: each battle earns up to double culture at 100 food.
   function foodMult(n) { return 1 + Math.min(n.food, 100) / 100; }
 
-  // Each province's feature follows the land around it: ground on a war front or a mountain or lake shore is defensive;
-  // ground touching an ally or a river is a trade route; the rest is farmland. Alliances and wars change it over time.
+  // Each province's feature follows the land around it: ground on a war front or a mountain slope is defensive;
+  // ground touching an ally or a river border is a trade route; the rest is farmland. Alliances and wars change it over time.
   var FEATURE_NAME = { farm: 'farmland', trade: 'trade route', defence: 'defensive ground' };
   var VALUE = { e: 0.5, v: 1, t: 2, c: 3, f: 4 };
-  function riverNear(p) {
-    return st.rivers.some(function (R) {
-      for (var k = 0; k < R.length - 1; k++) if (segPointDist(p, R[k], R[k + 1]) < 40) return true;
-      return false;
-    });
-  }
-  function lakeNear(p) {
-    return st.lakes.some(function (L) { return Math.hypot(L.x - p.x, L.y - p.y) < L.r + 40; });
-  }
   function feature(p) {
-    if (p.terrain === 'mountain' || lakeNear(p)) return 'defence';
+    if (p.mount) return 'defence';
     var P = st.provs;
     if (p.owner >= 0 && p.adj.some(function (q) { var o = P[q].owner; return o >= 0 && o !== p.owner && rel(p.owner, o).war; })) return 'defence';
     if (p.owner >= 0 && p.adj.some(function (q) { var o = P[q].owner; return o >= 0 && o !== p.owner && rel(p.owner, o).ally; })) return 'trade';
-    if (riverNear(p)) return 'trade';
+    if (p.river) return 'trade';
     return 'farm';
   }
-  // Defence of a province: its value, plus one for defensive ground that has been built on.
-  function featureDef(p) { return p.def + (feature(p) === 'defence' && p.tier !== 'e' ? 1 : 0); }
+  // Defence of a province: its value, one more on a mountain slope, and one more for defensive ground that has been built on.
+  function featureDef(p) { return p.def + (p.mount ? 1 : 0) + (feature(p) === 'defence' && p.tier !== 'e' ? 1 : 0); }
   // How well a province suits a purpose (farm, trade, defence): the match, with a little chance to break ties.
   function score(p, want) { return (feature(p) === want ? 2 : 0) + Math.random() * 0.5; }
   function targetValue(b) {
@@ -647,10 +784,17 @@
     planAI();
     var q = st.queue;
     st.queue = [];
-    q.filter(function (x) { return x.type !== 'attack'; }).forEach(applyDiplomacy);
+    q.filter(function (x) { return x.type !== 'attack' && x.type !== 'claim'; }).forEach(applyDiplomacy);
     q.filter(function (x) { return x.type === 'attack'; })
       .sort(function () { return Math.random() - 0.5; })
       .forEach(battle);
+    q.filter(function (x) { return x.type === 'claim'; })
+      .sort(function () { return Math.random() - 0.5; })
+      .forEach(claimLand);
+    // Neutral garrisons grow back slowly.
+    st.provs.forEach(function (p) {
+      if (p.kind === 'province' && p.owner < 0) p.gar = Math.min(NEUTRAL_MAX, (p.gar || 0) + NEUTRAL_GROW);
+    });
     alive().forEach(economy);
     updateNeighbours();
     // Trade and alliances build reputation. A ceasefire counts down.
@@ -689,23 +833,43 @@
 
   // ---------- starting a game ----------
 
-  // Cell geometry for every province, and which provinces touch. A lake between two provinces stops them touching.
+  // Every province is a node, and so is every terrain cell. Provinces come first, then terrain.
+  function provinceNode(owner, c, tier) {
+    return {
+      id: 0, kind: 'province', owner: owner, home: owner, x: c.x, y: c.y, tier: tier, origTier: tier,
+      def: 1 + Math.floor(gen() * 3), gar: owner < 0 ? 2 + Math.floor(gen() * 3) : 0, occ: 0, lostTurn: -99, lostFrom: -1,
+      cell: null, adj: [], adjRiver: [], mount: false, river: false
+    };
+  }
+  function terrainNode(T) {
+    return {
+      id: 0, kind: 'terrain', terrain: T.kind, owner: -1, home: -1, x: T.x, y: T.y, tier: 'x', origTier: 'x',
+      def: 0, occ: 0, lostTurn: -99, lostFrom: -1, cell: null, adj: [], adjRiver: [], mount: false, river: false
+    };
+  }
+
+  // Cell geometry for every node, and which nodes touch. Terrain is a node like any other, so troops can cross it.
   function geometry() {
     var P = st.provs, pts = P.map(function (p) { return { x: p.x, y: p.y }; });
     var cells = voronoi(pts);
     P.forEach(function (p, i) { p.cell = cells[i]; p.adj = []; p.adjRiver = []; });
     for (var a = 0; a < P.length; a++) {
       for (var b = a + 1; b < P.length; b++) {
-        if (sharesEdge(cells[a], pts[a], pts[b]) && !lakeBetween(pts[a], pts[b])) {
-          var rv = riverBetween(pts[a], pts[b]);
-          P[a].adj.push(b); P[a].adjRiver.push(rv);
-          P[b].adj.push(a); P[b].adjRiver.push(rv);
+        if (sharesEdge(cells[a], pts[a], pts[b])) {
+          P[a].adj.push(b); P[a].adjRiver.push(false);
+          P[b].adj.push(a); P[b].adjRiver.push(false);
         }
       }
     }
+    // A province on a mountain slope (touching a mountain cell) defends better.
+    P.forEach(function (p) {
+      p.mount = p.kind === 'province' && p.adj.some(function (q) { return P[q].terrain === 'mountain'; });
+    });
   }
 
-  function newGame() {
+  function newGame(seedIn) {
+    var seed = seedIn || 1 + Math.floor(Math.random() * 999999);
+    gen = mulberry32(seed);
     var seeds = [], minD = 0.55 * Math.sqrt(W * H / COUNT);
     for (var t = 0; seeds.length < COUNT && t < 4000; t++) {
       var p = { x: rnd(80, W - 80), y: rnd(80, H - 80) };
@@ -713,34 +877,26 @@
     }
     // The nations' regions are fixed. The provinces inside them are the population centres.
     var regions = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [], target: null, seed: seed };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
-    makeTerrain(seeds);
-    var avg = W * H / COUNT;
+    var terrain = makeTerrain(seeds);
     st.n.forEach(function (n) {
-      var region = regions[n.id];
-      var want = Math.max(4, Math.min(12, Math.round(n.area / avg * 7)));
-      var pts = [];
-      for (var t = 0; pts.length < want && t < 4000; t++) {
-        var c = { x: rnd(0, W), y: rnd(0, H) };
-        if (!inPoly(c, region) || lakeAt(c, 8)) continue;
-        if (pts.every(function (q) { return dist(c, q) >= PROV_GAP; })) pts.push(c);
-      }
-      // Start with a few villages, one town, and empty dots for the rest: each empty dot can be promoted later.
-      var k = Math.max(2, Math.min(7, Math.round(4 * n.area / avg)));
+      var pts = placeProvinces(regions[n.id], terrain);
+      // The places nearest the capital are the nation's: two villages and a town. The rest is neutral land to claim.
+      pts.sort(function (a, b) { return dist(a, n) - dist(b, n); });
       pts.forEach(function (c, idx) {
-        var tier = idx < k ? 'v' : idx === k ? 't' : 'e';
-        var mountain = st.mountains.some(function (M) { return dist(M, c) < 40; });
-        st.provs.push({
-          id: st.provs.length, owner: n.id, home: n.id, x: c.x, y: c.y, tier: tier, origTier: tier,
-          def: 1 + Math.floor(Math.random() * 3) + (mountain ? 1 : 0), terrain: mountain ? 'mountain' : 'plain',
-          occ: 0, lostTurn: -99, lostFrom: -1, cell: null, adj: [], adjRiver: []
-        });
+        var mine = idx < START_VILLAGES + START_TOWNS;
+        var tier = idx < START_VILLAGES ? 'v' : idx < START_VILLAGES + START_TOWNS ? 't' : 'e';
+        st.provs.push(provinceNode(mine ? n.id : -1, c, tier));
       });
     });
+    terrain.forEach(function (T) { st.provs.push(terrainNode(T)); });
+    st.provs.forEach(function (p, i) { p.id = i; });
     geometry();
+    makeRivers();
     updateNeighbours();
     rel(1, 2).war = true;
+    addLog('Map seed ' + seed + '. Each nation holds two villages and a town; the rest of the land is neutral.');
     addLog('The country is at peace, except ' + NAMES[1] + ' and ' + NAMES[2] + ', who are at war.');
     addLog('Each turn is 60 seconds. Pick a nation to act, then press Ready.');
     selected = 0;
@@ -768,12 +924,26 @@
     });
     return common.length >= 2 ? { a: common[0], b: common[1] } : null;
   }
-
-  function dotShape(p) {
-    var cls = 'dot dot-' + p.tier + (p.owner < 0 ? ' dot-neutral' : '');
-    if (p.tier === 'f') return svgEl('rect', { x: p.x - 9, y: p.y - 9, width: 18, height: 18, 'class': cls });
-    var r = { e: 4, v: 5, t: 8, c: 11 }[p.tier];
-    return svgEl('circle', { cx: p.x, cy: p.y, r: r, 'class': cls });
+  // The corners of a province's cell from one of its shared edges to another, along the shorter way round its border.
+  // A river passes through a province this way, so it follows the borders rather than cutting across the land.
+  function borderArc(poly, e1, e2) {
+    var n = poly.length, best = null;
+    function index(u) {
+      for (var i = 0; i < n; i++) if (Math.hypot(poly[i].x - u.x, poly[i].y - u.y) < 1) return i;
+      return -1;
+    }
+    [e1.a, e1.b].forEach(function (u) {
+      [e2.a, e2.b].forEach(function (v) {
+        var i = index(u), j = index(v);
+        if (i < 0 || j < 0) return;
+        var f = (j - i + n) % n, d = Math.min(f, n - f);
+        if (!best || d < best.d) best = { i: i, d: d, step: f <= n - f ? 1 : -1 };
+      });
+    });
+    if (!best) return [];
+    var out = [];
+    for (var s = 0, idx = best.i; s <= best.d; s++, idx = (idx + best.step + n) % n) out.push(poly[idx]);
+    return out;
   }
 
   function buildMap() {
@@ -784,22 +954,36 @@
     st.provs.forEach(function (p) {
       p.el = svgEl('polygon', { points: pts(p.cell) });
       p.el.addEventListener('click', function () {
+        if (p.kind === 'terrain') return;
         if (st.pick && p.owner === 0) pickProvince(p);
         else if (p.owner >= 0) select(p.owner);
+        else selectTarget(p.id);
       });
       p.titleEl = svgEl('title');
       p.el.appendChild(p.titleEl);
       gCells.appendChild(p.el);
+      if (p.kind === 'terrain') {
+        // The terrain's icon: shown when zoomed in, like the icons of version 1.
+        var c = cellCentre(p.cell);
+        p.icon = svgEl('text', { x: c.x, y: c.y, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'class': 'terrain-icon' });
+        p.icon.textContent = TERRAIN[p.terrain].icon;
+        gTerrain.appendChild(p.icon);
+      }
     });
-    st.lakes.forEach(function (L) { gTerrain.appendChild(svgEl('circle', { cx: L.x, cy: L.y, r: L.r, 'class': 'lake' })); });
-    st.rivers.forEach(function (R) {
-      gTerrain.appendChild(svgEl('polyline', { points: R.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' '), 'class': 'river' }));
-    });
-    st.mountains.forEach(function (M) {
-      var s = 13;
-      var pts3 = (M.x).toFixed(1) + ',' + (M.y - s).toFixed(1) + ' ' + (M.x - s).toFixed(1) + ',' + (M.y + s * 0.7).toFixed(1) +
-        ' ' + (M.x + s).toFixed(1) + ',' + (M.y + s * 0.7).toFixed(1);
-      gTerrain.appendChild(svgEl('polygon', { points: pts3, 'class': 'mountain' }));
+    // Rivers run along the borders between provinces: each shared border on the river, and the border each province
+    // on the way is followed along (from the edge the river came in by, to the edge it leaves by).
+    st.rivers.forEach(function (path) {
+      var edges = [];
+      for (var s = 0; s < path.length - 1; s++) {
+        var e = sharedEdge(st.provs[path[s]].cell, st.provs[path[s + 1]].cell);
+        edges.push(e);
+        if (e) gTerrain.appendChild(svgEl('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, 'class': 'river-edge' }));
+      }
+      for (var m = 1; m < path.length - 1; m++) {
+        if (!edges[m - 1] || !edges[m]) continue;
+        var arc = borderArc(st.provs[path[m]].cell, edges[m - 1], edges[m]);
+        if (arc.length > 1) gTerrain.appendChild(svgEl('polyline', { points: pts(arc), 'class': 'river-edge' }));
+      }
     });
     st.n.forEach(function (n) {
       n.labelEl = svgEl('text', { 'text-anchor': 'middle', 'class': 'nation-label' });
@@ -826,8 +1010,10 @@
     els.svg.appendChild(gLabels);
   }
 
-  // Zoomed in far enough, the province dots and names show. Zoom is continuous: pinch, wheel, or the buttons.
+  // Zoomed in far enough, the provinces show their icons. Zoom is continuous: pinch, wheel, or the buttons.
   var DOTS_FROM = 1.6, SCALE_MIN = 1, SCALE_MAX = 4;
+  // Icons and arrows keep the same size on screen at any zoom: their size in map units shrinks as the zoom grows.
+  var ICON_PX = 30, ARROW_PX = 12;
   function zoomed() { return st.scale >= DOTS_FROM; }
   function setScale(k, fx, fy) {
     st.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, k));
@@ -843,20 +1029,58 @@
     els.svg.setAttribute('viewBox', [vx, vy, w, h].join(' '));
   }
 
+  // One province when zoomed in: its icon (or an empty dot). Yours can be upgraded by tapping the icon or the arrow beside it.
+  function popShape(p) {
+    var k = 1 / st.scale, mine = p.owner === 0, g = svgEl('g', { 'class': 'pop' + (mine ? ' mine' : '') });
+    if (p.tier === 'e') {
+      g.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 6 * k, 'class': 'pop-dot' }));
+    } else {
+      var t = svgEl('text', { x: p.x, y: p.y, 'class': 'pop-icon', 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': ICON_PX * k });
+      t.textContent = ICON[p.tier];
+      g.appendChild(t);
+    }
+    if (mine && GROW[p.tier]) {
+      var ax = p.x + 20 * k, ay = p.y - 20 * k;
+      var badge = svgEl('g', { 'class': 'upbadge' + (canGrow(st.n[0], p.tier) ? '' : ' off') });
+      badge.appendChild(svgEl('circle', { cx: ax, cy: ay, r: 9 * k }));
+      var arrow = svgEl('text', { x: ax, y: ay, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': ARROW_PX * k });
+      arrow.textContent = '⬆';
+      badge.appendChild(arrow);
+      g.appendChild(badge);
+    }
+    g.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (st.pick && mine) pickProvince(p);
+      else if (mine && GROW[p.tier]) upgradeByHand(p);
+      else if (p.owner >= 0) select(p.owner);
+      else selectTarget(p.id);
+    });
+    return g;
+  }
+
   function drawMap() {
     setView();
-    var P = st.provs;
+    var P = st.provs, z = zoomed(), k = 1 / st.scale;
     P.forEach(function (p) {
+      if (p.kind === 'terrain') {
+        var T = TERRAIN[p.terrain];
+        p.titleEl.textContent = T.name + ': ' + T.note;
+        p.el.setAttribute('class', 'cell t-' + p.terrain);
+        p.icon.style.display = z ? 'inline' : 'none';
+        p.icon.setAttribute('font-size', ICON_PX * k);
+        return;
+      }
       p.titleEl.textContent = (p.owner >= 0 ? st.n[p.owner].name + ' · ' : '') + LABEL[p.tier] + ' · ' + FEATURE_NAME[feature(p)] +
-        (p.terrain === 'mountain' ? ' · mountain' : '') + ' · defence ' + featureDef(p);
+        (p.mount ? ' · mountain slope' : '') + (p.river ? ' · river border' : '') + ' · defence ' + featureDef(p);
       p.el.setAttribute('class', 'cell ' + (p.owner >= 0 ? 'o' + p.owner : 'neutral') + (p.owner === selected ? ' sel' : ''));
     });
-    // Borders: where two provinces of different owners touch, the shared edge is drawn thicker.
+    // Borders: where two provinces of different owners touch, the shared edge is drawn thicker. Terrain is not a border.
     st.gBorders.innerHTML = '';
     P.forEach(function (p) {
+      if (p.kind === 'terrain') return;
       p.adj.forEach(function (q) {
         var Q = P[q];
-        if (q < p.id || Q.owner === p.owner) return;
+        if (q < p.id || Q.kind === 'terrain' || Q.owner === p.owner) return;
         var e = sharedEdge(p.cell, Q.cell);
         if (e) st.gBorders.appendChild(svgEl('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, 'class': 'border' }));
       });
@@ -884,10 +1108,10 @@
       L.el.setAttribute('x2', b.cx); L.el.setAttribute('y2', b.cy);
       L.el.style.display = show ? '' : 'none';
     });
-    // Zoomed in: every province is a dot: an empty dot, a village, a town, a city or a fortress.
+    // Zoomed in: every province shows its icon, as in version 1.
     st.gDots.innerHTML = '';
-    if (zoomed()) P.forEach(function (p) { st.gDots.appendChild(dotShape(p)); });
-    els.zoom.textContent = zoomed() ? '🌍 Back to countries' : '🔍 Zoom in';
+    if (z) P.forEach(function (p) { if (p.kind !== 'terrain') st.gDots.appendChild(popShape(p)); });
+    els.zoom.textContent = z ? '🌍 Back to countries' : '🔍 Zoom in';
     drawMini();
   }
 
@@ -895,7 +1119,8 @@
   function drawMini() {
     els.mini.innerHTML = '';
     st.provs.forEach(function (p) {
-      els.mini.appendChild(svgEl('polygon', { points: pts(p.cell), 'class': 'cell mini-cell ' + (p.owner >= 0 ? 'o' + p.owner : 'neutral') }));
+      var cls = p.kind === 'terrain' ? 't-' + p.terrain : (p.owner >= 0 ? 'o' + p.owner : 'neutral');
+      els.mini.appendChild(svgEl('polygon', { points: pts(p.cell), 'class': 'cell mini-cell ' + cls }));
     });
     var v = st.view;
     els.mini.appendChild(svgEl('rect', { x: v.x, y: v.y, width: v.w, height: v.h, 'class': 'mini-view' }));
@@ -919,6 +1144,10 @@
   function drawCard() {
     var n = st.n[selected];
     els.card.innerHTML = '';
+    if (st.target !== null) {
+      if (st.provs[st.target].owner < 0) { drawClaim(); return; }
+      st.target = null;   // taken since it was tapped
+    }
     if (!n) { els.card.hidden = true; return; }
     els.card.hidden = false;
     els.card.appendChild(el('h3', '', n.name + (n.id === 0 ? ' (you)' : '') + (n.alive ? '' : ' (fallen)')));
@@ -944,11 +1173,8 @@
       els.card.appendChild(gb);
       if (st.pick) {
         var pk = st.pick;
-        var hint = pk.kind === 'build'
-          ? 'Tap an empty dot on your land to build a village (' + villageCost(n) + ' ' + pk.pay + ').'
-          : 'Tap a ' + LABEL[pk.from] + ' on your land to promote it to a ' + LABEL[GROW[pk.from].to] + '.';
         var hintRow = el('div', 'card-buttons');
-        hintRow.appendChild(el('p', 'muted', hint));
+        hintRow.appendChild(el('p', 'muted', 'Tap an empty dot on your land to build a village (' + villageCost(n) + ' ' + pk.pay + ').'));
         var stop = el('button', 'big', 'Cancel');
         stop.addEventListener('click', function () { st.pick = null; render(); });
         hintRow.appendChild(stop);
@@ -964,29 +1190,47 @@
         vill.appendChild(vb);
       });
       els.card.appendChild(vill);
+      // Upgrades: the AI chooses which province to upgrade. Zoom in to choose one by hand (tap its icon or arrow).
       var grows = el('div', 'card-buttons');
       Object.keys(GROW).forEach(function (k) {
         var m = GROW[k], c = growCost(n, k);
         var cost = c.gold ? c.gold + ' gold' : c.stone + ' stone';
-        var b = el('button', 'big', LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
+        var b = el('button', 'big', 'AI upgrades a ' + LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
         b.disabled = n[k] < 1;
-        b.addEventListener('click', function () { startPick({ kind: 'grow', from: k }); });
+        b.addEventListener('click', function () {
+          var err = grow(n, k);
+          addLog(err || 'The AI chose a ' + LABEL[k] + ' and upgraded it to a ' + LABEL[m.to] + '.');
+          render();
+        });
         grows.appendChild(b);
       });
       els.card.appendChild(grows);
+      // Soldiers can leave for gold, which pays for upgrades: buy out their contracts, or disband them.
+      var free = el('div', 'card-buttons');
+      [['buyout', 'Buy out contracts'], ['disband', 'Disband']].forEach(function (pair) {
+        var o = releaseOffer(n, pair[0]);
+        var rb = el('button', 'big', pair[1] + ' (' + o.count + ' soldiers → ' + o.gold + ' gold)');
+        rb.disabled = o.count < 1;
+        rb.addEventListener('click', function () { var err = release(n, pair[0]); if (err) addLog(err); render(); });
+        free.appendChild(rb);
+      });
+      els.card.appendChild(free);
+      els.card.appendChild(el('p', 'muted small', 'Tap a province icon when zoomed in to upgrade it by hand. Its arrow does the same.'));
       return;
     }
     var r = rel(0, n.id);
     var status = r.war ? 'At war' : r.ally ? 'Allied' : r.trade ? 'Trading' : 'At peace';
     els.card.appendChild(el('p', '', 'With you: ' + status + ' · reputation ' + Math.round(r.rep) + (r.truce > 0 ? ' · truce ' + r.truce + ' turns' : '')));
-    // The route to them: how far, the rivers, the hostile land on the way, and the tailwind.
+    // The route to them: how far, the rivers, terrain, the hostile land on the way, and the tailwind.
     var RT = route(0, selected);
     var rtext;
-    if (!RT) rtext = 'Route: no land route (lakes are in the way).';
+    if (!RT) rtext = 'Route: no land route.';
     else {
       var F = attackFactors(0, RT);
-      rtext = 'Route: ' + RT.hops + ' step' + (RT.hops === 1 ? '' : 's') + ', ' + RT.rivers + ' river crossing' + (RT.rivers === 1 ? '' : 's') + '.';
-      if (RT.hostile) rtext += ' ' + RT.hostile + ' hostile province' + (RT.hostile === 1 ? '' : 's') + ' on the way (army −' + Math.round(F.chip * 100) + '%).';
+      rtext = 'Route: ' + RT.hops + ' step' + (RT.hops === 1 ? '' : 's') + ', ' + RT.rivers + ' river border' + (RT.rivers === 1 ? '' : 's') + ' crossed.';
+      if (RT.crossed.length) rtext += ' Through ' + RT.crossed.join(', ') + '.';
+      if (RT.hostile) rtext += ' ' + RT.hostile + ' hostile province' + (RT.hostile === 1 ? '' : 's') + ' on the way.';
+      if (F.chip) rtext += ' The army loses ' + Math.round(F.chip * 100) + '% on the way.';
       if (F.far) rtext += ' Far away: strength −' + Math.round(F.far * 100) + '%.';
       if (F.tail > 1) rtext += ' Retaking recently lost land: strength +25%.';
       if (RT.dist > MAX_DIST) rtext += ' Too far away to attack (the limit is ' + MAX_DIST + ' steps).';
@@ -1028,6 +1272,61 @@
     notes.forEach(function (t) { els.card.appendChild(el('p', 'muted small', t)); });
   }
 
+  // A neutral province: claim it with a share of your army. Its garrison defends it.
+  function drawClaim() {
+    var p = st.provs[st.target], me = st.n[0];
+    els.card.hidden = false;
+    els.card.appendChild(el('h3', '', 'Neutral land'));
+    els.card.appendChild(el('p', '', 'A neutral ' + (p.tier === 'e' ? 'empty dot' : LABEL[p.tier]) + ', held by about ' + Math.round(p.gar) + ' soldiers.'));
+    var RT = routeProv(0, p.id);
+    if (!RT) els.card.appendChild(el('p', 'muted small', 'Route: no land route.'));
+    else {
+      var F = attackFactors(0, RT);
+      var t = 'Route: ' + RT.hops + ' step' + (RT.hops === 1 ? '' : 's') + '.';
+      if (RT.crossed.length) t += ' Through ' + RT.crossed.join(', ') + '.';
+      if (F.chip) t += ' The army loses ' + Math.round(F.chip * 100) + '% on the way.';
+      if (F.far) t += ' Far away: strength −' + Math.round(F.far * 100) + '%.';
+      if (RT.dist > MAX_DIST) t += ' Too far away (the limit is ' + MAX_DIST + ' steps).';
+      els.card.appendChild(el('p', 'muted small', t));
+    }
+    // The same send slider as an attack.
+    var pick = el('div', 'send-pick');
+    var sendLine = el('p', '', '');
+    var range = el('input');
+    function showSend() {
+      sendLine.textContent = 'Send ' + sendPct + '% of your army (' + Math.floor(me.soldiers * sendPct / 100) + ' soldiers) to claim it.';
+    }
+    range.type = 'range'; range.min = 5; range.max = 100; range.step = 5; range.value = sendPct;
+    range.setAttribute('aria-label', 'Share of your army to send');
+    range.addEventListener('input', function () { sendPct = Number(range.value); showSend(); });
+    range.addEventListener('change', function () { savePct(sendPct); render(); });
+    showSend();
+    pick.appendChild(sendLine);
+    pick.appendChild(range);
+    els.card.appendChild(pick);
+    var q = st.queue.filter(function (x) { return x.type === 'claim' && x.from === 0 && x.prov === p.id; })[0];
+    var err = canClaim(0, p.id);
+    var row = el('div', 'card-buttons');
+    var b;
+    if (q) {
+      b = el('button', 'big', 'Queued: claim (' + q.pct + '%) (tap to cancel)');
+      b.addEventListener('click', function () {
+        st.queue = st.queue.filter(function (x) { return x !== q; });
+        addLog('Cancelled.'); render();
+      });
+    } else {
+      b = el('button', 'big', 'Claim this land (send ' + sendPct + '%)');
+      b.disabled = !!err;
+      b.addEventListener('click', function () { queueClaim(p.id); render(); });
+    }
+    row.appendChild(b);
+    var back = el('button', 'big', 'Back to the nations');
+    back.addEventListener('click', function () { st.target = null; render(); });
+    row.appendChild(back);
+    els.card.appendChild(row);
+    if (err && !q) els.card.appendChild(el('p', 'muted small', err));
+  }
+
   function drawLog() {
     els.log.innerHTML = '';
     st.log.slice(-8).reverse().forEach(function (t) { els.log.appendChild(el('li', '', t)); });
@@ -1047,20 +1346,22 @@
     drawLog();
   }
 
-  function select(id) { selected = id; render(); }
+  function select(id) { selected = id; st.target = null; render(); }
+  // Tapping neutral land: the card offers a claim.
+  function selectTarget(pid) { st.target = pid; render(); }
 
-  // Choosing which province to build on or promote: the map is zoomed in on your land, and the next province tapped is used.
+  // Choosing an empty dot to build on: the map is zoomed in on your land, and the next empty dot tapped is used.
   function startPick(pk) {
     st.pick = pk;
     if (!zoomed()) setScale(2.4, centre(st.n[0]).x, centre(st.n[0]).y);
-    addLog('Tap a province on your land on the map.');
+    addLog('Tap an empty dot on your land on the map.');
     render();
   }
   function pickProvince(p) {
-    var pk = st.pick, n = st.n[0];
-    var err = pk.kind === 'build' ? buildAt(n, p, pk.pay) : growAt(n, p, pk.from);
+    var pk = st.pick;
+    var err = buildAt(st.n[0], p, pk.pay);
     if (err) { addLog(err); render(); return; }
-    addLog(pk.kind === 'build' ? 'A new village was built on that dot.' : 'A ' + LABEL[pk.from] + ' was promoted to a ' + LABEL[GROW[pk.from].to] + '.');
+    addLog('A new village was built on that dot.');
     st.pick = null;
     render();
   }
@@ -1102,7 +1403,13 @@
 
   $('btn-country').addEventListener('click', openCountry);
   $('country-back').addEventListener('click', backHome);
-  $('country-new').addEventListener('click', function () { newGame(); render(); startTimer(); });
+  // New country: a typed map seed makes that map again; leave it empty for a random map. The seed is shown after.
+  $('country-new').addEventListener('click', function () {
+    var box = $('country-seed');
+    newGame(parseSeed(box ? box.value : ''));
+    if (box) box.value = String(st.seed);
+    render(); startTimer();
+  });
   els.ready.addEventListener('click', resolveTurn);
   // Zoom in on the selected nation's land (or back out to the whole country).
   els.zoom.addEventListener('click', function () {
