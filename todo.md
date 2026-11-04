@@ -86,7 +86,7 @@ Built with the defaults listed in convo v0.13 for Jimmy to check.
 - [x] **AI chooses the province to upgrade** (card buttons), and zooming in lets you tap a pop centre or its ⬆ arrow to upgrade it by hand, paid in gold.
 - [x] **Soldiers buy out their contracts or are disbanded for gold,** which pays for upgrades.
 - [ ] **Soldiers per province.** Soldiers are still one pool for the nation. Each province holding its own soldiers is open (convo v0.13 question 2).
-- [ ] **City to fortress in gold.** Still paid in stone (convo v0.13 question 3).
+- [x] **City to fortress in gold.** Built in round 9: gold, food and stone (convo v0.14, from Jimmy's direction).
 
 ## Round 8 (version 2.15): seeded maps, a small start, neutral land
 
@@ -95,6 +95,22 @@ Built with the defaults listed in convo v0.13 for Jimmy to check.
 - [x] **Claim neutral land.** Tap a neutral province to claim it with a share of your army. Its garrison (2 to 6 soldiers, growing back slowly) defends it.
 - [x] **Cautious neutral nations.** Neutrals claim, attack and declare less often than the other computer nations, need a bigger lead, and rarely ally.
 - [ ] **Balance.** Claim and garrison numbers are first guesses. Play full games and tune them.
+
+## Round 9 (version 2.16): directions, costs, population (convo v0.14)
+
+Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to check.
+
+- [x] **Directions: Growth, War, Wealth.** One picker on the nation card replaces the AI upgrade buttons. An autopilot spends each turn towards the direction (for every nation; yours logs each action).
+- [x] **Population from cities.** Village 1, town 2, city 3, fortress 3. Shown on the bar and card; power uses it.
+- [x] **Costs use several stocks.** Upgrades and villages cost gold and food (fortresses also stone). Neutral claims cost troops, gold and food. Attacks cost mainly troops and magic, plus gold and food for the march.
+- [x] **Magic spent per soldier sent** (up to 0.5 a soldier), not all at once.
+- [x] **Gold follows population** (village 1, town 2, city 3 a turn). Fixed Growth stalling on gold.
+- [x] **Fortress province defence +2.** Holding ground is what fortresses are for.
+- [ ] **Food under Growth piles up** (several hundred by turn 40). Doubling soldier upkeep starved War, so it is reverted. Open: convo v0.14 question 2.
+- [ ] **War is the risky direction.** Played with no hand moves, one map in 30 falls to counter-attacks. Open: is that fair, once you play it by hand (convo v0.14 question 5).
+- [ ] **Guns under War.** Your slider stays yours; War sets only the computers' guns. Open: convo v0.14 question 1.
+- [ ] **Wealth stock sits unused** once the reserve is full. Open: convo v0.14 question 3.
+- [ ] **Balance pass.** Six maps, 40 turns, no hand moves: the three directions now differ (see convo v0.14). Play real games before tuning again.
 
 ## Later
 

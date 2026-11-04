@@ -11,8 +11,34 @@
   var MIN_REP = { trade: -20, ally: 20, ceasefire: -40 };
   var TRADE_SETUP = 20;   // gold paid once by the nation that opens a trade route; the route then pays gold each turn
   var TRIBUTE = 10, SEND = 0.5, DEFENDER = 1.2, FORT_BONUS = 0.2;
-  // Growing a province: village to town and town to city cost gold, city to fortress costs stone.
-  var GROW = { v: { to: 't', gold: 10 }, t: { to: 'c', gold: 20 }, c: { to: 'f', stone: 15 } };
+  // Growing a province costs gold and food (the people and the builders); city to fortress also needs stone.
+  // Base costs, scaled up by spots (costScale).
+  var GROW = { v: { to: 't', gold: 10, food: 8 }, t: { to: 'c', gold: 20, food: 12 }, c: { to: 'f', gold: 20, food: 10, stone: 15 } };
+  // Building a village on an empty dot costs gold and food (base, scaled the same way).
+  var VILLAGE = { gold: 8, food: 6 };
+  // Neutral land: a survey or capture costs gold and food on top of the troops, per step of the route.
+  var CLAIM = { gold: 3, food: 2 };
+  // An attack: food for the rations (per soldier sent) and gold for the road (per step, plus one).
+  // Magic is the main fuel: up to MAGIC_PER_SOLDIER is spent for each soldier sent, and each point adds strength.
+  var MARCH = { food: 0.05, gold: 1 };
+  var MAGIC_PER_SOLDIER = 0.5;
+  // Population is made by cities: a village 1, a town 2, a city 3. A fortress holds the ground but adds no more people than a city.
+  var POP = { v: 1, t: 2, c: 3, f: 3 };
+  // Training: the War direction spends food and gold to raise the army's skill a little each turn.
+  var TRAIN = { food: 10, gold: 5, tech: 2 };
+  // A fortress province adds this to its defence, so holding the ground is what fortresses are for.
+  var FORT_PROVINCE = 2;
+  // Directions: the north star of each nation. The autopilot spends each turn towards it. Your own moves still come first.
+  var AIM = {
+    growth: { name: 'Growth', icon: '🌱', text: 'Claim neutral land, build villages, and upgrade towns and villages to cities. Cities are the population.' },
+    war: { name: 'War', icon: '⚔️', text: 'Fortify the front with fortresses, train the army, and attack the weakest neighbour in reach. Uses troops and magic. Your guns slider sets the soldiers.' },
+    wealth: { name: 'Wealth', icon: '💰', text: 'Stockpile food, gold and stone for future growth or war. Builds and upgrades only from a surplus.' }
+  };
+  var AIM_KEYS = ['growth', 'war', 'wealth'];
+  // What each direction keeps in stock before it spends. Wealth keeps the most.
+  var RESERVE = { growth: { gold: 0, food: 5, stone: 0 }, war: { gold: 5, food: 10, stone: 0 }, wealth: { gold: 40, food: 20, stone: 10 } };
+  // The most builds and upgrades the autopilot makes in one turn.
+  var AUTO_ACTIONS = 2;
   var LABEL = { e: 'empty dot', v: 'village', t: 'town', c: 'city', f: 'fortress' };
   // Zoomed in, a province shows the same icons as version 1 (mushroom, castle, fort). An empty dot is a small circle.
   var ICON = { v: '🍄', t: '🏘️', c: '🏰', f: '🏯' };
@@ -233,7 +259,7 @@
     var n = {
       id: i, name: NAMES[i], x: p.x, y: p.y, alive: true, neutral: i >= 3, area: polyArea(poly), nb: [],
       soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5, food: 20, gold: 30, stone: 10,
-      magic: 0, culture: 0, unrest: 0, warTurns: 0
+      magic: 0, culture: 0, unrest: 0, warTurns: 0, aim: 'growth'
     };
     // Tier counts come from the provinces the nation holds.
     ['v', 't', 'c', 'f', 'e'].forEach(function (k) {
@@ -243,11 +269,13 @@
   }
 
   function quality(n) { return 1 + (n.tech + n.morale + n.happy) / 300; }
-  // Power = population density (weighted by spot type) x quality x soldiers.
+  // Population: the people the cities hold (POP weights).
+  function population(n) { return POP.v * n.v + POP.t * n.t + POP.c * n.c + POP.f * n.f; }
+  // Power = population density (per spot) x quality x soldiers.
   function power(n) {
     var sp = spots(n);
     if (!sp) return 0;
-    var density = (n.v + 2 * n.t + 3 * n.c + 5 * n.f) / sp;
+    var density = population(n) / sp;
     return density * quality(n) * n.soldiers;
   }
   function median() {
@@ -389,6 +417,8 @@
       var R = route(i, j);
       if (!R) return 'No land route.';
       if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
+      var lackM = shortfall(a, { gold: MARCH.gold + R.hops, food: 1 });
+      if (lackM) return 'Not enough ' + lackM + ' for the march.';
     }
     return null;
   }
@@ -401,8 +431,12 @@
     var R = routeProv(i, pid);
     if (!R) return 'No land route.';
     if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
+    var lack = shortfall(a, claimCost(R));
+    if (lack) return 'Not enough ' + lack + ' for the survey.';
     return null;
   }
+  // What a claim costs in gold and food: the survey and the road, per step, on top of the troops.
+  function claimCost(R) { return { gold: CLAIM.gold + R.hops, food: CLAIM.food + R.hops }; }
   function queueClaim(pid) {
     var err = canClaim(0, pid);
     if (err) { addLog(err); return; }
@@ -417,7 +451,7 @@
       if (p.kind !== 'province' || p.owner >= 0) return;
       if (a.soldiers * 0.5 < need * p.gar) return;
       var R = routeProv(a.id, p.id);
-      if (!R || R.dist > MAX_DIST) return;
+      if (!R || R.dist > MAX_DIST || shortfall(a, claimCost(R))) return;
       var v = R.dist + p.gar / 10;
       if (!best || v < best.v) best = { id: p.id, v: v };
     });
@@ -429,6 +463,10 @@
     if (!a.alive || !p || p.owner >= 0) { addLog(a.name + ' could not claim that land: it is taken.'); return; }
     var R = routeProv(i, p.id);
     if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach that land.'); return; }
+    // The survey and the road are paid first, win or lose.
+    var cost = claimCost(R);
+    if (shortfall(a, cost)) { addLog(a.name + ' could not pay for the survey of that land.'); return; }
+    spend(a, cost);
     var sent0 = Math.floor(a.soldiers * (x.pct || 50) / 100);
     if (sent0 < 1) return;
     var F = attackFactors(i, R);
@@ -448,59 +486,71 @@
     }
   }
 
-  // Upgrades get dearer as a nation holds more spots: each spot adds 10% to the base cost.
+  // Costs get dearer as a nation holds more spots: each spot adds 10% to the base cost.
+  function costScale(n) { return 1 + 0.1 * spots(n); }
   function growCost(n, from) {
-    var m = GROW[from], f = 1 + 0.1 * spots(n);
-    return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
+    var m = GROW[from], f = costScale(n);
+    return { gold: Math.ceil(m.gold * f), food: Math.ceil(m.food * f), stone: m.stone ? Math.ceil(m.stone * f) : 0 };
   }
+  function villageCost(n) {
+    var f = costScale(n);
+    return { gold: Math.ceil(VILLAGE.gold * f), food: Math.ceil(VILLAGE.food * f) };
+  }
+  // The first thing a cost is short of (with the stock to keep back), or null when the nation can pay.
+  function shortfall(n, c, keep) {
+    keep = keep || {};
+    if (n.gold - (c.gold || 0) < (keep.gold || 0)) return 'gold (' + c.gold + ')';
+    if (n.food - (c.food || 0) < (keep.food || 0)) return 'food (' + c.food + ')';
+    if (n.stone - (c.stone || 0) < (keep.stone || 0)) return 'stone (' + c.stone + ')';
+    return null;
+  }
+  function spend(n, c) { n.gold -= c.gold || 0; n.food -= c.food || 0; n.stone -= c.stone || 0; }
   function canGrow(n, from) {
-    var c = growCost(n, from);
-    return n[from] > 0 && n.gold >= c.gold && n.stone >= c.stone;
+    return n[from] > 0 && !shortfall(n, growCost(n, from));
   }
 
-  // Villages are built by hand, paid in food or culture, on an empty dot. 40 at five spots, rising by 4 for each spot beyond five.
-  function villageCost(n) { return Math.ceil(40 * (1 + 0.1 * (spots(n) - 5))); }
-
-  // Build a village on a chosen empty dot of yours.
-  function buildAt(n, p, pay) {
+  // Build a village on a chosen empty dot of yours. Paid in gold and food.
+  function buildAt(n, p) {
     var c = villageCost(n);
     if (!p || p.owner !== n.id) return 'Pick an empty dot on your land.';
     if (p.tier !== 'e') return 'Pick an empty dot, not a ' + LABEL[p.tier] + '.';
-    if (n[pay] < c) return 'Not enough ' + pay + ' (' + c + ').';
-    n[pay] -= c;
+    var lack = shortfall(n, c);
+    if (lack) return 'Not enough ' + lack + '.';
+    spend(n, c);
     p.tier = 'v';
     return null;
   }
-  // Computer nations: the best empty dot for their needs (farmland when food is short, otherwise trade).
-  function buildVillage(n, pay) {
+  // The best empty dot for the nation's needs (farmland when food is short, otherwise trade). Keeps back the reserve.
+  function buildVillage(n, keep) {
     var list = ownedBy(n).filter(function (q) { return q.tier === 'e'; });
     if (!list.length) return 'No empty dot left to build on.';
     var want = n.food < 50 ? 'farm' : 'trade';
     list.sort(function (p, q) { return score(q, want) - score(p, want); });
-    return buildAt(n, list[0], pay);
+    var lack = shortfall(n, villageCost(n), keep);
+    if (lack) return 'Not enough ' + lack + ' for a village.';
+    return buildAt(n, list[0]);
   }
 
-  // Promote a chosen province of yours one grade.
-  function growAt(n, p, from) {
+  // Promote a chosen province of yours one grade. Paid in gold and food (and stone for a fortress), keeping back a reserve.
+  function growAt(n, p, from, keep) {
     var m = GROW[from];
     if (!m) return 'That cannot grow.';
     if (!p || p.owner !== n.id || p.tier !== from) return 'Pick a ' + LABEL[from] + ' on your land.';
     var c = growCost(n, from);
-    if (c.gold && n.gold < c.gold) return 'Not enough gold (' + c.gold + ').';
-    if (c.stone && n.stone < c.stone) return 'Not enough stone (' + c.stone + ').';
-    n.gold -= c.gold;
-    n.stone -= c.stone;
+    var lack = shortfall(n, c, keep);
+    if (lack) return 'Not enough ' + lack + '.';
+    spend(n, c);
     p.tier = m.to;
     return null;
   }
-  // The AI chooses which province to upgrade: fortresses go on defensive ground, towns and cities on trade ground.
-  function grow(n, from) {
+  // Pick the province for a grade: fortresses go on the front (defensive ground), towns and cities on trade ground.
+  function grow(n, from, keep) {
     if (!GROW[from]) return 'That cannot grow.';
     var list = ownedBy(n).filter(function (q) { return q.tier === from; });
     if (!list.length) return 'No ' + LABEL[from] + ' to grow.';
     var want = from === 'c' ? 'defence' : 'trade';
     list.sort(function (p, q) { return score(q, want) - score(p, want); });
-    return growAt(n, list[0], from);
+    return growAt(n, list[0], from, keep);
   }
   // Zoomed in: a pop centre (or its arrow) upgrades that province by hand, paid in gold (a city costs stone).
   function upgradeByHand(p) {
@@ -583,9 +633,15 @@
     var sent = Math.floor((sent0 - flat) * (1 - F.chip));
     a.soldiers -= sent0;
     if (sent < 1) { addLog(a.name + "'s army is worn away on the way to " + b.name + '.'); return; }
-    // Magic is used up by the attack; unrest and distance cut the strength of the attack; retaking recent land helps.
-    var bonus = (1 + a.magic / 100) / (1 + a.unrest / 200) * (1 - F.far) * F.tail;
-    a.magic = 0;
+    // The march is paid in food and gold, as far as the stock goes.
+    var march = { food: Math.ceil(sent * MARCH.food), gold: MARCH.gold + R.hops };
+    a.food = Math.max(0, a.food - march.food);
+    a.gold = Math.max(0, a.gold - march.gold);
+    // Magic is spent as a function of the army sent (up to MAGIC_PER_SOLDIER a soldier). Each point spent adds strength.
+    // Unrest and distance cut the strength of the attack; retaking recent land helps.
+    var spent = Math.min(a.magic, sent * MAGIC_PER_SOLDIER);
+    a.magic -= spent;
+    var bonus = (1 + spent / sent) / (1 + a.unrest / 200) * (1 - F.far) * F.tail;
     var entry = st.provs[R.entry];
     var front = featureDef(entry) / 2;
     var power = sent * quality(a) * bonus;
@@ -642,7 +698,8 @@
           if (!best || value > best.value) best = { b: b, value: value };
         });
         // Cautious neutrals attack only with a clear lead, and not often.
-        if (best && a.soldiers * quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * quality(best.b) && Math.random() < (a.neutral ? 0.3 : 0.6)) {
+        var attackP = (a.neutral ? 0.3 : 0.6) * (a.aim === 'war' ? 1.3 : a.aim === 'wealth' ? 0.5 : 1);
+        if (best && a.soldiers * quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * quality(best.b) && Math.random() < attackP) {
           st.queue.push({ type: 'attack', from: a.id, to: best.b.id });
         }
         // Sue for peace when badly outmatched.
@@ -675,17 +732,81 @@
         if (friends.length) st.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
       }
       // Expansion: claim a neutral province near the land when the garrison is outmatched. Neutrals claim less often.
-      if (Math.random() < (a.neutral ? 0.15 : 0.45)) {
+      var claimP = (a.neutral ? 0.15 : 0.45) * (a.aim === 'growth' ? 1.5 : a.aim === 'wealth' ? 0.5 : 1);
+      if (Math.random() < claimP) {
         var pid = claimTarget(a);
         if (pid !== null) st.queue.push({ type: 'claim', from: a.id, to: -1, prov: pid, pct: 50 });
       }
-      if (Math.random() < 0.3) {
-        ['v', 't', 'c'].sort(function () { return Math.random() - 0.5; }).some(function (k) { return !grow(a, k); });
-      }
-      if (Math.random() < 0.2) {
-        ['food', 'culture'].some(function (pay) { return !buildVillage(a, pay); });
-      }
     });
+  }
+
+  // ---------- directions and the autopilot ----------
+
+  // Every nation plays towards its direction. At the end of each turn the autopilot spends on it: builds and upgrades
+  // (within the direction's reserve), training for War, and for you a claim or an attack in the plan. Computer nations
+  // also set their guns by direction; yours stays with the slider. You can still zoom in and upgrade any province by hand.
+  var GUNS_FOR = { growth: 0.5, war: 0.8, wealth: 0.2 };
+  // The War plan strikes with half the army (the default share): only when that half clearly beats the defenders.
+  function strikes(n, b) { return n.soldiers * 0.5 * quality(n) >= 1.3 * DEFENDER * b.soldiers * quality(b); }
+  var PLAN = {
+    growth: ['build', 'v', 't'],   // people first: more villages, then towns to cities
+    war: ['c', 't'],               // fortresses on the front, then towns to cities (more soldiers)
+    wealth: ['t', 'v', 'build']    // only from a surplus, the cheapest population first
+  };
+  function autopilot(n) {
+    if (!n.alive) return;
+    var aim = n.aim, keep = RESERVE[aim], mine = n.id === 0, done = 0;
+    if (!mine) n.guns = GUNS_FOR[aim];
+    PLAN[aim].some(function (step) {
+      if (done >= AUTO_ACTIONS) return true;
+      var err = step === 'build' ? buildVillage(n, keep) : grow(n, step, keep);
+      if (err) return false;
+      done++;
+      if (mine) addLog(AIM[aim].name + ' plan: ' + (step === 'build' ? 'built a village on an empty dot.' : 'upgraded a ' + LABEL[step] + ' to a ' + LABEL[GROW[step].to] + '.'));
+      return false;
+    });
+    // Training comes from a surplus only, after the builds and upgrades above have had their turn.
+    if (aim === 'war' && n.food - TRAIN.food >= keep.food + 20 && n.gold - TRAIN.gold >= keep.gold + 20) {
+      spend(n, { food: TRAIN.food, gold: TRAIN.gold });
+      n.tech = Math.min(100, n.tech + TRAIN.tech);
+      if (mine) addLog('War plan: the army trained (' + TRAIN.food + ' food, ' + TRAIN.gold + ' gold).');
+    }
+    // Your plan can queue one claim or attack, unless you have queued one yourself.
+    if (mine && !st.queue.some(function (x) { return x.from === 0 && (x.type === 'claim' || x.type === 'attack'); })) {
+      // Wealth claims only from a big surplus, so the stock is spent on growth when it can be spared.
+      var surplus = aim !== 'wealth' || (n.gold >= 80 && n.food >= 40);
+      if (aim === 'growth' || (aim === 'wealth' && surplus)) {
+        var pid = claimTarget(n);
+        if (pid !== null) {
+          st.queue.push({ type: 'claim', from: 0, to: -1, prov: pid, pct: 50 });
+          addLog(AIM[aim].name + ' plan: claim neutral land with half your army.');
+        }
+      } else if (aim === 'war') {
+        var best = null;
+        st.n.forEach(function (b) {
+          if (b.id === 0 || !b.alive || canDo('attack', 0, b.id)) return;
+          if (!strikes(n, b)) return;
+          if (!best || b.soldiers < best.soldiers) best = b;
+        });
+        if (best) {
+          st.queue.push({ type: 'attack', from: 0, to: best.id, pct: 50 });
+          addLog('War plan: attack ' + best.name + ' with half your army.');
+        } else {
+          // No one to fight yet: declare war on the weakest neighbour your army clearly outmatches (one and a half times the power).
+          var prey = null;
+          n.nb.forEach(function (id) {
+            var b = st.n[id];
+            if (!b.alive || rel(0, id).war || !strikes(n, b)) return;
+            if (!prey || b.soldiers < prey.soldiers) prey = b;
+          });
+          // One war at a time: a second war with a new neighbour is not started while the first is still on.
+          if (prey && !atWar(0)) {
+            st.queue.push({ type: 'declare', from: 0, to: prey.id });
+            addLog('War plan: declare war on ' + prey.name + '.');
+          }
+        }
+      }
+    }
   }
 
   // Gun or butter: guns (0 to 1) is the share of effort put into soldiers. Recruiting runs at 0.5 + guns,
@@ -706,7 +827,9 @@
     return 'farm';
   }
   // Defence of a province: its value, one more on a mountain slope, and one more for defensive ground that has been built on.
-  function featureDef(p) { return p.def + (p.mount ? 1 : 0) + (feature(p) === 'defence' && p.tier !== 'e' ? 1 : 0); }
+  function featureDef(p) {
+    return p.def + (p.mount ? 1 : 0) + (feature(p) === 'defence' && p.tier !== 'e' ? 1 : 0) + (p.tier === 'f' ? FORT_PROVINCE : 0);
+  }
   // How well a province suits a purpose (farm, trade, defence): the match, with a little chance to break ties.
   function score(p, want) { return (feature(p) === want ? 2 : 0) + Math.random() * 0.5; }
   function targetValue(b) {
@@ -742,7 +865,8 @@
     var foodNet = produced - upkeep;
     n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
-    n.gold += (0.5 * n.v + n.t + 2 * n.c) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
+    // Gold is taxed from the people: each village 1, town 2, city 3 (the population weights). Fortresses pay no tax.
+    n.gold += (POP.v * n.v + POP.t * n.t + POP.c * n.c) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
     n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn, plus the technology trickle.
@@ -781,6 +905,7 @@
 
   function resolveTurn() {
     if (!st || st.over) return;
+    alive().forEach(autopilot);   // every nation spends towards its direction; yours plans a claim or attack if you have none queued
     planAI();
     var q = st.queue;
     st.queue = [];
@@ -879,6 +1004,8 @@
     var regions = voronoi(seeds);
     st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [], target: null, seed: seed };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
+    // Computer nations pick a direction at random. Yours starts on Growth.
+    st.n.forEach(function (n) { if (n.id > 0) n.aim = AIM_KEYS[Math.floor(Math.random() * AIM_KEYS.length)]; });
     var terrain = makeTerrain(seeds);
     st.n.forEach(function (n) {
       var pts = placeProvinces(regions[n.id], terrain);
@@ -1132,13 +1259,33 @@
     [
       ['Soldiers', Math.floor(p.soldiers)], ['Food', Math.floor(p.food)], ['Gold', Math.floor(p.gold)],
       ['Stone', Math.floor(p.stone)], ['Magic', Math.floor(p.magic)], ['Culture', Math.floor(p.culture)],
-      ['Unrest', Math.round(p.unrest)], ['Power', Math.round(power(p))], ['Stage', stage(ratio(p)) + ' (' + ratio(p).toFixed(2) + ')']
+      ['Population', population(p)], ['Unrest', Math.round(p.unrest)], ['Power', Math.round(power(p))],
+      ['Stage', stage(ratio(p)) + ' (' + ratio(p).toFixed(2) + ')'], ['Direction', AIM[p.aim].name]
     ].forEach(function (pair) {
       var c = el('span', 'res-item');
       c.appendChild(el('b', '', pair[0] + ' '));
       c.appendChild(document.createTextNode(String(pair[1])));
       els.res.appendChild(c);
     });
+  }
+
+  // The direction buttons: one north star for the nation. The description says what the autopilot will spend on.
+  function directionPicker(n) {
+    var box = el('div', 'direction');
+    box.appendChild(el('p', '', 'Direction: ' + AIM[n.aim].name + '. ' + AIM[n.aim].text));
+    var row = el('div', 'seg direction-seg');
+    AIM_KEYS.forEach(function (k) {
+      var b = el('button', '', AIM[k].icon + ' ' + AIM[k].name);
+      b.setAttribute('aria-pressed', String(n.aim === k));
+      b.addEventListener('click', function () {
+        n.aim = k;
+        addLog('Direction set to ' + AIM[k].name + '. The autopilot plans towards it at the end of each turn.');
+        render();
+      });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    return box;
   }
 
   function drawCard() {
@@ -1155,13 +1302,14 @@
     var R = ratio(n);
     els.card.appendChild(el('p', '', 'Villages ' + n.v + ' · Towns ' + n.t + ' · Cities ' + n.c + ' · Fortresses ' + n.f + ' · Empty dots ' + n.e));
     els.card.appendChild(el('p', '', 'Soldiers ' + Math.floor(n.soldiers) + ' · Power ' + Math.round(power(n)) + ' · ' + stage(R) + ' (ratio ' + R.toFixed(2) + ')'));
-    els.card.appendChild(el('p', '', 'Unrest ' + Math.round(n.unrest) + ' · Occupied provinces ' + occupiedOf(n).length));
+    els.card.appendChild(el('p', '', 'Population ' + population(n) + ' · Unrest ' + Math.round(n.unrest) + ' · Occupied provinces ' + occupiedOf(n).length));
+    if (n.id !== 0) els.card.appendChild(el('p', 'muted small', 'Direction: ' + AIM[n.aim].name + '.'));
     if (n.id === 0) {
       var gb = el('div', 'gun-butter');
       var gunLine = el('p', '', '');
       var gunRange = el('input');
       function showGuns() {
-        gunLine.textContent = 'Guns ' + Math.round(n.guns * 100) + '% · Butter ' + Math.round((1 - n.guns) * 100) + '%. Guns raise soldiers; butter raises food, which helps culture and population.';
+        gunLine.textContent = 'Guns ' + Math.round(n.guns * 100) + '% · Butter ' + Math.round((1 - n.guns) * 100) + '%. Guns raise soldiers; butter raises food for the upgrades and the march.';
       }
       gunRange.type = 'range'; gunRange.min = 0; gunRange.max = 100; gunRange.step = 10; gunRange.value = Math.round(n.guns * 100);
       gunRange.setAttribute('aria-label', 'Guns or butter');
@@ -1174,37 +1322,28 @@
       if (st.pick) {
         var pk = st.pick;
         var hintRow = el('div', 'card-buttons');
-        hintRow.appendChild(el('p', 'muted', 'Tap an empty dot on your land to build a village (' + villageCost(n) + ' ' + pk.pay + ').'));
+        var pvc = villageCost(n);
+        hintRow.appendChild(el('p', 'muted', 'Tap an empty dot on your land to build a village (' + pvc.gold + ' gold, ' + pvc.food + ' food).'));
         var stop = el('button', 'big', 'Cancel');
         stop.addEventListener('click', function () { st.pick = null; render(); });
         hintRow.appendChild(stop);
         els.card.appendChild(hintRow);
       }
+      // Direction: the north star the autopilot plays towards each turn. Upgrades are by hand when zoomed in.
+      els.card.appendChild(directionPicker(n));
       var vill = el('div', 'card-buttons');
       var vc = villageCost(n);
       var hasEmpty = ownedBy(n).some(function (p) { return p.tier === 'e'; });
-      ['food', 'culture'].forEach(function (pay) {
-        var vb = el('button', 'big', 'Build a village (' + vc + ' ' + pay + ')');
-        vb.disabled = n[pay] < vc || !hasEmpty;
-        vb.addEventListener('click', function () { startPick({ kind: 'build', pay: pay }); });
-        vill.appendChild(vb);
-      });
+      var vb = el('button', 'big', 'Build a village (' + vc.gold + ' gold, ' + vc.food + ' food)');
+      vb.disabled = !!shortfall(n, vc) || !hasEmpty;
+      vb.addEventListener('click', function () { startPick({ kind: 'build' }); });
+      vill.appendChild(vb);
       els.card.appendChild(vill);
-      // Upgrades: the AI chooses which province to upgrade. Zoom in to choose one by hand (tap its icon or arrow).
-      var grows = el('div', 'card-buttons');
-      Object.keys(GROW).forEach(function (k) {
-        var m = GROW[k], c = growCost(n, k);
-        var cost = c.gold ? c.gold + ' gold' : c.stone + ' stone';
-        var b = el('button', 'big', 'AI upgrades a ' + LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
-        b.disabled = n[k] < 1;
-        b.addEventListener('click', function () {
-          var err = grow(n, k);
-          addLog(err || 'The AI chose a ' + LABEL[k] + ' and upgraded it to a ' + LABEL[m.to] + '.');
-          render();
-        });
-        grows.appendChild(b);
+      var costs = ['v', 't', 'c'].map(function (k) {
+        var c = growCost(n, k);
+        return LABEL[k] + ' to ' + LABEL[GROW[k].to] + ': ' + c.gold + ' gold, ' + c.food + ' food' + (c.stone ? ', ' + c.stone + ' stone' : '');
       });
-      els.card.appendChild(grows);
+      els.card.appendChild(el('p', 'muted small', 'Upgrade costs. ' + costs.join(' · ') + '.'));
       // Soldiers can leave for gold, which pays for upgrades: buy out their contracts, or disband them.
       var free = el('div', 'card-buttons');
       [['buyout', 'Buy out contracts'], ['disband', 'Disband']].forEach(function (pair) {
@@ -1234,6 +1373,7 @@
       if (F.far) rtext += ' Far away: strength −' + Math.round(F.far * 100) + '%.';
       if (F.tail > 1) rtext += ' Retaking recently lost land: strength +25%.';
       if (RT.dist > MAX_DIST) rtext += ' Too far away to attack (the limit is ' + MAX_DIST + ' steps).';
+      else rtext += ' The march costs ' + (MARCH.gold + RT.hops) + ' gold and some food for the rations.';
     }
     els.card.appendChild(el('p', 'muted small', rtext));
     // The send slider: the share of your army an attack will use. The last value is remembered.
@@ -1287,6 +1427,7 @@
       if (F.chip) t += ' The army loses ' + Math.round(F.chip * 100) + '% on the way.';
       if (F.far) t += ' Far away: strength −' + Math.round(F.far * 100) + '%.';
       if (RT.dist > MAX_DIST) t += ' Too far away (the limit is ' + MAX_DIST + ' steps).';
+      else { var cc = claimCost(RT); t += ' The survey costs ' + cc.gold + ' gold and ' + cc.food + ' food, on top of the troops.'; }
       els.card.appendChild(el('p', 'muted small', t));
     }
     // The same send slider as an attack.
@@ -1358,8 +1499,7 @@
     render();
   }
   function pickProvince(p) {
-    var pk = st.pick;
-    var err = buildAt(st.n[0], p, pk.pay);
+    var err = buildAt(st.n[0], p);
     if (err) { addLog(err); render(); return; }
     addLog('A new village was built on that dot.');
     st.pick = null;
