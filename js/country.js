@@ -158,6 +158,17 @@
     return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
   }
 
+  // Villages are built by hand, paid in food or culture. 40 at five spots, rising by 4 for each spot beyond five.
+  function villageCost(n) { return Math.ceil(40 * (1 + 0.1 * (spots(n) - 5))); }
+
+  function buildVillage(n, pay) {
+    var c = villageCost(n);
+    if (n[pay] < c) return 'Not enough ' + pay + ' (' + c + ').';
+    n[pay] -= c;
+    n.v++;
+    return null;
+  }
+
   // Spend resources to grow one of your spots. Happens at once.
   function grow(n, from) {
     var m = GROW[from];
@@ -246,15 +257,15 @@
     if (A > D) {
       a.soldiers += sent * (1 - D / A);      // survivors come home
       b.soldiers *= (1 - DEF_LOSS);
-      a.culture += CULTURE[grade];
-      a.cultGained += CULTURE[grade];
+      var gainA = CULTURE[grade] * foodMult(a);
+      a.culture += gainA;
       var got = takeSpot(b, a);
-      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + CULTURE[grade] + '.');
+      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + gainA.toFixed(1) + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
-      b.culture += CULTURE[grade];
-      b.cultGained += CULTURE[grade];
-      addLog(b.name + ' holds against ' + a.name + '. Culture +' + CULTURE[grade] + '.');
+      var gainB = CULTURE[grade] * foodMult(b);
+      b.culture += gainB;
+      addLog(b.name + ' holds against ' + a.name + '. Culture +' + gainB.toFixed(1) + '.');
     }
   }
 
@@ -282,11 +293,22 @@
       if (Math.random() < 0.3) {
         ['v', 't', 'c'].sort(function () { return Math.random() - 0.5; }).some(function (k) { return !grow(a, k); });
       }
+      if (Math.random() < 0.2) {
+        ['food', 'culture'].some(function (pay) { return !buildVillage(a, pay); });
+      }
     });
   }
 
+  // Gun or butter: guns (0 to 1) is the share of effort put into soldiers. Recruiting runs at 0.5 + guns,
+  // and food production at 1.5 - guns, so the two always add up to 2 (the even split is 1 and 1).
+  // Food stock also helps culture: each battle earns up to double culture at 100 food.
+  function foodMult(n) { return 1 + Math.min(n.food, 100) / 100; }
+
   function economy(n) {
-    n.food += 2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f - n.soldiers * 0.02;
+    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns);
+    var upkeep = n.soldiers * 0.02;
+    var foodNet = produced - upkeep;
+    n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
@@ -296,15 +318,7 @@
     var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
     n.magic += magicIn;
     // Culture draws in soldiers: up to +50% at 100 culture.
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200);
-    // Villages grow gradually from what was gathered this turn: magic counts 1, culture counts 2, and every 10 points make a village.
-    n.vprog = (n.vprog || 0) + (magicIn + 2 * n.cultGained) / 10;
-    n.cultGained = 0;
-    while (n.vprog >= 1) {
-      n.vprog -= 1;
-      n.v++;
-      if (n.id === 0) addLog('Culture and magic found a new village.');
-    }
+    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns);
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -372,7 +386,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0, cultGained: 0,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5,
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
@@ -471,6 +485,33 @@
     els.card.appendChild(el('p', '', 'Villages ' + n.v + ' · Towns ' + n.t + ' · Cities ' + n.c + ' · Fortresses ' + n.f));
     els.card.appendChild(el('p', '', 'Soldiers ' + Math.floor(n.soldiers) + ' · Power ' + Math.round(power(n)) + ' · ' + stage(R) + ' (ratio ' + R.toFixed(2) + ')'));
     if (n.id === 0) {
+      var gb = el('div', 'gun-butter');
+      var gunLine = el('p', '', '');
+      var gunRange = el('input');
+      function showGuns() {
+        gunLine.textContent = 'Guns ' + Math.round(n.guns * 100) + '% · Butter ' + Math.round((1 - n.guns) * 100) + '%. Guns raise soldiers; butter raises food, which helps culture and population.';
+      }
+      gunRange.type = 'range'; gunRange.min = 0; gunRange.max = 100; gunRange.step = 10; gunRange.value = Math.round(n.guns * 100);
+      gunRange.setAttribute('aria-label', 'Guns or butter');
+      gunRange.addEventListener('input', function () { n.guns = Number(gunRange.value) / 100; showGuns(); });
+      gunRange.addEventListener('change', function () { render(); });
+      showGuns();
+      gb.appendChild(gunLine);
+      gb.appendChild(gunRange);
+      els.card.appendChild(gb);
+      var vill = el('div', 'card-buttons');
+      var vc = villageCost(n);
+      ['food', 'culture'].forEach(function (pay) {
+        var vb = el('button', 'big', 'Build a village (' + vc + ' ' + pay + ')');
+        vb.disabled = n[pay] < vc;
+        vb.addEventListener('click', function () {
+          var err = buildVillage(n, pay);
+          addLog(err || 'A new village was built with ' + pay + '.');
+          render();
+        });
+        vill.appendChild(vb);
+      });
+      els.card.appendChild(vill);
       var grows = el('div', 'card-buttons');
       Object.keys(GROW).forEach(function (k) {
         var m = GROW[k], c = growCost(n, k);
