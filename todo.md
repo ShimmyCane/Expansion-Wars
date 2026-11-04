@@ -80,3 +80,4 @@ Checked against `js/game.js` on `main`. Notes stay `open` in the table until Jim
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.
 - [ ] **Balance pass.** Hard mode beat a player who did nothing in about 20 seconds in testing. Play a few full games and tune the rates, garrisons and move caps.
 - [ ] **Speed and defense boosts, towers, spells, Quick Game** (already listed on the Shop page as coming soon).
+- [ ] **V3 battle view.** Schematic written in `V3/schematic.md`. Ten open questions need answers before phase 0 (sandbox). No code yet; V2 files are untouched.
