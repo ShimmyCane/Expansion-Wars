@@ -345,22 +345,30 @@
   // Villages are built by hand, paid in food or culture, on an empty dot. 40 at five spots, rising by 4 for each spot beyond five.
   function villageCost(n) { return Math.ceil(40 * (1 + 0.1 * (spots(n) - 5))); }
 
-  function buildVillage(n, pay) {
+  // Build a village on a chosen empty dot of yours.
+  function buildAt(n, p, pay) {
     var c = villageCost(n);
+    if (!p || p.owner !== n.id) return 'Pick an empty dot on your land.';
+    if (p.tier !== 'e') return 'Pick an empty dot, not a ' + LABEL[p.tier] + '.';
     if (n[pay] < c) return 'Not enough ' + pay + ' (' + c + ').';
-    var p = ownedBy(n).filter(function (q) { return q.tier === 'e'; })[0];
-    if (!p) return 'No empty dot left to build on.';
     n[pay] -= c;
     p.tier = 'v';
     return null;
   }
+  // Computer nations: the best empty dot for their needs (farmland when food is short, otherwise trade).
+  function buildVillage(n, pay) {
+    var list = ownedBy(n).filter(function (q) { return q.tier === 'e'; });
+    if (!list.length) return 'No empty dot left to build on.';
+    var want = n.food < 50 ? 'farm' : 'trade';
+    list.sort(function (p, q) { return score(q, want) - score(p, want); });
+    return buildAt(n, list[0], pay);
+  }
 
-  // Spend resources to grow one of your spots. Happens at once.
-  function grow(n, from) {
+  // Promote a chosen spot of yours one grade.
+  function growAt(n, p, from) {
     var m = GROW[from];
     if (!m) return 'That cannot grow.';
-    var p = ownedBy(n).filter(function (q) { return q.tier === from; })[0];
-    if (!p) return 'No ' + LABEL[from] + ' to grow.';
+    if (!p || p.owner !== n.id || p.tier !== from) return 'Pick a ' + LABEL[from] + ' on your land.';
     var c = growCost(n, from);
     if (c.gold && n.gold < c.gold) return 'Not enough gold (' + c.gold + ').';
     if (c.stone && n.stone < c.stone) return 'Not enough stone (' + c.stone + ').';
@@ -368,6 +376,15 @@
     n.stone -= c.stone;
     p.tier = m.to;
     return null;
+  }
+  // Computer nations: fortresses go on defensive ground, towns and cities on trade ground.
+  function grow(n, from) {
+    if (!GROW[from]) return 'That cannot grow.';
+    var list = ownedBy(n).filter(function (q) { return q.tier === from; });
+    if (!list.length) return 'No ' + LABEL[from] + ' to grow.';
+    var want = from === 'c' ? 'defence' : 'trade';
+    list.sort(function (p, q) { return score(q, want) - score(p, want); });
+    return growAt(n, list[0], from);
   }
 
   function queue(type, to) {
@@ -431,7 +448,7 @@
     var bonus = (1 + a.magic / 100) / (1 + a.unrest / 200) * (1 - F.far) * F.tail;
     a.magic = 0;
     var entry = st.provs[R.entry];
-    var front = entry.def / 2;
+    var front = featureDef(entry) / 2;
     var power = sent * quality(a) * bonus;
     var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
     var grade = weakestGrade(b);
@@ -477,19 +494,37 @@
       if (a.id === 0) return;
       var foes = alive().filter(function (b) { return b.id !== a.id && rel(a.id, b.id).war; });
       if (foes.length && !a.neutral) {
-        // Attack the weakest foe, neighbours first, as soon as the army is at least level with it and can reach it.
-        var near = foes.filter(function (b) { return a.nb.indexOf(b.id) >= 0; });
-        var pool2 = near.length ? near : foes;
-        var weakest = pool2.slice().sort(function (p, q) { return p.soldiers * quality(p) - q.soldiers * quality(q); })[0];
-        if (a.soldiers >= weakest.soldiers && !canDo('attack', a.id, weakest.id)) {
-          st.queue.push({ type: 'attack', from: a.id, to: weakest.id });
+        // Scheme: choose the foe worth the most for the distance, that the army can beat. Not every turn.
+        var best = null;
+        foes.forEach(function (b) {
+          if (canDo('attack', a.id, b.id)) return;
+          var R = route(a.id, b.id);
+          var value = targetValue(b) / (1 + R.dist);
+          if (!best || value > best.value) best = { b: b, value: value };
+        });
+        if (best && a.soldiers * quality(a) >= 0.9 * best.b.soldiers * quality(best.b) && Math.random() < 0.6) {
+          st.queue.push({ type: 'attack', from: a.id, to: best.b.id });
         }
-      } else if (!a.neutral && Math.random() < 0.25) {
+        // Sue for peace when badly outmatched.
+        foes.forEach(function (b) {
+          if (b.soldiers > 2.5 * a.soldiers && rel(a.id, b.id).rep >= MIN_REP.ceasefire && Math.random() < 0.3) {
+            st.queue.push({ type: 'ceasefire', from: a.id, to: b.id });
+          }
+        });
+      } else if (!a.neutral && Math.random() < 0.2) {
         // A stronger neighbour declares war: a 20% lead is enough.
         var prey = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
           return b.alive && !rel(a.id, b.id).war && power(a) >= 1.2 * power(b);
         });
         if (prey.length) st.queue.push({ type: 'declare', from: a.id, to: prey[0].id });
+      }
+      // Gang up: befriend a neighbour that is already at peace and well regarded, to stand together against a stronger one.
+      if (!a.neutral && Math.random() < 0.15) {
+        var pals = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
+          var r = rel(a.id, b.id);
+          return b.alive && !r.war && !r.ally && r.rep >= MIN_REP.ally;
+        });
+        if (pals.length) st.queue.push({ type: 'ally', from: a.id, to: pals[0].id });
       }
       if (Math.random() < 0.25) {
         var friends = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
@@ -511,6 +546,35 @@
   // and food production at 1.5 - guns, so the two always add up to 2 (the even split is 1 and 1).
   // Food stock also helps culture: each battle earns up to double culture at 100 food.
   function foodMult(n) { return 1 + Math.min(n.food, 100) / 100; }
+
+  // Each province's feature follows the land around it: ground on a war front or a mountain or lake shore is defensive;
+  // ground touching an ally or a river is a trade route; the rest is farmland. Alliances and wars change it over time.
+  var FEATURE_NAME = { farm: 'farmland', trade: 'trade route', defence: 'defensive ground' };
+  var VALUE = { e: 0.5, v: 1, t: 2, c: 3, f: 4 };
+  function riverNear(p) {
+    return st.rivers.some(function (R) {
+      for (var k = 0; k < R.length - 1; k++) if (segPointDist(p, R[k], R[k + 1]) < 40) return true;
+      return false;
+    });
+  }
+  function lakeNear(p) {
+    return st.lakes.some(function (L) { return Math.hypot(L.x - p.x, L.y - p.y) < L.r + 40; });
+  }
+  function feature(p) {
+    if (p.terrain === 'mountain' || lakeNear(p)) return 'defence';
+    var P = st.provs;
+    if (p.owner >= 0 && p.adj.some(function (q) { var o = P[q].owner; return o >= 0 && o !== p.owner && rel(p.owner, o).war; })) return 'defence';
+    if (p.owner >= 0 && p.adj.some(function (q) { var o = P[q].owner; return o >= 0 && o !== p.owner && rel(p.owner, o).ally; })) return 'trade';
+    if (riverNear(p)) return 'trade';
+    return 'farm';
+  }
+  // Defence of a province: its value, plus one for defensive ground that has been built on.
+  function featureDef(p) { return p.def + (feature(p) === 'defence' && p.tier !== 'e' ? 1 : 0); }
+  // How well a province suits a purpose (farm, trade, defence): the match, with a little chance to break ties.
+  function score(p, want) { return (feature(p) === want ? 2 : 0) + Math.random() * 0.5; }
+  function targetValue(b) {
+    return ownedBy(b).reduce(function (sum, p) { return sum + VALUE[p.tier] + (feature(p) === 'defence' ? 0.5 : 0); }, 0);
+  }
 
   // A revolt returns an occupied province to its old owner, or to neutral if that owner has fallen.
   function revolt(n) {
@@ -534,12 +598,14 @@
   function economy(n) {
     ownedBy(n).forEach(function (p) { if (p.occ > 0) p.occ--; });
     var pf = prodFactor(n);
-    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf;
+    var farm = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'farm'; }).length;
+    var tradeP = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'trade'; }).length;
+    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf + 0.5 * farm;
     var upkeep = n.soldiers * 0.02;
     var foodNet = produced - upkeep;
     n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
-    n.gold += (0.5 * n.v + n.t + 2 * n.c) * pf + 3 * tradeCount(n.id);
+    n.gold += (0.5 * n.v + n.t + 2 * n.c) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
     n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn, plus the technology trickle.
@@ -647,7 +713,7 @@
     }
     // The nations' regions are fixed. The provinces inside them are the population centres.
     var regions = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, zoomed: false, focus: null, provs: [] };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, zoomed: false, focus: null, provs: [], pick: null };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
     makeTerrain(seeds);
     var avg = W * H / COUNT;
@@ -717,7 +783,12 @@
     st.gBorders = gBorders; st.gDots = gDots;
     st.provs.forEach(function (p) {
       p.el = svgEl('polygon', { points: pts(p.cell) });
-      p.el.addEventListener('click', function () { if (p.owner >= 0) select(p.owner); });
+      p.el.addEventListener('click', function () {
+        if (st.pick && p.owner === 0) pickProvince(p);
+        else if (p.owner >= 0) select(p.owner);
+      });
+      p.titleEl = svgEl('title');
+      p.el.appendChild(p.titleEl);
       gCells.appendChild(p.el);
     });
     st.lakes.forEach(function (L) { gTerrain.appendChild(svgEl('circle', { cx: L.x, cy: L.y, r: L.r, 'class': 'lake' })); });
@@ -769,6 +840,8 @@
     setView();
     var P = st.provs;
     P.forEach(function (p) {
+      p.titleEl.textContent = (p.owner >= 0 ? st.n[p.owner].name + ' · ' : '') + LABEL[p.tier] + ' · ' + FEATURE_NAME[feature(p)] +
+        (p.terrain === 'mountain' ? ' · mountain' : '') + ' · defence ' + featureDef(p);
       p.el.setAttribute('class', 'cell ' + (p.owner >= 0 ? 'o' + p.owner : 'neutral') + (p.owner === selected ? ' sel' : ''));
     });
     // Borders: where two provinces of different owners touch, the shared edge is drawn thicker.
@@ -862,17 +935,25 @@
       gb.appendChild(gunLine);
       gb.appendChild(gunRange);
       els.card.appendChild(gb);
+      if (st.pick) {
+        var pk = st.pick;
+        var hint = pk.kind === 'build'
+          ? 'Tap an empty dot on your land to build a village (' + villageCost(n) + ' ' + pk.pay + ').'
+          : 'Tap a ' + LABEL[pk.from] + ' on your land to promote it to a ' + LABEL[GROW[pk.from].to] + '.';
+        var hintRow = el('div', 'card-buttons');
+        hintRow.appendChild(el('p', 'muted', hint));
+        var stop = el('button', 'big', 'Cancel');
+        stop.addEventListener('click', function () { st.pick = null; render(); });
+        hintRow.appendChild(stop);
+        els.card.appendChild(hintRow);
+      }
       var vill = el('div', 'card-buttons');
       var vc = villageCost(n);
       var hasEmpty = ownedBy(n).some(function (p) { return p.tier === 'e'; });
       ['food', 'culture'].forEach(function (pay) {
         var vb = el('button', 'big', 'Build a village (' + vc + ' ' + pay + ')');
         vb.disabled = n[pay] < vc || !hasEmpty;
-        vb.addEventListener('click', function () {
-          var err = buildVillage(n, pay);
-          addLog(err || 'A new village was built with ' + pay + '.');
-          render();
-        });
+        vb.addEventListener('click', function () { startPick({ kind: 'build', pay: pay }); });
         vill.appendChild(vb);
       });
       els.card.appendChild(vill);
@@ -882,11 +963,7 @@
         var cost = c.gold ? c.gold + ' gold' : c.stone + ' stone';
         var b = el('button', 'big', LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
         b.disabled = n[k] < 1;
-        b.addEventListener('click', function () {
-          var err = grow(n, k);
-          addLog(err || 'A ' + LABEL[k] + ' grew into a ' + LABEL[m.to] + '.');
-          render();
-        });
+        b.addEventListener('click', function () { startPick({ kind: 'grow', from: k }); });
         grows.appendChild(b);
       });
       els.card.appendChild(grows);
@@ -964,6 +1041,22 @@
   }
 
   function select(id) { selected = id; render(); }
+
+  // Choosing which province to build on or promote: the map is zoomed in on your land, and the next province tapped is used.
+  function startPick(pk) {
+    st.pick = pk;
+    if (!st.zoomed) { st.zoomed = true; st.focus = centre(st.n[0]); }
+    addLog('Tap a province on your land on the map.');
+    render();
+  }
+  function pickProvince(p) {
+    var pk = st.pick, n = st.n[0];
+    var err = pk.kind === 'build' ? buildAt(n, p, pk.pay) : growAt(n, p, pk.from);
+    if (err) { addLog(err); render(); return; }
+    addLog(pk.kind === 'build' ? 'A new village was built on that dot.' : 'A ' + LABEL[pk.from] + ' was promoted to a ' + LABEL[GROW[pk.from].to] + '.');
+    st.pick = null;
+    render();
+  }
 
   // ---------- screens and timer ----------
 
