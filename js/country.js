@@ -227,8 +227,9 @@
     if (!rel(i, j).war || !a.alive || !b.alive) return;
     var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent < 1) return;
-    // Magic adds attack power: each point is +1% for the attacker.
+    // Magic is used up by the attack: each point adds 1% to its strength, then the magic is gone.
     var A = sent * quality(a) * (1 + a.magic / 100);
+    a.magic = 0;
     var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
     var grade = topGrade(b);
     a.soldiers -= sent;
@@ -236,11 +237,13 @@
       a.soldiers += sent * (1 - D / A);      // survivors come home
       b.soldiers *= (1 - DEF_LOSS);
       a.culture += CULTURE[grade];
+      a.cultGained += CULTURE[grade];
       var got = takeSpot(b, a);
       addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + CULTURE[grade] + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
       b.culture += CULTURE[grade];
+      b.cultGained += CULTURE[grade];
       addLog(b.name + ' holds against ' + a.name + '. Culture +' + CULTURE[grade] + '.');
     }
   }
@@ -278,13 +281,15 @@
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
     // Stone comes from cities: each city mines 1 a turn.
     n.stone += n.c;
-    // Magic comes from every spot, and higher tiers gather more: village 0.1, town 0.2, city 0.4, fortress 0.8 a turn.
+    // Magic is gathered from every spot, and higher tiers gather more: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn.
     // The base trickle from technology stays as before.
-    n.magic += 0.1 + n.tech / 200 + 0.1 * n.v + 0.2 * n.t + 0.4 * n.c + 0.8 * n.f;
+    var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
+    n.magic += magicIn;
     // Culture draws in soldiers: up to +50% at 100 culture.
     n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200);
-    // Culture and magic together found new villages: every 400 points of their sum, one village (on average).
-    n.vprog = (n.vprog || 0) + (n.culture + n.magic) / 400;
+    // Villages grow gradually from what was gathered this turn: magic counts 1, culture counts 2, and every 10 points make a village.
+    n.vprog = (n.vprog || 0) + (magicIn + 2 * n.cultGained) / 10;
+    n.cultGained = 0;
     while (n.vprog >= 1) {
       n.vprog -= 1;
       n.v++;
@@ -357,7 +362,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0, cultGained: 0,
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
