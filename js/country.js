@@ -713,7 +713,7 @@
     }
     // The nations' regions are fixed. The provinces inside them are the population centres.
     var regions = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, zoomed: false, focus: null, provs: [], pick: null };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
     makeTerrain(seeds);
     var avg = W * H / COUNT;
@@ -826,10 +826,17 @@
     els.svg.appendChild(gLabels);
   }
 
-  // The view: the whole map, or a part of it when zoomed in (the focus is the centre of the view).
+  // Zoomed in far enough, the province dots and names show. Zoom is continuous: pinch, wheel, or the buttons.
+  var DOTS_FROM = 1.6, SCALE_MIN = 1, SCALE_MAX = 4;
+  function zoomed() { return st.scale >= DOTS_FROM; }
+  function setScale(k, fx, fy) {
+    st.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, k));
+    if (fx !== undefined) st.focus = { x: fx, y: fy };
+    if (st.scale <= SCALE_MIN) st.focus = null;
+  }
+  // The view: the whole map at scale 1, or a part of it when zoomed in (the focus is the centre of the view).
   function setView() {
-    var z = st.zoomed;
-    var w = z ? W * 0.42 : W, h = z ? H * 0.42 : H;
+    var w = W / st.scale, h = H / st.scale;
     var fx = st.focus ? st.focus.x : W / 2, fy = st.focus ? st.focus.y : H / 2;
     var vx = Math.max(0, Math.min(W - w, fx - w / 2)), vy = Math.max(0, Math.min(H - h, fy - h / 2));
     st.view = { x: vx, y: vy, w: w, h: h };
@@ -879,8 +886,8 @@
     });
     // Zoomed in: every province is a dot: an empty dot, a village, a town, a city or a fortress.
     st.gDots.innerHTML = '';
-    if (st.zoomed) P.forEach(function (p) { st.gDots.appendChild(dotShape(p)); });
-    els.zoom.textContent = st.zoomed ? '🌍 Back to countries' : '🔍 Zoom in';
+    if (zoomed()) P.forEach(function (p) { st.gDots.appendChild(dotShape(p)); });
+    els.zoom.textContent = zoomed() ? '🌍 Back to countries' : '🔍 Zoom in';
     drawMini();
   }
 
@@ -1045,7 +1052,7 @@
   // Choosing which province to build on or promote: the map is zoomed in on your land, and the next province tapped is used.
   function startPick(pk) {
     st.pick = pk;
-    if (!st.zoomed) { st.zoomed = true; st.focus = centre(st.n[0]); }
+    if (!zoomed()) setScale(2.4, centre(st.n[0]).x, centre(st.n[0]).y);
     addLog('Tap a province on your land on the map.');
     render();
   }
@@ -1099,17 +1106,46 @@
   els.ready.addEventListener('click', resolveTurn);
   // Zoom in on the selected nation's land (or back out to the whole country).
   els.zoom.addEventListener('click', function () {
-    st.zoomed = !st.zoomed;
-    st.focus = st.zoomed && st.n[selected] && st.n[selected].alive ? centre(st.n[selected]) : null;
+    if (zoomed()) setScale(1);
+    else if (st.n[selected] && st.n[selected].alive) { var c = centre(st.n[selected]); setScale(2.4, c.x, c.y); }
+    else setScale(2.4, W / 2, H / 2);
     render();
   });
   // The mini map: tap a place to look at it, zoomed in.
   els.mini.addEventListener('click', function (e) {
     var rect = els.mini.getBoundingClientRect();
-    st.focus = { x: (e.clientX - rect.left) / rect.width * W, y: (e.clientY - rect.top) / rect.height * H };
-    st.zoomed = true;
+    setScale(Math.max(st.scale, 2.4), (e.clientX - rect.left) / rect.width * W, (e.clientY - rect.top) / rect.height * H);
     render();
   });
   // The floating ⚙️ reset: back to the country view.
-  document.addEventListener('ew:reset-zoom', function () { if (st) { st.zoomed = false; st.focus = null; render(); } });
+  document.addEventListener('ew:reset-zoom', function () { if (st) { setScale(1); render(); } });
+
+  // Zoom inside the canvas: two fingers pinch, the wheel zooms, and the page itself does not zoom.
+  var pinch = null;
+  function touchPoint(t) {
+    var rect = els.svg.getBoundingClientRect();
+    return { x: (t.clientX - rect.left) / rect.width * W, y: (t.clientY - rect.top) / rect.height * H };
+  }
+  els.svg.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      var a = e.touches[0], b = e.touches[1];
+      pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, k: st.scale };
+    }
+  }, { passive: true });
+  els.svg.addEventListener('touchmove', function (e) {
+    if (e.touches.length !== 2 || !pinch) return;
+    e.preventDefault();
+    var a = e.touches[0], b = e.touches[1];
+    var d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+    var mid = touchPoint({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+    setScale(pinch.k * d / pinch.d, mid.x, mid.y);
+    render();
+  }, { passive: false });
+  els.svg.addEventListener('touchend', function (e) { if (e.touches.length < 2) pinch = null; });
+  els.svg.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var m = touchPoint(e);
+    setScale(st.scale * Math.exp(-e.deltaY * 0.0015), m.x, m.y);
+    render();
+  }, { passive: false });
 })();

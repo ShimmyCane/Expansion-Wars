@@ -863,3 +863,8 @@ body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 
 .country-map-wrap { position: relative; }
 .country-map-wrap .country-mini { width: 150px; height: 96px; }
+
+/* No page zoom: the country map and the canvases take the touches themselves. */
+html, body { touch-action: manipulation; }
+.country-map-wrap svg { touch-action: none; }
+
