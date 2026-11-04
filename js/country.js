@@ -9,7 +9,7 @@
   var NAMES = ['Your nation', 'Oakfield', 'Riverton', 'Stonevale', 'Mirewood', 'Highmoor'];
   var MIN_REP = { trade: -20, ally: 20, ceasefire: -40 };
   var TRADE_SETUP = 20;   // gold paid once by the nation that opens a trade route; the route then pays gold each turn
-  var TRIBUTE = 10, SEND = 0.5, DEFENDER = 1.2, FORT_BONUS = 0.2, DEF_LOSS = 0.6;
+  var TRIBUTE = 10, SEND = 0.5, DEFENDER = 1.2, FORT_BONUS = 0.2;
   // Growing a spot: village to town and town to city cost gold, city to fortress costs stone.
   var GROW = { v: { to: 't', gold: 10 }, t: { to: 'c', gold: 20 }, c: { to: 'f', stone: 15 } };
   var LABEL = { v: 'village', t: 'town', c: 'city', f: 'fortress' };
@@ -241,31 +241,56 @@
   // The highest grade a nation holds: the spot a battle is fought over.
   function topGrade(n) { return n.f > 0 ? 'f' : n.c > 0 ? 'c' : n.t > 0 ? 't' : 'v'; }
 
-  // A country battle: the chosen share of the attacker's soldiers (half by default) against the defender, who has a bonus.
-  // Winning earns the attacker culture; holding earns the defender culture.
+  // A country battle runs in three waves. The chosen share of the attacker's soldiers is split across them.
+  // Each wave is a fight: the defenders have an advantage, so casualties split by strength, not all or nothing.
+  // After the waves, if the attacker's power is at least 10 times the defence, the defenders capitulate at once.
+  // Otherwise the spot falls only if the attackers still standing are stronger than the defenders still standing.
+  var WAVES = 3, CAPITULATE = 10;
   function battle(x) {
     var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
     if (!rel(i, j).war || !a.alive || !b.alive) return;
     var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent < 1) return;
     // Magic is used up by the attack: each point adds 1% to its strength, then the magic is gone.
-    var A = sent * quality(a) * (1 + a.magic / 100);
+    var bonus = 1 + a.magic / 100;
     a.magic = 0;
-    var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
+    var power = sent * quality(a) * bonus;
+    var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
     var grade = topGrade(b);
+    var pool = sent, d = b.soldiers;
     a.soldiers -= sent;
-    if (A > D) {
-      a.soldiers += sent * (1 - D / A);      // survivors come home
-      b.soldiers *= (1 - DEF_LOSS);
+    for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
+      var w = pool / (WAVES - k);                     // this wave's share of the attackers still standing
+      var A = w * quality(a) * bonus;
+      var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
+      pool -= w * D / (A + D);                        // attackers lost, in proportion to the defence
+      d -= d * A / (A + D);                           // defenders lost, in proportion to the attack
+    }
+    var ratio = power / defence;
+    var got = null;
+    if (ratio >= CAPITULATE) {
+      got = takeSpot(b, a);
+      a.soldiers += pool + Math.max(0, d);            // the defenders who are left surrender to you
+      b.soldiers = 0;
+      addLog(b.name + ' capitulates to ' + a.name + (got ? ', giving up a ' + got + '.' : '.'));
+    } else if (pool * quality(a) * bonus > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER && pool > 0) {
+      got = takeSpot(b, a);
+      b.soldiers = Math.max(0, d);
+      a.soldiers += pool;                              // survivors come home
+      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.'));
+    } else {
+      b.soldiers = Math.max(0, d);
+      a.soldiers += Math.max(0, pool);
+      addLog(b.name + ' holds against ' + a.name + '.');
+    }
+    if (got) {
       var gainA = CULTURE[grade] * foodMult(a);
       a.culture += gainA;
-      var got = takeSpot(b, a);
-      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + gainA.toFixed(1) + '.');
+      addLog(a.name + ' earns culture +' + gainA.toFixed(1) + '.');
     } else {
-      b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
       var gainB = CULTURE[grade] * foodMult(b);
       b.culture += gainB;
-      addLog(b.name + ' holds against ' + a.name + '. Culture +' + gainB.toFixed(1) + '.');
+      addLog(b.name + ' earns culture +' + gainB.toFixed(1) + ' for holding.');
     }
   }
 
