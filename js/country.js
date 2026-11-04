@@ -52,6 +52,10 @@
   var DOWN = { e: 'e', v: 'v', t: 'v', c: 't', f: 'c' };   // a captured province drops one grade
   // Soldiers can leave a nation for gold: their contracts are bought out (more gold) or they are disbanded (less).
   var RELEASE_CHUNK = 10, BUYOUT_GOLD = 2, DISBAND_GOLD = 0.5, RELEASE_MIN = 2;
+  // A nation starts with two villages and a town, near its capital. The rest of its land is neutral, to be claimed.
+  var START_VILLAGES = 2, START_TOWNS = 1;
+  // Neutral land is held by a small garrison, which grows back slowly after a fight.
+  var NEUTRAL_MAX = 6, NEUTRAL_GROW = 0.5;
 
   var st = null, timer = null, selected = 0;
   var PCT_KEY = 'expansion-wars-send-pct';
@@ -77,7 +81,21 @@
     Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
     return e;
   }
-  function rnd(a, b) { return a + Math.random() * (b - a); }
+  // Maps are made from a seed, so the same seed gives the same map. The computer players are not seeded.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var gen = Math.random;   // map generation draws from this (seeded in newGame)
+  function rnd(a, b) { return a + gen() * (b - a); }
+  function parseSeed(text) {
+    var s = String(text || '').trim(), n = Number(s);
+    return s && Number.isInteger(n) && n > 0 ? n : null;
+  }
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   // Voronoi cells (same method as the province maps).
@@ -174,7 +192,7 @@
     var P = st.provs, c = horizontal ? 'x' : 'y', L = horizontal ? W : H;
     var starts = P.filter(function (p) { return p.kind === 'province' && p[c] < 140; });
     for (var tries = 0; tries < 60 && starts.length; tries++) {
-      var cur = starts[Math.floor(Math.random() * starts.length)], path = [cur.id], seen = {};
+      var cur = starts[Math.floor(gen() * starts.length)], path = [cur.id], seen = {};
       seen[cur.id] = true;
       for (var s = 0; s < 40 && cur[c] < L - 140; s++) {
         var next = cur.adj.filter(function (q) { return P[q].kind === 'province' && !seen[q]; });
@@ -264,7 +282,10 @@
   // plus the extra steps of any terrain crossed. Returns the cost (dist), the steps (hops), river borders crossed,
   // hostile provinces on the way (at war with the attacker), the share of the army worn away by terrain, the names of
   // the terrain crossed, and the province reached in the target nation (entry). Allied and peaceful land is free passage.
-  function route(i, j) {
+  function route(i, j) { return routeTo(i, function (p) { return p.owner === j; }); }
+  // The route to one neutral province, for a claim.
+  function routeProv(i, pid) { return routeTo(i, function (p) { return p.id === pid; }); }
+  function routeTo(i, isTarget) {
     var P = st.provs, d = {}, prev = {}, changed = true;
     P.forEach(function (p) { d[p.id] = p.owner === i ? 0 : Infinity; prev[p.id] = -1; });
     while (changed) {
@@ -280,7 +301,7 @@
     }
     var best = null;
     P.forEach(function (p) {
-      if (p.owner === j && d[p.id] < Infinity && (!best || d[p.id] < best.d)) best = { id: p.id, d: d[p.id] };
+      if (isTarget(p) && d[p.id] < Infinity && (!best || d[p.id] < best.d)) best = { id: p.id, d: d[p.id] };
     });
     if (!best) return null;
     var path = [best.id], cur = best.id;
@@ -370,6 +391,61 @@
       if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
     }
     return null;
+  }
+
+  // Claiming neutral land: a province nobody holds. The army attacks its garrison; winning takes the land.
+  function canClaim(i, pid) {
+    var p = st.provs[pid], a = st.n[i];
+    if (!p || p.kind !== 'province' || p.owner >= 0) return 'Already taken.';
+    if (a.soldiers < 2) return 'No soldiers to send.';
+    var R = routeProv(i, pid);
+    if (!R) return 'No land route.';
+    if (R.dist > MAX_DIST) return 'Too far away: ' + R.dist + ' steps (the limit is ' + MAX_DIST + ').';
+    return null;
+  }
+  function queueClaim(pid) {
+    var err = canClaim(0, pid);
+    if (err) { addLog(err); return; }
+    if (st.queue.some(function (x) { return x.type === 'claim' && x.from === 0 && x.prov === pid; })) return;
+    st.queue.push({ type: 'claim', from: 0, to: -1, prov: pid, pct: sendPct });
+    addLog('Queued: claim neutral land. It plays out when the turn ends.');
+  }
+  // Computer nations: the neutral province nearest their land that their army clearly beats. Neutrals need twice the strength.
+  function claimTarget(a) {
+    var best = null, need = a.neutral ? 2 : 1.3;
+    st.provs.forEach(function (p) {
+      if (p.kind !== 'province' || p.owner >= 0) return;
+      if (a.soldiers * 0.5 < need * p.gar) return;
+      var R = routeProv(a.id, p.id);
+      if (!R || R.dist > MAX_DIST) return;
+      var v = R.dist + p.gar / 10;
+      if (!best || v < best.v) best = { id: p.id, v: v };
+    });
+    return best ? best.id : null;
+  }
+  // Resolve one claim: the sent share of the army fights the garrison. Winning takes the province, and the survivors come home.
+  function claimLand(x) {
+    var i = x.from, a = st.n[i], p = st.provs[x.prov];
+    if (!a.alive || !p || p.owner >= 0) { addLog(a.name + ' could not claim that land: it is taken.'); return; }
+    var R = routeProv(i, p.id);
+    if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach that land.'); return; }
+    var sent0 = Math.floor(a.soldiers * (x.pct || 50) / 100);
+    if (sent0 < 1) return;
+    var F = attackFactors(i, R);
+    var sent = Math.floor(sent0 * (1 - F.chip));
+    a.soldiers -= sent0;
+    var front = featureDef(p) / 2;
+    var A = sent * quality(a) * (1 - F.far) * F.tail;
+    var D = p.gar * front * DEFENDER;
+    var what = p.tier === 'e' ? 'an empty dot' : 'a ' + LABEL[p.tier];
+    if (A > D) {
+      a.soldiers += sent * (A - D) / A;
+      p.owner = i; p.home = i; p.origTier = p.tier; p.gar = 0;
+      addLog(a.name + ' claims ' + what + ' from the neutral land.');
+    } else {
+      p.gar = Math.max(0, (D - A) / (front * DEFENDER));
+      addLog(a.name + "'s claim on the neutral land fails.");
+    }
   }
 
   // Upgrades get dearer as a nation holds more spots: each spot adds 10% to the base cost.
@@ -556,7 +632,7 @@
     alive().forEach(function (a) {
       if (a.id === 0) return;
       var foes = alive().filter(function (b) { return b.id !== a.id && rel(a.id, b.id).war; });
-      if (foes.length && !a.neutral) {
+      if (foes.length) {
         // Scheme: choose the foe worth the most for the distance, that the army can beat. Not every turn.
         var best = null;
         foes.forEach(function (b) {
@@ -565,7 +641,8 @@
           var value = targetValue(b) / (1 + R.dist);
           if (!best || value > best.value) best = { b: b, value: value };
         });
-        if (best && a.soldiers * quality(a) >= 0.9 * best.b.soldiers * quality(best.b) && Math.random() < 0.6) {
+        // Cautious neutrals attack only with a clear lead, and not often.
+        if (best && a.soldiers * quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * quality(best.b) && Math.random() < (a.neutral ? 0.3 : 0.6)) {
           st.queue.push({ type: 'attack', from: a.id, to: best.b.id });
         }
         // Sue for peace when badly outmatched.
@@ -574,15 +651,16 @@
             st.queue.push({ type: 'ceasefire', from: a.id, to: b.id });
           }
         });
-      } else if (!a.neutral && Math.random() < 0.2) {
-        // A stronger neighbour declares war: a 20% lead is enough.
+      } else if (Math.random() < (a.neutral ? 0.03 : 0.2)) {
+        // A stronger neighbour declares war: a 20% lead is enough (neutrals need double the power).
         var prey = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
-          return b.alive && !rel(a.id, b.id).war && power(a) >= 1.2 * power(b);
+          return b.alive && !rel(a.id, b.id).war && power(a) >= (a.neutral ? 2 : 1.2) * power(b);
         });
         if (prey.length) st.queue.push({ type: 'declare', from: a.id, to: prey[0].id });
       }
       // Gang up: befriend a neighbour that is already at peace and well regarded, to stand together against a stronger one.
-      if (!a.neutral && Math.random() < 0.15) {
+      // Neutrals rarely make alliances.
+      if (Math.random() < (a.neutral ? 0.03 : 0.15)) {
         var pals = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
           var r = rel(a.id, b.id);
           return b.alive && !r.war && !r.ally && r.rep >= MIN_REP.ally;
@@ -595,6 +673,11 @@
           return b.alive && !r.war && !r.trade && r.rep >= -10 && a.gold >= TRADE_SETUP;
         });
         if (friends.length) st.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
+      }
+      // Expansion: claim a neutral province near the land when the garrison is outmatched. Neutrals claim less often.
+      if (Math.random() < (a.neutral ? 0.15 : 0.45)) {
+        var pid = claimTarget(a);
+        if (pid !== null) st.queue.push({ type: 'claim', from: a.id, to: -1, prov: pid, pct: 50 });
       }
       if (Math.random() < 0.3) {
         ['v', 't', 'c'].sort(function () { return Math.random() - 0.5; }).some(function (k) { return !grow(a, k); });
@@ -701,10 +784,17 @@
     planAI();
     var q = st.queue;
     st.queue = [];
-    q.filter(function (x) { return x.type !== 'attack'; }).forEach(applyDiplomacy);
+    q.filter(function (x) { return x.type !== 'attack' && x.type !== 'claim'; }).forEach(applyDiplomacy);
     q.filter(function (x) { return x.type === 'attack'; })
       .sort(function () { return Math.random() - 0.5; })
       .forEach(battle);
+    q.filter(function (x) { return x.type === 'claim'; })
+      .sort(function () { return Math.random() - 0.5; })
+      .forEach(claimLand);
+    // Neutral garrisons grow back slowly.
+    st.provs.forEach(function (p) {
+      if (p.kind === 'province' && p.owner < 0) p.gar = Math.min(NEUTRAL_MAX, (p.gar || 0) + NEUTRAL_GROW);
+    });
     alive().forEach(economy);
     updateNeighbours();
     // Trade and alliances build reputation. A ceasefire counts down.
@@ -747,7 +837,7 @@
   function provinceNode(owner, c, tier) {
     return {
       id: 0, kind: 'province', owner: owner, home: owner, x: c.x, y: c.y, tier: tier, origTier: tier,
-      def: 1 + Math.floor(Math.random() * 3), occ: 0, lostTurn: -99, lostFrom: -1,
+      def: 1 + Math.floor(gen() * 3), gar: owner < 0 ? 2 + Math.floor(gen() * 3) : 0, occ: 0, lostTurn: -99, lostFrom: -1,
       cell: null, adj: [], adjRiver: [], mount: false, river: false
     };
   }
@@ -777,7 +867,9 @@
     });
   }
 
-  function newGame() {
+  function newGame(seedIn) {
+    var seed = seedIn || 1 + Math.floor(Math.random() * 999999);
+    gen = mulberry32(seed);
     var seeds = [], minD = 0.55 * Math.sqrt(W * H / COUNT);
     for (var t = 0; seeds.length < COUNT && t < 4000; t++) {
       var p = { x: rnd(80, W - 80), y: rnd(80, H - 80) };
@@ -785,16 +877,17 @@
     }
     // The nations' regions are fixed. The provinces inside them are the population centres.
     var regions = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [] };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [], target: null, seed: seed };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
     var terrain = makeTerrain(seeds);
-    var avg = W * H / COUNT;
     st.n.forEach(function (n) {
       var pts = placeProvinces(regions[n.id], terrain);
-      // Start with a few villages, one town, and empty dots for the rest: each empty dot can be promoted later.
-      var k = Math.max(2, Math.min(7, Math.round(4 * n.area / avg)));
+      // The places nearest the capital are the nation's: two villages and a town. The rest is neutral land to claim.
+      pts.sort(function (a, b) { return dist(a, n) - dist(b, n); });
       pts.forEach(function (c, idx) {
-        st.provs.push(provinceNode(n.id, c, idx < k ? 'v' : idx === k ? 't' : 'e'));
+        var mine = idx < START_VILLAGES + START_TOWNS;
+        var tier = idx < START_VILLAGES ? 'v' : idx < START_VILLAGES + START_TOWNS ? 't' : 'e';
+        st.provs.push(provinceNode(mine ? n.id : -1, c, tier));
       });
     });
     terrain.forEach(function (T) { st.provs.push(terrainNode(T)); });
@@ -803,6 +896,7 @@
     makeRivers();
     updateNeighbours();
     rel(1, 2).war = true;
+    addLog('Map seed ' + seed + '. Each nation holds two villages and a town; the rest of the land is neutral.');
     addLog('The country is at peace, except ' + NAMES[1] + ' and ' + NAMES[2] + ', who are at war.');
     addLog('Each turn is 60 seconds. Pick a nation to act, then press Ready.');
     selected = 0;
@@ -863,6 +957,7 @@
         if (p.kind === 'terrain') return;
         if (st.pick && p.owner === 0) pickProvince(p);
         else if (p.owner >= 0) select(p.owner);
+        else selectTarget(p.id);
       });
       p.titleEl = svgEl('title');
       p.el.appendChild(p.titleEl);
@@ -958,6 +1053,7 @@
       if (st.pick && mine) pickProvince(p);
       else if (mine && GROW[p.tier]) upgradeByHand(p);
       else if (p.owner >= 0) select(p.owner);
+      else selectTarget(p.id);
     });
     return g;
   }
@@ -1048,6 +1144,10 @@
   function drawCard() {
     var n = st.n[selected];
     els.card.innerHTML = '';
+    if (st.target !== null) {
+      if (st.provs[st.target].owner < 0) { drawClaim(); return; }
+      st.target = null;   // taken since it was tapped
+    }
     if (!n) { els.card.hidden = true; return; }
     els.card.hidden = false;
     els.card.appendChild(el('h3', '', n.name + (n.id === 0 ? ' (you)' : '') + (n.alive ? '' : ' (fallen)')));
@@ -1172,6 +1272,61 @@
     notes.forEach(function (t) { els.card.appendChild(el('p', 'muted small', t)); });
   }
 
+  // A neutral province: claim it with a share of your army. Its garrison defends it.
+  function drawClaim() {
+    var p = st.provs[st.target], me = st.n[0];
+    els.card.hidden = false;
+    els.card.appendChild(el('h3', '', 'Neutral land'));
+    els.card.appendChild(el('p', '', 'A neutral ' + (p.tier === 'e' ? 'empty dot' : LABEL[p.tier]) + ', held by about ' + Math.round(p.gar) + ' soldiers.'));
+    var RT = routeProv(0, p.id);
+    if (!RT) els.card.appendChild(el('p', 'muted small', 'Route: no land route.'));
+    else {
+      var F = attackFactors(0, RT);
+      var t = 'Route: ' + RT.hops + ' step' + (RT.hops === 1 ? '' : 's') + '.';
+      if (RT.crossed.length) t += ' Through ' + RT.crossed.join(', ') + '.';
+      if (F.chip) t += ' The army loses ' + Math.round(F.chip * 100) + '% on the way.';
+      if (F.far) t += ' Far away: strength −' + Math.round(F.far * 100) + '%.';
+      if (RT.dist > MAX_DIST) t += ' Too far away (the limit is ' + MAX_DIST + ' steps).';
+      els.card.appendChild(el('p', 'muted small', t));
+    }
+    // The same send slider as an attack.
+    var pick = el('div', 'send-pick');
+    var sendLine = el('p', '', '');
+    var range = el('input');
+    function showSend() {
+      sendLine.textContent = 'Send ' + sendPct + '% of your army (' + Math.floor(me.soldiers * sendPct / 100) + ' soldiers) to claim it.';
+    }
+    range.type = 'range'; range.min = 5; range.max = 100; range.step = 5; range.value = sendPct;
+    range.setAttribute('aria-label', 'Share of your army to send');
+    range.addEventListener('input', function () { sendPct = Number(range.value); showSend(); });
+    range.addEventListener('change', function () { savePct(sendPct); render(); });
+    showSend();
+    pick.appendChild(sendLine);
+    pick.appendChild(range);
+    els.card.appendChild(pick);
+    var q = st.queue.filter(function (x) { return x.type === 'claim' && x.from === 0 && x.prov === p.id; })[0];
+    var err = canClaim(0, p.id);
+    var row = el('div', 'card-buttons');
+    var b;
+    if (q) {
+      b = el('button', 'big', 'Queued: claim (' + q.pct + '%) (tap to cancel)');
+      b.addEventListener('click', function () {
+        st.queue = st.queue.filter(function (x) { return x !== q; });
+        addLog('Cancelled.'); render();
+      });
+    } else {
+      b = el('button', 'big', 'Claim this land (send ' + sendPct + '%)');
+      b.disabled = !!err;
+      b.addEventListener('click', function () { queueClaim(p.id); render(); });
+    }
+    row.appendChild(b);
+    var back = el('button', 'big', 'Back to the nations');
+    back.addEventListener('click', function () { st.target = null; render(); });
+    row.appendChild(back);
+    els.card.appendChild(row);
+    if (err && !q) els.card.appendChild(el('p', 'muted small', err));
+  }
+
   function drawLog() {
     els.log.innerHTML = '';
     st.log.slice(-8).reverse().forEach(function (t) { els.log.appendChild(el('li', '', t)); });
@@ -1191,7 +1346,9 @@
     drawLog();
   }
 
-  function select(id) { selected = id; render(); }
+  function select(id) { selected = id; st.target = null; render(); }
+  // Tapping neutral land: the card offers a claim.
+  function selectTarget(pid) { st.target = pid; render(); }
 
   // Choosing an empty dot to build on: the map is zoomed in on your land, and the next empty dot tapped is used.
   function startPick(pk) {
@@ -1246,7 +1403,13 @@
 
   $('btn-country').addEventListener('click', openCountry);
   $('country-back').addEventListener('click', backHome);
-  $('country-new').addEventListener('click', function () { newGame(); render(); startTimer(); });
+  // New country: a typed map seed makes that map again; leave it empty for a random map. The seed is shown after.
+  $('country-new').addEventListener('click', function () {
+    var box = $('country-seed');
+    newGame(parseSeed(box ? box.value : ''));
+    if (box) box.value = String(st.seed);
+    render(); startTimer();
+  });
   els.ready.addEventListener('click', resolveTurn);
   // Zoom in on the selected nation's land (or back out to the whole country).
   els.zoom.addEventListener('click', function () {

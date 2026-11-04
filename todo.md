@@ -88,6 +88,14 @@ Built with the defaults listed in convo v0.13 for Jimmy to check.
 - [ ] **Soldiers per province.** Soldiers are still one pool for the nation. Each province holding its own soldiers is open (convo v0.13 question 2).
 - [ ] **City to fortress in gold.** Still paid in stone (convo v0.13 question 3).
 
+## Round 8 (version 2.15): seeded maps, a small start, neutral land
+
+- [x] **Maps from a seed.** Type a map seed next to New country to make that map again; blank is random. The seed is shown in the log.
+- [x] **Start small.** Each nation starts with two villages and a town near its capital. The other 12 provinces in its region are neutral.
+- [x] **Claim neutral land.** Tap a neutral province to claim it with a share of your army. Its garrison (2 to 6 soldiers, growing back slowly) defends it.
+- [x] **Cautious neutral nations.** Neutrals claim, attack and declare less often than the other computer nations, need a bigger lead, and rarely ally.
+- [ ] **Balance.** Claim and garrison numbers are first guesses. Play full games and tune them.
+
 ## Later
 
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.
