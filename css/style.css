@@ -847,3 +847,19 @@ body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 .version-log ol { max-height: 180px; overflow-y: auto; margin: 6px 0 0; padding-left: 22px; }
 .version-log li { margin: 0 0 4px; }
 
+/* Province map: borders, terrain, empty dots, the mini map. */
+.border { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; pointer-events: none; }
+.lake { fill: #8fd3f4; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
+.river { fill: none; stroke: #4aa3df; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.mountain { fill: #c9c2b4; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
+.dot-e { fill: #ffffff; stroke-dasharray: 4 3; }
+.dot-neutral { opacity: 0.6; }
+.country-mini {
+  position: absolute; right: 8px; bottom: 8px; width: 150px; height: 96px;
+  background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; z-index: 6; cursor: pointer;
+}
+.mini-cell { stroke: none; }
+.mini-view { fill: none; stroke: var(--ink); stroke-width: 14; }
+
+.country-map-wrap { position: relative; }
+.country-map-wrap .country-mini { width: 150px; height: 96px; }
