@@ -104,7 +104,7 @@ test('proceed restores the original plan after a new command', () => {
 
 test('the bell raises levies at the start, one per 20 population', () => {
   const st = V4.createBattle(V4.sampleRequest({ seed: 4, settlement: 'town', population: 60, attackerUnits: [{ type: 'pikemen', count: 1 }], defenderUnits: [{ type: 'pikemen', count: 1 }] }), {});
-  for (let i = 0; i < 240 && !st.done; i++) V4.step(st, 0.1);   // 24 seconds
+  for (let i = 0; i < Math.ceil(21 / C.TICK) && !st.done; i++) V4.step(st);   // past the 20 second delay
   assert.ok(st.done || st.levies === 3, 'three levies for population 60 (or the battle already ended)');
 });
 
@@ -112,12 +112,84 @@ test('a battle with no winner stops at the cap, and the defender wins on time', 
   const st = blank(V4.sampleRequest({ seed: 2, scale: 'village', settlement: 'none', attackerUnits: [], defenderUnits: [] }));
   const a = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 3, 10, 1);
   const d = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 45, 10, 1);
-  V4.issue(st, { kind: 'hold', unit: a.id });
-  V4.issue(st, { kind: 'hold', unit: d.id });
-  const steps = Math.ceil(C.CAP.village / 0.5) + 2;
-  for (let i = 0; i < steps && !st.done; i++) V4.step(st, 0.5);
-  assert.strictEqual(st.done && st.done.how, 'time');
+  a.order = { kind: 'hold' };
+  d.order = { kind: 'hold' };
+  for (let i = 0; i < Math.ceil(C.CAP.village / C.TICK) + 5 && !st.done; i++) V4.step(st);
+  assert.ok(st.done, 'battle ended');
+  assert.strictEqual(st.done.how, 'time');
   assert.strictEqual(st.done.winner, 1);
+});
+
+test('replay: the same request and orders give the same battle', () => {
+  const req = V4.sampleRequest({ seed: 21 });
+  const st = V4.createBattle(req, {});
+  const attacker = st.units.filter(u => u.side === 0);
+  for (let i = 0; i < 4000 && !st.done; i++) {
+    if (st.tick === 5) V4.issue(st, { kind: 'move', unit: attacker[0].id, x: 20, y: 12 });
+    if (st.tick === 40) V4.issue(st, { kind: 'rush', unit: attacker[1].id, x: 30, y: 14 });
+    if (st.tick === 90) V4.issue(st, { kind: 'strategy', unit: attacker[2].id, value: 'kite' });
+    V4.step(st);
+  }
+  assert.ok(st.commands.length >= 3, 'orders were recorded');
+  assert.deepStrictEqual(V4.replay(req, st.commands), V4.result(st));
+});
+
+test('fog: an ambusher in woods is hidden from the attacker until it is close', () => {
+  const st = V4.createBattle(V4.sampleRequest({ seed: 8, defenderWoods: true, settlement: 'none', defenderUnits: [{ type: 'pikemen', count: 6 }] }), {});
+  const amb = st.units.find(u => u.side === 1 && u.strategy === 'ambush');
+  assert.ok(amb, 'the defender planned at least one ambush');
+  assert.strictEqual(amb.hidden, true, 'it is hidden in woods');
+  assert.ok(!st.seen[0][amb.id], 'the attacker cannot see it from far away');
+});
+
+test('rush move runs past an enemy without fighting it', () => {
+  const st = blank(V4.sampleRequest({ seed: 9, settlement: 'none', attackerUnits: [], defenderUnits: [] }));
+  const runner = S.newUnit(st, 0, 'swordsmen', 'engage', 'line', 10, 10, 20);
+  const target = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 11.5, 10, 20);
+  target.order = { kind: 'hold' };
+  V4.issue(st, { kind: 'rush', unit: runner.id, x: 20, y: 10 });
+  const before = target.people;
+  for (let i = 0; i < 40; i++) V4.step(st);
+  assert.strictEqual(target.people, before, 'the runner did not fight');
+  assert.ok(runner.x > 11.5, 'and it went past');
+});
+
+test('attack move fights an enemy it meets on the way', () => {
+  const st = blank(V4.sampleRequest({ seed: 9, settlement: 'none', attackerUnits: [], defenderUnits: [] }));
+  const mover = S.newUnit(st, 0, 'swordsmen', 'engage', 'line', 10, 10, 20);
+  const target = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12, 10, 20);
+  target.order = { kind: 'hold' };
+  V4.issue(st, { kind: 'move', unit: mover.id, x: 20, y: 10 });
+  for (let i = 0; i < 60; i++) V4.step(st);
+  assert.ok(target.people < 20 || target.state !== 'active', 'the mover attacked the enemy on the way');
+});
+
+test('a routed unit rallies once its morale is back, with no enemy near', () => {
+  const st = blank(V4.sampleRequest({ seed: 10, settlement: 'none', attackerUnits: [], defenderUnits: [] }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 25, 10, 20);
+  u.state = 'routing';
+  u.morale = 10;
+  // A second attacker, far away, keeps the attacking side in the battle while the first one runs.
+  S.newUnit(st, 0, 'pikemen', 'engage', 'line', 3, 28, 20).order = { kind: 'hold' };
+  S.newUnit(st, 1, 'pikemen', 'engage', 'line', 45, 10, 20).order = { kind: 'hold' };
+  for (let i = 0; i < 2000 && u.state === 'routing'; i++) V4.step(st);
+  assert.strictEqual(u.state, 'active', 'it rallied');
+  assert.ok(u.morale >= C.MORALE.rallyAt, 'morale is back');
+});
+
+test('morale recovers slowly over time when nothing is in contact', () => {
+  const st = blank(V4.sampleRequest({ seed: 10, settlement: 'none', attackerUnits: [], defenderUnits: [] }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 25, 10, 20);
+  u.morale = 50;
+  for (let i = 0; i < Math.ceil(10 / C.TICK); i++) V4.step(st);
+  assert.ok(u.morale > 50 && u.morale < 70, 'recovered some, not all: ' + u.morale.toFixed(1));
+});
+
+test('surrender counts reserves on their way, so a side with reinforcements queued does not give up', () => {
+  const req = V4.sampleRequest({ seed: 12, scale: 'village', settlement: 'none', attackerUnits: [{ type: 'pikemen', count: 1 }], defenderUnits: [{ type: 'pikemen', count: 25 }] });
+  req.attacker.reserve = [{ type: 'pikemen', count: 1 }];
+  const st = V4.createBattle(req, {});
+  assert.strictEqual(st.done, null, 'one on the field plus one on the way is 2 x 20 = 40, above 25');
 });
 
 test('pool accounting: what leaves home comes back as survivors', () => {

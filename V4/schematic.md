@@ -1,6 +1,6 @@
 # Expansion Wars — V4 Schematic (battle view)
 
-**Status:** Sandbox built (phases 0 to 4). Not linked from V2: phase 5 is not started. Balance is a first pass.
+**Status:** Custom battle built (V4). Round 2: vision, defender plan, attack and rush moves, rally, fixed-step replay. Not linked from V2: phase 5 is not started. Balance is a first pass.
 **Owner:** Jimmy
 **Platform:** Same as V2: plain HTML/CSS/JS in `V4/`, no build step. Opens from `V4/index.html`.
 **Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V4 does not edit V2 files until the contract below is agreed.
@@ -302,3 +302,28 @@ Each phase gets an entry in `todo.md` that is ticked when built, as now.
 - The animal mapping for insignia, once the style is chosen.
 - Grain at country scale (100 or more).
 - The 20 to 1 surrender ratio, and whether surrender means losing every objective or just the main one.
+
+## Round 2 (V4): what changed and why
+
+Decisions from Jimmy, recorded here.
+
+- **Single mode.** One custom battle, set up like Total War: armies, ground, seed, then the player places their units inside a deployment strip, then Begin.
+- **Replay fixed.** The battle runs in fixed steps of `C.TICK` seconds. Real time is turned into whole steps, so the battle depends only on the seed and the orders. Every accepted order is recorded with its tick. "Copy replay" gives the request, the orders and the result, and `V4.replay` reproduces the result exactly (checked in the browser run).
+- **Vision and fog.** Each side sees what any of its units can see. Defenders see four tiles further. Enemies you cannot see are not drawn. An ambusher in woods is hidden from the attacker until it is three tiles away.
+- **Defender plan.** A third of the infantry ambush in the woods nearest the attack, and the rest hold a station around the first objective, fighting within eight tiles of it. Cavalry hold the flanks.
+- **Orders.** A click on ground is an attack move: the unit fights what it sees on the way, then carries on. A rush move ignores enemies on the way (rush speed). Attack and hold are as before.
+- **Morale and rally.** Morale recovers slowly over time out of contact (0.5 a second). A unit that has stood still for three seconds recovers faster (+1 a second). A steady friend within three tiles adds to it. A captured objective lifts friends near it (+15). An enemy that dies lifts friends near it (+8). An enemy that routs lifts friends near it (+6). A routed unit rallies at 25 morale, when no enemy is within six tiles.
+- **Surrender with reserves.** The 1-in-20 check counts reinforcements on their way, and the bell's levies not yet raised.
+
+### Interpretations to confirm
+
+- "Taking pause" is read as a unit that has stood still for three seconds.
+- "Or die" is read as an enemy dying near a unit.
+- "Slow recovery with time" is 0.5 a second out of contact.
+
+### Balance notes (round 2 first run)
+
+- With the defender planned, the defender has a clear edge: a pikemen mirror is won by the defender about 83% of the time over six seeds. The causes are the sight bonus, the stations, and the ambush. Decide whether that is the intent before tuning.
+- Catapults win most matchups at range, as before.
+- Samples are small (six seeds). Use `node V4/tests/balance.js 40` for steadier numbers.
+

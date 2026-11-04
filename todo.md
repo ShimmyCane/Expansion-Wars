@@ -82,5 +82,7 @@ Checked against `js/game.js` on `main`. Notes stay `open` in the table until Jim
 - [ ] **Speed and defense boosts, towers, spells, Quick Game** (already listed on the Shop page as coming soon).
 - [x] **V4 battle view: sandbox built** (phases 0 to 4): `V4/`, with rule tests in `V4/tests/sim.test.js`. Not linked from V2.
 - [ ] **V4 phase 5: link battles into V2.** Needs the contract agreed and one change in `js/country.js` behind a setting. Not started.
-- [ ] **V4 balance pass.** Mirror matches lean to the defender, and catapults and archers look too strong. See "Balance notes" in `V4/schematic.md`.
+- [x] **V4 round 2: custom battle.** Replay fixed by fixed steps. Vision and fog, defender plan, attack and rush moves, morale rally. Tests: `node V4/tests/sim.test.js` (19 checks).
+- [ ] **V4 balance pass.** With the defender planned, the defender has a clear edge (pikemen mirror about 83% to the defender). Catapults and archers look strong. See "Balance notes" in `V4/schematic.md`.
+- [ ] **V4: confirm the morale reads** ("taking pause" as standing still, "or die" as an enemy dying nearby, 0.5 a second recovery).
 - [ ] **V4: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V4/schematic.md`.

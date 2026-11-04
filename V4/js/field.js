@@ -99,8 +99,12 @@
       if (get(COLS - 1, y) !== null && !C.TERRAIN[get(COLS - 1, y)].impassable) edgeB.push({ x: COLS - 0.5, y: y + 0.5 });
     }
 
+    var woodTiles = [];
+    for (y = 0; y < ROWS; y++) for (x = 0; x < COLS; x++) if (tiles[y * COLS + x] === 'w') woodTiles.push({ x: x + 0.5, y: y + 0.5 });
+
     return {
       tiles: tiles,
+      woodTiles: woodTiles,
       objectives: objectives,
       spawn: { 0: zone({ x0: 1, x1: 5, y0: 3, y1: 28 }), 1: zone(zoneDef) },
       edge: { 0: edgeA, 1: edgeB },

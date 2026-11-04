@@ -9,6 +9,9 @@
     ROWS: 32,
     TILE: 20,
 
+    // Fixed simulation step, in seconds. Replays depend on this being constant.
+    TICK: 0.05,
+
     TYPES: ['cavalry', 'pikemen', 'swordsmen', 'archers', 'slingers', 'catapults'],
 
     // speed: tiles per second on foot. atk: damage per person per second (before counters).
@@ -21,6 +24,10 @@
       slingers:  { label: 'Slingers',  speed: 1.2, atk: 0.5, range: 4,   melee: false, mounted: false, minRange: 0, reload: 1.0 },
       catapults: { label: 'Catapults', speed: 0.4, atk: 0.6, range: 9,   melee: false, mounted: false, minRange: 2, reload: 2.5 }
     },
+
+    // How far a unit can see enemies, in tiles. Defenders see further (see DEFENDER_SIGHT_BONUS).
+    SIGHT: { cavalry: 8, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6 },
+    DEFENDER_SIGHT_BONUS: 4,
 
     // Counters: a strong pairing deals COUNTER.up, a weak pairing COUNTER.down, otherwise 1.
     STRONG: {
@@ -81,11 +88,40 @@
     DAMAGE_K: 0.02,            // overall scale of damage per second
     AMBUSH: { range: 3, duration: 5, dmgMul: 1.5 },
     CHARGE: { window: 3, mul: 1.3 },
-    MORALE: { perLoss: 60, neighbourHit: 10, neighbourRange: 3, floor: 0.3, routSpeed: 1.5 },
+    RUSH_MOVE: 1.3,            // speed factor for a rush move (ignores enemies on the way)
+
+    // Morale is per unit, 0 to 100. Losses and rout are as before. Recovery and rally are new.
+    MORALE: {
+      perLoss: 60,             // morale lost for each full strength lost
+      neighbourHit: 10,        // a routing unit knocks this off friends nearby
+      neighbourRange: 3,
+      floor: 0.3,              // a unit below this morale still deals at least this share of its attack
+      routSpeed: 1.5,
+      calm: 0.5,               // per second, out of contact
+      pause: 1.0,              // extra per second for a unit that has stood still for a while
+      pauseAfter: 3,           // seconds still before the pause bonus starts
+      allies: 1.0,             // per second when a steady friend is close
+      allyRange: 3,
+      allyMorale: 60,          // a friend must be at least this steady
+      contactRange: 4,         // an enemy this close stops calm recovery
+      capture: 15,             // one-off, to friends near a captured objective
+      death: 8,                // one-off, to friends near an enemy that dies
+      enemyFlee: 6,            // one-off, to friends near an enemy that routs
+      enemyFleeRange: 6,
+      rallyAt: 25,             // a routed unit rallies at this morale, if no enemy is within threat range
+      threatRange: 6
+    },
+
     HOLD: 10,                  // seconds on an objective to take it
     HOLD_RADIUS: 2.5,          // tiles
     BELL: { delay: 20, popPerLevy: 20, levyMorale: 70, levyAtk: 0.8 },
     REINFORCE_EVERY: 30,       // seconds between attacker reinforcement dots
-    SURRENDER_RATIO: 20        // a side with 1/20 of the other side's strength gives up
+    SURRENDER_RATIO: 20,       // a side with 1/20 of the other side's strength gives up
+
+    // Computer-planned defence. A share of the infantry ambushes from woods, the rest hold a station.
+    AI: { ambushShare: 0.34, leash: 8 },
+
+    // Deployment: the player's units may be placed within this many tiles of their edge.
+    DEPLOY_X: 6
   };
 })();

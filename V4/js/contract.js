@@ -26,12 +26,26 @@
     return bad;
   };
 
-  // Plays a battle with no drawing, at the speed of the sim. Used by balance runs and V2's computer battles.
-  V4.runAuto = function (req, opts) {
-    var dt = (opts && opts.dt) || 0.25;
+  // Plays a battle with no drawing, in the same fixed steps as the game. Used by balance runs and V2's computer battles.
+  // Both sides are planned by the computer (mode 'auto').
+  V4.runAuto = function (req) {
+    var r = Object.assign({}, req, { mode: 'auto' });
+    var st = V4.createBattle(r, {});
+    var maxTicks = Math.ceil((C.CAP[r.scale] || 120) / C.TICK) + 10;
+    while (!st.done && maxTicks-- > 0) V4.step(st);
+    return V4.result(st);
+  };
+
+  // Replays a battle from its request and the commands recorded during play. The same inputs give the same result.
+  V4.replay = function (req, commands) {
     var st = V4.createBattle(req, {});
-    var guard = Math.ceil((C.CAP[req.scale] || 120) / dt) + 10;
-    while (!st.done && guard-- > 0) V4.step(st, dt);
+    var list = (commands || []).slice().sort(function (a, b) { return a.tick - b.tick; });
+    var i = 0, maxTicks = Math.ceil((C.CAP[req.scale] || 120) / C.TICK) + 10;
+    while (maxTicks-- > 0) {
+      while (i < list.length && list[i].tick === st.tick) { V4.issue(st, list[i].cmd); i++; }
+      if (st.done) break;
+      V4.step(st);
+    }
     return V4.result(st);
   };
 

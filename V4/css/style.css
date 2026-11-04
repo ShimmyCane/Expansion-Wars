@@ -82,3 +82,9 @@ button:disabled { opacity: 0.5; }
   .bar #bf-score { flex-basis: 100%; order: 3; }
   .top .note { margin-left: 0; flex-basis: 100%; }
 }
+
+/* Custom battle additions */
+.big-inline { background: #bfe8c4; font-weight: 700; }
+.seed { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.deploy-note { color: var(--accent); font-weight: 600; margin: 8px 0 0; }
+.deploy-note[hidden] { display: none; }

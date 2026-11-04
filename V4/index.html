@@ -5,60 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#fbf6e9">
-  <title>Expansion Wars — V4 Battle</title>
+  <title>Expansion Wars — V4 Custom Battle</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="top">
     <a class="back" href="../index.html">← Expansion Wars</a>
-    <h1>V4 · Battle view</h1>
-    <span class="note">Sandbox. Not linked from V2 yet.</span>
+    <h1>V4 · Custom battle</h1>
+    <span class="note">Sandbox to test the battlefield. Not linked from V2.</span>
   </header>
 
   <!-- Setup -->
   <section id="screen-setup" class="screen">
-    <p class="intro">Choose a fight, the size of each army, and how each side starts. Then the battle runs in real time. You can pause at any time to give orders.</p>
+    <p class="intro">Build a custom battle, as in Total War. Choose the armies and the ground. Then place your units, and the battle runs in real time. Pause at any time to give orders.</p>
 
     <div class="card">
       <h2>The fight</h2>
+      <label>Seed <input type="number" id="sc-seed" min="1" placeholder="random"></label>
       <label>Scale <select id="sc-scale"></select></label>
       <label>Settlement <select id="sc-settle"></select></label>
       <label class="check"><input type="checkbox" id="sc-river"> River on the border (with fords)</label>
       <label class="check"><input type="checkbox" id="sc-woods" checked> Woods on both sides</label>
+      <p class="muted small">The same seed and the same orders give the same battle. The seed is shown during the battle.</p>
     </div>
 
     <div class="card">
       <h2>Armies</h2>
-      <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale.</p>
+      <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale. The defender is planned by the computer.</p>
       <div id="sc-types"></div>
     </div>
 
     <div class="card">
-      <h2>Opening plan</h2>
+      <h2>Your opening plan</h2>
+      <p class="muted small">Applies to your units when the battle starts. You can change any unit during the battle.</p>
       <div class="grid2">
-        <div>
-          <h3>You (attacker)</h3>
-          <label>Strategy <select id="sc-strat-a"></select></label>
-          <label>Formation <select id="sc-form-a"></select></label>
-        </div>
-        <div>
-          <h3>Them (defender)</h3>
-          <label>Strategy <select id="sc-strat-d"></select></label>
-          <label>Formation <select id="sc-form-d"></select></label>
-        </div>
+        <label>Strategy <select id="sc-strat-a"></select></label>
+        <label>Formation <select id="sc-form-a"></select></label>
       </div>
     </div>
 
-    <button id="sc-start" class="big">▶ Start battle</button>
+    <button id="sc-start" class="big">▶ Set up the field</button>
   </section>
 
   <!-- Battle -->
   <section id="screen-battle" class="screen" hidden>
     <div class="bar">
       <span id="bf-time">0:00</span>
+      <span id="bf-seed" class="seed"></span>
       <span id="bf-score"></span>
+      <button id="bf-begin" class="big-inline" hidden>▶ Begin battle</button>
       <button id="bf-toggle">❚❚ Pause</button>
       <button id="bf-surrender" class="ghost">Surrender</button>
+    </div>
+
+    <div class="row">
+      <label>Click ground to <select id="bf-click-mode">
+        <option value="move">attack move</option>
+        <option value="rush">rush move</option>
+      </select></label>
     </div>
 
     <div class="field-wrap">
@@ -66,6 +70,7 @@
       <div id="bf-count" class="count" hidden></div>
     </div>
 
+    <p id="bf-deploy-note" class="deploy-note" hidden>Deployment. Place your units inside the blue strip, then begin.</p>
     <p id="bf-hint" class="hint"></p>
 
     <div id="bf-unit" class="card unit-panel" hidden>
@@ -86,9 +91,9 @@
     <div id="bf-result" class="card result" hidden>
       <h2 id="bf-result-title"></h2>
       <p id="bf-result-body"></p>
-      <textarea id="bf-result-json" rows="6" readonly></textarea>
+      <textarea id="bf-result-json" rows="8" readonly></textarea>
       <div class="row">
-        <button id="bf-copy" class="ghost">Copy battle log</button>
+        <button id="bf-copy" class="ghost">Copy replay</button>
         <button id="bf-again">New battle</button>
       </div>
     </div>
