@@ -42,7 +42,9 @@
 
 6. **Still open from the resource round.** (a) Is "patient" nation meant to be "patron" nation? (b) Stone deadlock: a starting stock, a trickle from owned fortresses, or trade only? (c) Culture from a fortress is four times a city's. Is that the intent, or should it be lower?
 
-   > **Jimmy:**
+   > **Jimmy:** Culture only comes from winning battles, so it only grows while battles are being fought.
+   >
+   > **My reading:** culture is earned per victory, not per turn. The amount per victory could follow the tier of the spot won (so taking a fortress gives more than taking a village). Peace earns no culture, which removes the passive snowball. Open: whether a victory earns culture for the attacker only, and whether there is a cap per turn.
 
 ---
 
