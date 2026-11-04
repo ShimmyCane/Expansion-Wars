@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Expansion Wars">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Landing page -->
+  <section id="screen-home" class="screen home">
+    <div class="logo" aria-hidden="true">🍄</div>
+    <h1>Expansion Wars</h1>
+    <p class="tag">Send your soldiers. Take the whole meadow.</p>
+    <div class="menu">
+      <button id="btn-play" class="big hero">▶ Play</button>
+      <button id="btn-map" class="big">🗺️ Progress map</button>
+      <button id="btn-shop" class="big">🛒 Shop</button>
+      <button id="btn-scores" class="big">🏆 High scores</button>
+    </div>
+    <p class="foot">Made for iPhone and iPad</p>
+  </section>
+
+  <!-- Progression map -->
+  <section id="screen-map" class="screen" hidden>
+    <header class="bar">
+      <button class="back" data-go="home">← Home</button>
+      <h2>Progress</h2>
+      <span class="bar-spacer"></span>
+    </header>
+    <div id="path" class="path"></div>
+    <p id="map-note" class="muted center"></p>
+  </section>
+
+  <!-- Shop / features -->
+  <section id="screen-shop" class="screen" hidden>
+    <header class="bar">
+      <button class="back" data-go="home">← Home</button>
+      <h2>Shop</h2>
+      <span class="bar-spacer"></span>
+    </header>
+    <p class="muted center">Features in Expansion Wars. Coming soon items are not in the game yet.</p>
+    <ul id="shop-list" class="cards"></ul>
+  </section>
+
+  <!-- High scores -->
+  <section id="screen-scores" class="screen" hidden>
+    <header class="bar">
+      <button class="back" data-go="home">← Home</button>
+      <h2>High scores</h2>
+      <span class="bar-spacer"></span>
+    </header>
+    <h3 class="section-title">Best per level</h3>
+    <div id="best-levels" class="cards"></div>
+    <h3 class="section-title">Top 10</h3>
+    <ol id="score-list" class="scores"></ol>
+    <p class="muted center">Scores are earned by winning. Saved on this device.</p>
+  </section>
+
+  <!-- Game -->
+  <section id="screen-game" class="screen game" hidden>
+    <div class="gamebar">
+      <button id="btn-home" class="back">🏠 Map</button>
+      <p id="status" class="pill">Drag from your mushroom to a connected one</p>
+      <button id="sync-pill" class="sync-pill" type="button" aria-live="polite">💾 device</button>
+    </div>
+    <main class="stage">
+      <div class="top-row">
+        <button id="pct-btn" class="pct-btn" type="button">Send 25%</button>
+        <div id="pop-bar" class="pop-bar" role="img" aria-label="Territories and soldiers per player"></div>
+      </div>
+      <div class="board-wrap">
+        <div id="board" class="board">
+          <svg id="roads" class="layer" viewBox="0 0 1000 640"></svg>
+          <div id="nodes" class="layer"></div>
+          <svg id="armies" class="layer" viewBox="0 0 1000 640"></svg>
+        </div>
+        <div id="countdown" class="countdown" hidden></div>
+        <div class="zoom-bar">
+          <button id="zoom-out" class="zoom-btn" type="button" aria-label="Zoom out">−</button>
+          <button id="zoom-fit" class="zoom-btn" type="button">Fit</button>
+          <button id="zoom-in" class="zoom-btn" type="button" aria-label="Zoom in">+</button>
+        </div>
+        <div id="minimap" class="minimap" hidden>
+          <svg id="mm-svg" viewBox="0 0 1000 640" preserveAspectRatio="none"></svg>
+          <div id="mm-view" class="mm-view"></div>
+        </div>
+      </div>
+    </main>
+    <p class="rotate-hint">Turn your phone sideways for a bigger board.</p>
+    <button id="gear" class="gear" aria-label="Settings">⚙️</button>
+    <section id="panel" class="panel" hidden>
+      <h2>Settings</h2>
+      <div class="row">
+        <span>Computer</span>
+        <div class="seg" id="seg-ai">
+          <button data-ai="easy" aria-pressed="false">Easy</button>
+          <button data-ai="normal" aria-pressed="true">Normal</button>
+          <button data-ai="hard" aria-pressed="false">Hard</button>
+        </div>
+      </div>
+      <div class="row">
+        <span>Surrender when outnumbered 10 to 1</span>
+        <button id="surrender-toggle" class="toggle" aria-pressed="false">Off</button>
+      </div>
+      <div class="row">
+        <span>Sound</span>
+        <button id="sound" class="toggle" aria-pressed="true">On</button>
+      </div>
+      <button id="newmap" class="big">New map, same level</button>
+      <button id="open-maps" class="big">Saved maps</button>
+      <div class="note-box">
+        <label for="note-text">Notes for improvement</label>
+        <textarea id="note-text" rows="2" maxlength="500" placeholder="What could be better on this map?"></textarea>
+        <button id="note-save" class="big">Save note</button>
+        <p id="note-status" class="muted" aria-live="polite"></p>
+      </div>
+      <div class="family">
+        <h3>Family database</h3>
+        <p id="sync-msg" class="muted" aria-live="polite">Saved on this device.</p>
+        <form id="family-form" class="family-form" hidden>
+          <input id="family-email" type="email" autocomplete="username" placeholder="Family email">
+          <input id="family-pass" type="password" autocomplete="current-password" placeholder="Password">
+          <button id="family-signin" class="big" type="submit">Sign in</button>
+        </form>
+        <button id="family-sync" class="big" type="button">☁️ Send my maps and notes</button>
+        <button id="family-check" class="big" type="button">Check database</button>
+        <button id="family-signout" class="big" type="button" hidden>Sign out</button>
+        <p id="family-result" class="muted" aria-live="polite"></p>
+      </div>
+      <div class="row">
+        <span>Show errors</span>
+        <button id="errors-toggle" class="toggle" aria-pressed="false">Off</button>
+      </div>
+    </section>
+  </section>
+
+  <!-- Overlays -->
+  <div id="overlay" class="overlay" hidden>
+    <div class="card">
+      <h2 id="win-title"></h2>
+      <p id="win-text"></p>
+      <p id="win-stars" class="stars-big" aria-live="polite"></p>
+      <div class="card-buttons">
+        <button id="win-next" class="big hero">Next level</button>
+        <button id="win-retry" class="big">Play again</button>
+        <button id="win-map" class="big">Progress map</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="maps" class="overlay" hidden>
+    <div class="card maps-card">
+      <h2>Saved maps</h2>
+      <div id="maps-list" class="maps-list"></div>
+      <button id="maps-close" class="big">Close</button>
+    </div>
+  </div>
+
+  <div id="errors" class="errors" hidden></div>
+
+  <script src="js/sound.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
