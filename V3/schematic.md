@@ -8,54 +8,85 @@
 
 ## Purpose
 
-The battle scale. When one nation's army crosses a border into another nation's province, the fight is played on a terrain field. Squads move, fight, hold and break. The result goes back to the country layer (V2): which spots change hands, and which soldiers are lost.
+The battle scale. When one nation's army crosses a border into another nation's land, the fight is played on a terrain field. Units move, fight, hold and break. The result goes back to the country layer (V2): which spots change hands, and which soldiers are lost.
 
-The three scales:
+The scales of play:
 
 | Scale | Where | What a dot is | Clock |
 |---|---|---|---|
 | Country | V2 map (`index.html`, `js/country.js`) | a nation (region) | 60 s turns |
 | Province | V2 zoom (dots), V1 spot map | a population centre or spot | paused during a battle |
-| Battle | V3 (this file) | a squad | battle clock: pause, slow, normal |
+| Battle | V3 (this file) | depends on the battle's scale (below) | battle clock: pause, slow, normal |
 
-**Naming:** in V2's zoom a dot is a population centre. In V3 a dot is a squad. Use "squad" in code and text so the two do not mix (question 2).
+**Naming:** in V2's zoom a dot is a population centre. In V3 a dot is a unit (a person, a squad or a battalion, depending on scale). Use "unit" in code and text (question 2).
+
+## Scales of battle
+
+The same engine plays three sizes of fight. Each has its own grain (how many people one dot stands for) and its own ground.
+
+| Battle scale | Fight | One dot = | Ground | Tile means (default, to check) |
+|---|---|---|---|---|
+| Village | a village and the one or two provinces around it | one person | one or two provinces, close view | about 5 m |
+| Fortress | a fortress, town or border crossing and its province | a squad of about 20 | one province and the border (the design so far) | about 20 m |
+| Country | a war front across several provinces | a battalion of about 100 or more | three or more provinces, scaled down | about 100 m |
+
+The scale is set by the fight: a village skirmish is village scale, an attack on a fortress is fortress scale, and a country campaign battle is country scale. Head counts and damage are per person, so a dot's strength is its number of people, up to its grain.
 
 ## Goals
 
-1. Squads of different types fight on a terrain field built from the province.
-2. Strategy matters: flanking, feints, choice of ground, timing of reinforcements, pulling the garrison out.
-3. The defence is more than the garrison: a town or fortress raises levies from its people.
-4. Time can be controlled: pause, slow, normal. Orders can be given while paused.
-5. The result returns to V2 through one small contract, so V2 works with or without V3.
+1. Units of different types fight on terrain built from the provinces where the fight takes place.
+2. **Speed differs by unit type and by formation.** A column moves fast; a loose blob moves slowly and covers ground.
+3. **Units read at a glance.** Each type has a traditional campaign insignia. Ranged units animate their volleys, and catapults animate their shots.
+4. Strategy matters: flanking, feints, choice of ground, formation choice (ambush risk against speed), timing of reinforcements, pulling the garrison out.
+5. The defence is more than the garrison: a town or fortress raises levies from its people.
+6. Time can be controlled: pause, slow, normal. Orders can be given while paused.
+7. The result returns to V2 through one small contract, so V2 works with or without V3.
 
 ## Non-goals (first version)
 
 - Multiplayer battles, saved battles, database writes (Supabase).
-- Sound and art polish. Dots, icons and plain shapes are enough.
-- Individual men. Each squad is one dot with a strength number.
-- Formations, line of sight beyond one simple rule, facing beyond front and rear.
+- Sound and detailed art. Insignia are simple vector shapes, and animation is simple motion.
+- Morale and fatigue for each person. Morale is per dot.
+- Line of sight beyond one simple rule, and facing beyond front and rear.
 - Changing V2's battle code. That is a separate, later change (phase 5).
 
-## Squads (the dots)
+## Units (the dots)
 
-- One dot = one squad of one unit type.
-- **Strength** = men in the squad, from 1 up to the type's maximum (table below). The men come out of the province's soldier pool when the squad is sent. Survivors go back to the pool at the end of the battle.
-- A squad has a type, men, morale (0 to 100), a position, a facing (toward the enemy edge) and current orders.
+- One dot = one unit of one type. At village scale the unit is a person; at fortress scale a squad of about 20; at country scale a battalion of about 100 or more.
+- **Strength** = people in the unit, up to its grain for that scale. Strength starts from the province's soldier pool when the unit is sent. Survivors go back to the pool at the end of the battle.
+- A unit has a type, strength, morale (0 to 100), a position, a facing (toward the enemy edge), a formation and current orders.
 
-Unit types (first pass; every number is my default, to check):
+Unit types (first pass; every number is my default, to check). The speed is per person's pace on foot; the scale sets how far a tile is.
 
-| Type | Max men | Speed (tiles/s) | Strong against | Weak against |
+| Type | Insignia (traditional device) | Speed (tiles/s) | Strong against | Weak against |
 |---|---|---|---|---|
-| Cavalry | 10 | 2.0 | archers, slingers, catapults (charge on open ground) | pikemen; woods and town streets |
-| Pikemen | 20 | 0.8 | cavalry | archers, who shoot while pikes close the gap |
-| Swordsmen | 15 | 1.0 | pikemen inside the pike line; anyone in woods or towns | archers at range; cavalry on open ground |
-| Archers | 15 | 1.0 | swordsmen and cavalry at range | any melee contact |
-| Slingers | 15 | 1.2 | catapult crews; archers at short range | cavalry; anything armoured |
-| Catapults | 4 (crew) | 0.4 | walls, gates, clumped squads | anything in melee range (minimum range) |
+| Cavalry | horse and rider; lance pennon | 2.0 | archers, slingers, catapults (charge on open ground) | pikemen; woods and town streets |
+| Pikemen | a long pike with a square banner | 0.8 | cavalry | archers, who shoot while pikes close the gap |
+| Swordsmen | crossed swords | 1.0 | pikemen inside the pike line; anyone in woods or towns | archers at range; cavalry on open ground |
+| Archers | bow and arrow | 1.0 | swordsmen and cavalry at range | any melee contact |
+| Slingers | sling and stone | 1.2 | catapult crews; archers at short range | cavalry; anything armoured |
+| Catapults | a throwing arm on a wheel | 0.4 | walls, gates, clumped units | anything in melee range (minimum range) |
 
 Your note says "Schwarzenegger" for the third type. I have read it as **swordsmen** (question 1).
 
+**Insignia.** Each unit shows its type's device on a banner or shield, framed in its nation's colour. The device is the same at every scale: at village scale it is a small mark on each person's shield, at fortress and country scale it is the unit's standard. Insignia are simple vector shapes drawn in `js/insignia.js`, so they can be read at a glance on an iPad.
+
 **Counters:** a strong pairing deals ×1.5 damage, a weak pairing ×0.6, anything else ×1. The table lives in `js/config.js` so it can be tuned in one place.
+
+## Formations
+
+A formation is an order given to a unit, at any scale. It changes speed, spread, and how the unit takes damage. The choice is the strategy: speed against ambush risk, spread against area attacks.
+
+| Formation | Look | Speed | Spread and damage taken | Trade-off |
+|---|---|---|---|---|
+| **Line** (default) | a front of units, even spacing | ×1.0 | normal | balanced; no special risk |
+| **March column** | a tight file, close together | ×1.5 | tight, so area fire hits it harder (×1.3) | fast to move, but **ambush-prone**: an enemy in cover within three tiles can spring an ambush on first contact (own damage taken ×1.5 for 5 s) |
+| **Scatter** | an amorphous blob, dots spread over a wider area | ×0.8 | covers twice the ground; area fire (catapult shots, volleys) hits it at ×0.5 per person; cavalry charges at ×0.8 | hard to hit and hard to rout as a block, but slow and weak in shock |
+| **Shield wall** (later) | a locked front of shields | ×0.5 | ranged damage ×0.5; melee defence ×1.2 | very slow; holds against archers |
+
+Formations are part of the battle's clock: changing formation takes a few seconds, and the change shows as the unit reshapes. A column that stops to form a line loses those seconds.
+
+**Animation.** Ranged units animate their volleys: a bunch of arrows arcs from the archers to the target, timed by the battle events. Catapults animate their shots: a stone arcs and lands with a dust puff. Animations are cosmetic. They happen when the sim fires, so a replay and the log match what the player saw.
 
 ## Terrain (from the province)
 
@@ -70,22 +101,29 @@ Each province has terrain tags (grassland, woods, river, town, fortress) and a s
 | Fortress | Walls. Archers on the wall ×1.5 damage against squads below. Squads pass the walls only at the gate, or once catapults have broken it. |
 | Lake (V1 rule) | Impassable. |
 
-**Field:** 50 × 32 tiles of 20 units, which is the same 1000 × 640 space that V1 and V2 use. Terrain is drawn as tiles. Squads move in continuous positions on that grid.
+**Field:** 50 × 32 tiles of 20 units, which is the same 1000 × 640 space that V1 and V2 use. Terrain is drawn as tiles. Units move in continuous positions on that grid. The tiles stay the same size on screen at every scale; what changes is how much land they cover.
 
-**Generation:** a battle is always between two provinces that share a border. The border becomes the centre line. The attacker enters from its own edge, the road side. The defender holds its side, and its settlement (if any) sits behind the centre line. The defender's terrain tags fill its half, the attacker's fill its half, and a river crosses the centre if the border has one. The random seed comes from both province ids and the turn, so the same battle can be replayed and logged.
+**Ground by scale**
+- **Village:** the village and one or two provinces around it. Fields, hedges, a well, the village houses, and the road in. The terrain is closer in, so there are more tags per tile.
+- **Fortress:** one province and the border, as set out below.
+- **Country:** three or more provinces along the front, joined by their roads and rivers. The map is the same kind of field, scaled down: each tile covers more land, and the provinces show as zones with their own terrain.
+
+**Generation (fortress scale):** a battle is between two provinces that share a border. The border becomes the centre line. The attacker enters from its own edge, the road side. The defender holds its side, and its settlement (if any) sits behind the centre line. The defender's terrain tags fill its half, the attacker's fill its half, and a river crosses the centre if the border has one. Village and country scale use the same method with more provinces on the field. The random seed comes from the province ids and the turn, so the same battle can be replayed and logged.
 
 ## Orders and control
 
-- Tap a squad, then tap a target tile or enemy squad. Orders: **move**, **attack** (engage a target), **hold** (stand and defend).
+- Tap a unit, then tap a target tile or enemy unit. Orders: **move**, **attack** (engage a target), **hold** (stand and defend).
+- Each unit also has a formation (above). Tap the formation button, then pick one. The formation applies on the way, so a column can be set before a march.
 - Orders can be given while the battle is paused. Planned moves show as dashed lines until the battle resumes.
-- Once in contact, squads fight on their own, following their orders. There is no micro-control of men.
+- Once in contact, units fight on their own, following their orders. There is no micro-control of people.
 
 ## Battle clock and time dilation
 
 - The country clock **stops** while a battle runs (rule from convo v0.8). The battle has its own clock.
 - Speed buttons: **Pause**, **Slow** (0.5×), **Normal** (1×). Default: Normal, with pause always available.
 - Optional: automatic slow motion at first contact. Off until you decide (question 5).
-- **Length:** the battle clock caps at 120 seconds, the "under two minutes" check from convo v0.8. At the cap, the attacker has to be holding the objective to win. Otherwise the defender holds.
+- **Length:** the battle clock caps at 120 seconds at village and fortress scale, the "under two minutes" check from convo v0.8. Country-scale battles get a longer cap, 5 minutes by default (question 9). At the cap, the attacker has to be holding the objective to win. Otherwise the defender holds.
+- Country-scale battles move at battalion pace, so the speed buttons matter more there: Slow is the default for a battle that is more than a few minutes long.
 
 ## Waves (attack and defence)
 
@@ -110,6 +148,7 @@ Levies are drawn from the same pool that V2 uses for garrisons. A long battle co
 ## Strategy: what a player can out-play
 
 - **Choice of ground:** go through woods to flank, or cross at the ford instead of the open river.
+- **Formation risk:** a column crosses the field in half the time, but walks into an ambush if the woods hold enemies. A scatter blob covers the ground and survives the volleys, but it is slow to strike.
 - **Feint:** cavalry at one gate, infantry at the other. The bell calls the levies toward the first.
 - **Timing:** strike before the levies arrive, or wait and rout them as they come through the gate.
 - **Siege:** catapults break a gate, but need pikes in front of them.
@@ -124,10 +163,11 @@ Levies are drawn from the same pool that V2 uses for garrisons. A long battle co
 V3/
   index.html        battle sandbox page: scenario picker, then the battle
   css/style.css
-  js/config.js      unit types, counters, terrain effects and every tuned number
-  js/field.js       battlefield from province data; seeded random (no DOM)
-  js/sim.js         squads, movement, combat, morale, waves, win check (no DOM)
-  js/view.js        drawing (SVG on the 1000 × 640 space), input, speed buttons
+  js/config.js      unit types, counters, formations, scales (grain, tile size, caps) and every tuned number
+  js/field.js       battlefield from province data, at each scale; seeded random (no DOM)
+  js/sim.js         units, formations, movement, combat, morale, waves, win check (no DOM)
+  js/insignia.js    the type devices as SVG shapes (drawing only, no game rules)
+  js/view.js        drawing (SVG on the 1000 × 640 space), animation of volleys and shots, input, speed buttons
   js/contract.js    battle request and result shapes; auto mode (no DOM)
   schematic.md      this file
 ```
@@ -143,7 +183,8 @@ Request (V2 to V3):
 ```
 {
   seed, turn,
-  attacker: { nation, province, pool, squads: [{ type, men }] },
+  scale: 'village' | 'fortress' | 'country',
+  attacker: { nation, provinces: [id], pool, units: [{ type, count, formation }] },
   defender: { nation, province, pool, population,
               settlement: 'none' | 'village' | 'town' | 'city' | 'fortress',
               terrain: ['grass', 'woods', 'river', ...] },
@@ -159,8 +200,8 @@ Result (V3 to V2):
   winner:    'attacker' | 'defender',
   how:       'rout' | 'objective' | 'time' | 'surrender',
   captured:  bool,
-  losses:    { attacker: { type: men }, defender: { type: men } },
-  survivors: { attacker: { type: men } },
+  losses:    { attacker: { type: people }, defender: { type: people } },
+  survivors: { attacker: { type: people } },
   levies:    n,
   seconds:   n
 }
@@ -174,8 +215,10 @@ V2 applies the result: pool and survivor changes, the spot taken (`takeSpot`), c
 
 | Phase | What is built | Check |
 |---|---|---|
-| 0. Sandbox | `V3/index.html`, scenario picker, squads placed and moved, fights on contact, win when an army is broken. Plain grass only. | 10 pikemen against 10 swordsmen gives a believable result. The same seed gives the same result. |
-| 1. Types and terrain | Six types and counters, woods, river, town, fortress effects, morale and rout. | Each counter in the table shows in a test battle. |
+| 0. Sandbox | `V3/index.html`, scenario picker, units placed and moved, fights on contact, win when an army is broken. Plain grass only, fortress scale only. | 10 pikemen against 10 swordsmen gives a believable result. The same seed gives the same result. |
+| 1. Types and terrain | Six types with insignia, counters, woods, river, town, fortress effects, morale and rout. Line and march column formations. | Each counter in the table shows in a test battle. A column is faster and loses more to an ambush in woods. |
+| 1b. Scatter and animation | Scatter formation, volley and catapult animation driven by the sim's events. | Scatter takes less damage per person from a volley, and the animation matches the sim's log. |
+| 1c. Village and country scales | Village grain (one person a dot) and the country grain (battalions), with their own ground and caps. | Same engine at all three scales; the speeds on screen match the tile sizes in the table. |
 | 2. Objective and time | Objective (gate, square, crossing), 120 s cap, speed buttons, pause with queued orders. | A battle ends by rout, objective and time, each in a test. |
 | 3. Waves and levies | Attacker reinforcements, the bell, levies drawn from the province pool. | Pool counts go down by the right amounts. |
 | 4. Contract and auto | Result shape, auto mode, balance runs, battle log. | 200 seeded battles per matchup; battles under 120 s. |
@@ -198,12 +241,15 @@ Each phase gets an entry in `todo.md` that is ticked when built, as now.
 Answers can go in this file, or in `convo/convo v0.13.md` if you want the convo format. Each has my default in brackets.
 
 1. **Unit list.** Is "Schwarzenegger" swordsmen? Are the six types right for v1? [Yes, swordsmen; six types.]
-2. **Naming.** Should battle units be called squads, keeping "dot" for V2's population centres? [Squads.]
-3. **Squad size.** Fixed maximum men per type, as in the table? Or up to 20 for every type? [Fixed per type.]
+2. **Naming.** Should battle dots be called units (a person, squad or battalion), keeping "dot" for V2's population centres? [Units.]
+3. **Grain by scale.** One person at village scale, about 20 at fortress scale, about 100 at country scale? Is the country battalion 100, or more? [1, 20, 100.]
 4. **Control.** Real time with pause and queued orders, or turn-based battle moves? [Real time with pause.]
 5. **Time dilation.** Speed buttons only, or automatic slow motion at first contact? [Speed buttons only; slow motion as an option.]
 6. **Winning.** Rout, objective, or both? [Both.]
 7. **Attack side.** Does the attack always enter from the same side, or from the road the army used? [From the road side.]
 8. **Levies.** Raised automatically at the bell, or only when the defender taps? [Automatic.]
-9. **Country clock.** Does the country clock stop for the whole battle, and is 120 s the right cap? [Yes, and 120 s.]
+9. **Country clock.** Does the country clock stop for the whole battle? Is 120 s the right cap at village and fortress scale, and 5 minutes at country scale? [Yes; 120 s and 5 min.]
 10. **Surrender.** Keep V2's two-times-power rule as an instant end of the battle? [Yes.]
+11. **Insignia.** Which campaign style: a medieval-style heraldry, a classical (Roman-style) standard, or an invented house style? [Medieval-style heraldry.]
+12. **Formations.** Four formations (line, column, scatter, shield wall), with shield wall later? Or line and column only in v1? [Line and column in v1; scatter in phase 1b; shield wall later.]
+13. **Tile size by scale.** Are the tile distances in the table (about 5 m, 20 m, 100 m) the right ones? This sets how fast units look on screen. [Yes.]
