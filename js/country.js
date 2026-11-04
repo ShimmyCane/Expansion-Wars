@@ -278,7 +278,9 @@
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
     // Stone comes from cities: each city mines 1 a turn.
     n.stone += n.c;
-    n.magic += 0.1 + n.tech / 200;
+    // Magic comes from every spot, and higher tiers gather more: village 0.1, town 0.2, city 0.4, fortress 0.8 a turn.
+    // The base trickle from technology stays as before.
+    n.magic += 0.1 + n.tech / 200 + 0.1 * n.v + 0.2 * n.t + 0.4 * n.c + 0.8 * n.f;
     // Culture draws in soldiers: up to +50% at 100 culture.
     n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200);
     // Culture and magic together found new villages: every 400 points of their sum, one village (on average).
