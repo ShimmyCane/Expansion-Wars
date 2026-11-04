@@ -158,6 +158,17 @@
     return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
   }
 
+  // Villages are built by hand, paid in food or culture. 40 at five spots, rising by 4 for each spot beyond five.
+  function villageCost(n) { return Math.ceil(40 * (1 + 0.1 * (spots(n) - 5))); }
+
+  function buildVillage(n, pay) {
+    var c = villageCost(n);
+    if (n[pay] < c) return 'Not enough ' + pay + ' (' + c + ').';
+    n[pay] -= c;
+    n.v++;
+    return null;
+  }
+
   // Spend resources to grow one of your spots. Happens at once.
   function grow(n, from) {
     var m = GROW[from];
@@ -248,14 +259,12 @@
       b.soldiers *= (1 - DEF_LOSS);
       var gainA = CULTURE[grade] * foodMult(a);
       a.culture += gainA;
-      a.cultGained += gainA;
       var got = takeSpot(b, a);
       addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + gainA.toFixed(1) + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
       var gainB = CULTURE[grade] * foodMult(b);
       b.culture += gainB;
-      b.cultGained += gainB;
       addLog(b.name + ' holds against ' + a.name + '. Culture +' + gainB.toFixed(1) + '.');
     }
   }
@@ -284,6 +293,9 @@
       if (Math.random() < 0.3) {
         ['v', 't', 'c'].sort(function () { return Math.random() - 0.5; }).some(function (k) { return !grow(a, k); });
       }
+      if (Math.random() < 0.2) {
+        ['food', 'culture'].some(function (pay) { return !buildVillage(a, pay); });
+      }
     });
   }
 
@@ -307,15 +319,6 @@
     n.magic += magicIn;
     // Culture draws in soldiers: up to +50% at 100 culture.
     n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns);
-    // Villages grow gradually from what was gathered this turn: magic counts 1, culture counts 2, and every 10 points make a village.
-    // Surplus food also helps population grow.
-    n.vprog = (n.vprog || 0) + (magicIn + 2 * n.cultGained + Math.max(0, foodNet)) / 10;
-    n.cultGained = 0;
-    while (n.vprog >= 1) {
-      n.vprog -= 1;
-      n.v++;
-      if (n.id === 0) addLog('Culture and magic found a new village.');
-    }
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -383,7 +386,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0, cultGained: 0, guns: 0.5,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5,
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
@@ -496,6 +499,19 @@
       gb.appendChild(gunLine);
       gb.appendChild(gunRange);
       els.card.appendChild(gb);
+      var vill = el('div', 'card-buttons');
+      var vc = villageCost(n);
+      ['food', 'culture'].forEach(function (pay) {
+        var vb = el('button', 'big', 'Build a village (' + vc + ' ' + pay + ')');
+        vb.disabled = n[pay] < vc;
+        vb.addEventListener('click', function () {
+          var err = buildVillage(n, pay);
+          addLog(err || 'A new village was built with ' + pay + '.');
+          render();
+        });
+        vill.appendChild(vb);
+      });
+      els.card.appendChild(vill);
       var grows = el('div', 'card-buttons');
       Object.keys(GROW).forEach(function (k) {
         var m = GROW[k], c = growCost(n, k);
