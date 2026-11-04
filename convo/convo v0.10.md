@@ -44,7 +44,11 @@
 
    > **Jimmy:** Culture only comes from winning battles, so it only grows while battles are being fought.
    >
-   > **My reading:** culture is earned per victory, not per turn. The amount per victory could follow the tier of the spot won (so taking a fortress gives more than taking a village). Peace earns no culture, which removes the passive snowball. Open: whether a victory earns culture for the attacker only, and whether there is a cap per turn.
+   > **My reading:** culture is earned per victory, not per turn. The amount per victory could follow the tier of the spot won (so taking a fortress gives more than taking a village). Peace earns no culture, which removes the passive snowball. Open: whether there is a cap per turn.
+   >
+   > **Jimmy:** Yes, defenders also gain culture when they win.
+   >
+   > **Built:** the attack slider (below). Culture from victories is not built yet.
 
 ---
 
