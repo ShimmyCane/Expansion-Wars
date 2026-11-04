@@ -233,11 +233,18 @@
     else if (from.v > 0) { from.v--; key2 = 'v'; }
     else return null;
     to[key2]++;
+    to.occupied.push(RESTORE_TURNS);   // a conquered spot produces less until it is re-incorporated
     return LABEL[key2];
   }
 
   // Culture comes only from battle victories. The spot fought over sets the amount: a fortress gives 4, anything smaller 1.
   var CULTURE = { v: 1, t: 1, c: 1, f: 4 };
+  // Conquered spots: their production drops by OCC_PENALTY (as a share of the nation) and recovers after RESTORE_TURNS.
+  var OCC_PENALTY = 0.4, RESTORE_TURNS = 10;
+  function prodFactor(n) {
+    var occ = n.occupied.length / Math.max(1, spots(n));
+    return 1 - OCC_PENALTY * Math.min(1, occ);
+  }
   // The highest grade a nation holds: the spot a battle is fought over.
   function topGrade(n) { return n.f > 0 ? 'f' : n.c > 0 ? 'c' : n.t > 0 ? 't' : 'v'; }
 
@@ -300,11 +307,15 @@
       if (a.id === 0) return;
       var foes = alive().filter(function (b) { return b.id !== a.id && rel(a.id, b.id).war; });
       if (foes.length && !a.neutral) {
-        var weakest = foes.slice().sort(function (p, q) { return p.soldiers * quality(p) - q.soldiers * quality(q); })[0];
-        if (a.soldiers > 1.2 * weakest.soldiers) st.queue.push({ type: 'attack', from: a.id, to: weakest.id });
-      } else if (!a.neutral && Math.random() < 0.15) {
+        // Attack the weakest foe, neighbours first, as soon as the army is at least level with it.
+        var near = foes.filter(function (b) { return a.nb.indexOf(b.id) >= 0; });
+        var pool2 = near.length ? near : foes;
+        var weakest = pool2.slice().sort(function (p, q) { return p.soldiers * quality(p) - q.soldiers * quality(q); })[0];
+        if (a.soldiers >= weakest.soldiers) st.queue.push({ type: 'attack', from: a.id, to: weakest.id });
+      } else if (!a.neutral && Math.random() < 0.25) {
+        // A stronger neighbour declares war: a 20% lead is enough now (it was 80%).
         var prey = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
-          return b.alive && !rel(a.id, b.id).war && power(a) >= 1.8 * power(b);
+          return b.alive && !rel(a.id, b.id).war && power(a) >= 1.2 * power(b);
         });
         if (prey.length) st.queue.push({ type: 'declare', from: a.id, to: prey[0].id });
       }
@@ -330,12 +341,14 @@
   function foodMult(n) { return 1 + Math.min(n.food, 100) / 100; }
 
   function economy(n) {
-    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns);
+    n.occupied = n.occupied.map(function (t) { return t - 1; }).filter(function (t) { return t > 0; });
+    var pf = prodFactor(n);
+    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf;
     var upkeep = n.soldiers * 0.02;
     var foodNet = produced - upkeep;
     n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
-    n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
+    n.gold += (0.5 * n.v + n.t + 2 * n.c) * pf + 3 * tradeCount(n.id);
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
     n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot, and higher tiers gather more: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn.
@@ -343,7 +356,7 @@
     var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
     n.magic += magicIn;
     // Culture draws in soldiers: up to +50% at 100 culture.
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns);
+    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf;
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -411,7 +424,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5, occupied: [],
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
