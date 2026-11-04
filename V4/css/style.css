@@ -1,0 +1,99 @@
+/* Expansion Wars — V4 battle view. Pastel, large touch targets, works at phone and iPad width. */
+:root {
+  --bg: #fbf6e9;
+  --ink: #2b2b2b;
+  --muted: #6b6257;
+  --card: #ffffff;
+  --line: #e4dccb;
+  --accent: #4a7bd0;
+  --enemy: #d05a4a;
+  --ghost: #efe8d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f2420;
+    --ink: #f1efe8;
+    --muted: #b7b0a0;
+    --card: #2a302b;
+    --line: #3d4540;
+    --ghost: #353c36;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1f2420;
+  --ink: #f1efe8;
+  --muted: #b7b0a0;
+  --card: #2a302b;
+  --line: #3d4540;
+  --ghost: #353c36;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { padding: 0 16px 40px; max-width: 1100px; margin: 0 auto; }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 14px 0; }
+.top h1 { font-size: 20px; margin: 0; }
+.top .back { color: var(--accent); text-decoration: none; }
+.top .note { color: var(--muted); font-size: 13px; margin-left: auto; }
+.intro { color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 10px 4px 0; }
+label.check { display: flex; }
+select, input[type="number"], textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-height: 44px;
+}
+input[type="number"] { width: 72px; }
+input[type="checkbox"] { width: 22px; height: 22px; }
+button {
+  font: inherit; font-weight: 600; color: var(--ink); background: #cfe3ff; border: 0; border-radius: 12px;
+  padding: 10px 16px; min-height: 44px; cursor: pointer;
+}
+button.big { font-size: 18px; padding: 14px 22px; width: 100%; }
+button.ghost { background: var(--ghost); }
+button.link { background: none; color: var(--accent); padding: 8px 0; }
+button:disabled { opacity: 0.5; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.type-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.type-row:last-child { border-bottom: 0; }
+.type-row .animal { font-size: 22px; width: 32px; text-align: center; }
+.type-row .tname { min-width: 110px; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+
+/* Battle */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; }
+.bar #bf-time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 52px; }
+.bar #bf-score { color: var(--muted); font-size: 14px; flex: 1; }
+.field-wrap { position: relative; background: #7fa566; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+#bf-svg { display: block; width: 100%; height: auto; touch-action: manipulation; user-select: none; }
+#bf-svg .unit { cursor: pointer; }
+.count { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: 56px; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.5); pointer-events: none; }
+.count[hidden] { display: none; }
+.hint { color: var(--muted); font-size: 14px; margin: 8px 0; min-height: 1.4em; }
+.unit-panel[hidden], .result[hidden] { display: none; }
+.unit-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; }
+.result textarea { width: 100%; margin-top: 8px; font-size: 13px; }
+.result p { margin: 4px 0 8px; }
+
+@media (max-width: 640px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .bar #bf-score { flex-basis: 100%; order: 3; }
+  .top .note { margin-left: 0; flex-basis: 100%; }
+}
+
+/* Custom battle additions */
+.big-inline { background: #bfe8c4; font-weight: 700; }
+.seed { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.deploy-note { color: var(--accent); font-weight: 600; margin: 8px 0 0; }
+.deploy-note[hidden] { display: none; }
+
+/* Settings (⚙️) */
+.gear { position: fixed; right: 14px; bottom: 14px; width: 52px; height: 52px; border-radius: 26px; font-size: 24px; padding: 0; background: var(--card); border: 1px solid var(--line); z-index: 10; }
+.settings { position: fixed; right: 14px; bottom: 76px; width: min(340px, calc(100vw - 28px)); max-height: 70vh; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.settings[hidden] { display: none; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.settings form { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.settings form input { width: 100%; }
+.settings .row { margin-top: 6px; }
