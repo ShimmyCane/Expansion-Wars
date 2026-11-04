@@ -18,10 +18,19 @@
     { type: 'ceasefire', text: 'Ceasefire' },
     { type: 'tribute', text: 'Send tribute (' + TRIBUTE + ' gold)' },
     { type: 'declare', text: 'Declare war' },
-    { type: 'attack', text: 'Attack (send half)' }
+    { type: 'attack', text: 'Attack' }
   ];
 
   var st = null, timer = null, selected = 0;
+  var PCT_KEY = 'expansion-wars-send-pct';
+  function loadPct() {
+    try { var v = Number(localStorage.getItem(PCT_KEY)); if (v >= 5 && v <= 100) return v; } catch (e) { /* no storage */ }
+    return 50;
+  }
+  function savePct(v) {
+    try { localStorage.setItem(PCT_KEY, String(v)); } catch (e) { /* no storage */ }
+  }
+  var sendPct = loadPct();   // the share of your army (in %) you last chose to send; remembered between battles
   var els = {};
 
   function $(id) { return document.getElementById(id); }
@@ -159,7 +168,9 @@
     var err = canDo(type, 0, to);
     if (err) { addLog(err); return; }
     removeQueued(0, to);
-    st.queue.push({ type: type, from: 0, to: to });
+    var item = { type: type, from: 0, to: to };
+    if (type === 'attack') item.pct = sendPct;   // the share chosen when the attack was queued
+    st.queue.push(item);
     addLog('Queued: ' + type + ' with ' + st.n[to].name + '. It plays out when the turn ends.');
   }
   function removeQueued(from, to) {
@@ -204,23 +215,32 @@
     return LABEL[key2];
   }
 
-  // A country battle: half the attacker's soldiers against the defender, who has a bonus.
+  // Culture comes only from battle victories. The spot fought over sets the amount: a fortress gives 4, anything smaller 1.
+  var CULTURE = { v: 1, t: 1, c: 1, f: 4 };
+  // The highest grade a nation holds: the spot a battle is fought over.
+  function topGrade(n) { return n.f > 0 ? 'f' : n.c > 0 ? 'c' : n.t > 0 ? 't' : 'v'; }
+
+  // A country battle: the chosen share of the attacker's soldiers (half by default) against the defender, who has a bonus.
+  // Winning earns the attacker culture; holding earns the defender culture.
   function battle(x) {
     var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
     if (!rel(i, j).war || !a.alive || !b.alive) return;
-    var sent = Math.floor(a.soldiers * SEND);
+    var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent < 1) return;
     var A = sent * quality(a);
     var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
+    var grade = topGrade(b);
     a.soldiers -= sent;
     if (A > D) {
       a.soldiers += sent * (1 - D / A);      // survivors come home
       b.soldiers *= (1 - DEF_LOSS);
+      a.culture += CULTURE[grade];
       var got = takeSpot(b, a);
-      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.'));
+      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + CULTURE[grade] + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
-      addLog(b.name + ' holds against ' + a.name + '.');
+      b.culture += CULTURE[grade];
+      addLog(b.name + ' holds against ' + a.name + '. Culture +' + CULTURE[grade] + '.');
     }
   }
 
@@ -257,7 +277,6 @@
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
     n.stone += 2 * n.f;
     n.magic += 0.1 + n.tech / 200;
-    n.culture += n.happy / 50;
     n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200);
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
@@ -444,18 +463,33 @@
     var r = rel(0, n.id);
     var status = r.war ? 'At war' : r.ally ? 'Allied' : r.trade ? 'Trading' : 'At peace';
     els.card.appendChild(el('p', '', 'With you: ' + status + ' · reputation ' + Math.round(r.rep) + (r.truce > 0 ? ' · truce ' + r.truce + ' turns' : '')));
+    // The send slider: the share of your army an attack will use. The last value is remembered.
+    var pick = el('div', 'send-pick');
+    var sendLine = el('p', '', '');
+    var range = el('input');
+    function showSend() {
+      sendLine.textContent = 'Send ' + sendPct + '% of your army (' + Math.floor(st.n[0].soldiers * sendPct / 100) + ' soldiers) when you attack.';
+    }
+    range.type = 'range'; range.min = 5; range.max = 100; range.step = 5; range.value = sendPct;
+    range.setAttribute('aria-label', 'Share of your army to send');
+    range.addEventListener('input', function () { sendPct = Number(range.value); showSend(); });
+    range.addEventListener('change', function () { savePct(sendPct); render(); });
+    showSend();
+    pick.appendChild(sendLine);
+    pick.appendChild(range);
+    els.card.appendChild(pick);
     var q = st.queue.filter(function (x) { return x.from === 0 && x.to === selected; })[0];
     var row = el('div', 'card-buttons');
     var notes = [];
     DIPLO.forEach(function (d) {
       var err = canDo(d.type, 0, selected);
       if (q && q.type === d.type) {
-        var cancel = el('button', 'big', 'Queued: ' + d.text + ' (tap to cancel)');
+        var cancel = el('button', 'big', 'Queued: ' + d.text + (d.type === 'attack' ? ' (' + q.pct + '%)' : '') + ' (tap to cancel)');
         cancel.addEventListener('click', function () { removeQueued(0, selected); addLog('Cancelled.'); render(); });
         row.appendChild(cancel);
         return;
       }
-      var b = el('button', 'big', d.text);
+      var b = el('button', 'big', d.type === 'attack' ? 'Attack (send ' + sendPct + '%)' : d.text);
       b.disabled = !!err || !!q;
       if (err) notes.push(d.text + ': ' + err);
       b.addEventListener('click', function () { queue(d.type, selected); render(); });
