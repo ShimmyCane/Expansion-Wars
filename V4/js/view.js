@@ -1,8 +1,8 @@
-// Expansion Wars — V3 battle view. Setup form, the battle on an SVG field, orders, pause, and the result.
-// The rules are in sim.js. This file only draws, takes input and calls V3.issue and V3.step.
+// Expansion Wars — V4 battle view. Setup form, the battle on an SVG field, orders, pause, and the result.
+// The rules are in sim.js. This file only draws, takes input and calls V4.issue and V4.step.
 (function () {
   'use strict';
-  var V3 = window.V3, C = V3.CONFIG, I = V3.INSIGNIA;
+  var V4 = window.V4, C = V4.CONFIG, I = V4.INSIGNIA;
   var SVG_NS = 'http://www.w3.org/2000/svg';
   var TILE_COLOUR = { g: '#cfe6a0', w: '#5f8f4e', r: '#8fc6e8', f: '#c9e7f5', t: '#dcc7a0', x: '#8d857c', y: '#b48c55' };
   var TILE_PX = C.TILE;
@@ -84,7 +84,7 @@
       border: { river: $('sc-river').checked, road: true },
       mode: 'play'
     };
-    var problems = V3.validateRequest(req);
+    var problems = V4.validateRequest(req);
     if (problems.length) { alert(problems.join('\n')); return; }
     startBattle(req);
   }
@@ -209,7 +209,7 @@
     $('bf-score').textContent = 'Your people ' + mine + ' · theirs ' + theirs + ' · objectives ' + objMine + '/' + st.field.objectives.length;
     $('bf-toggle').textContent = paused ? '▶ Real time' : '❚❚ Pause';
     $('bf-toggle').disabled = phase === 'over';
-    var u = sel !== null ? V3.sim.findUnit(st, sel) : null;
+    var u = sel !== null ? V4.sim.findUnit(st, sel) : null;
     var panel = $('bf-unit');
     if (!u || u.state === 'dead' || u.state === 'gone') {
       sel = null;
@@ -248,20 +248,20 @@
     var g = evt.target && evt.target.closest ? evt.target.closest('[data-id]') : null;
     if (g) {
       var id = parseInt(g.getAttribute('data-id'), 10);
-      var target = V3.sim.findUnit(st, id);
+      var target = V4.sim.findUnit(st, id);
       if (!target) return;
       if (target.side === 0) { sel = id; lastSelected = undefined; }
-      else if (sel !== null) { V3.issue(st, { kind: 'attack', unit: sel, target: id }); }
+      else if (sel !== null) { V4.issue(st, { kind: 'attack', unit: sel, target: id }); }
       return;
     }
     if (sel !== null) {
       var p = toMap(evt);
-      V3.issue(st, { kind: 'move', unit: sel, x: p.x, y: p.y });
+      V4.issue(st, { kind: 'move', unit: sel, x: p.x, y: p.y });
     }
   }
 
   function startBattle(req) {
-    st = V3.createBattle(req, { animate: true });
+    st = V4.createBattle(req, { animate: true });
     sel = null; lastSelected = undefined; paused = false;
     phase = 'deploy'; deployT = DEPLOY_SECONDS; lastTs = null;
     $('screen-setup').hidden = true;
@@ -275,7 +275,7 @@
   }
 
   function showResult() {
-    var r = V3.result(st);
+    var r = V4.result(st);
     var youWin = r.winner === 'attacker';
     var how = {
       objectives: 'by holding the objectives',
@@ -297,7 +297,7 @@
   }
 
   function copyLog() {
-    var text = st.log.map(function (l) { return l.t + 's ' + l.text; }).join('\n') + '\n\n' + JSON.stringify(V3.result(st), null, 2);
+    var text = st.log.map(function (l) { return l.t + 's ' + l.text; }).join('\n') + '\n\n' + JSON.stringify(V4.result(st), null, 2);
     var box = $('bf-result-json');
     box.value = text;
     box.select();
@@ -320,7 +320,7 @@
       } else if (phase === 'battle' && !paused && !st.done) {
         // Several small steps keep the movement smooth on slow devices.
         var n = Math.max(1, Math.ceil(real / 0.05)), dt = real / n;
-        for (var i = 0; i < n && !st.done; i++) V3.step(st, dt);
+        for (var i = 0; i < n && !st.done; i++) V4.step(st, dt);
       }
       if (st.done && phase !== 'over') { phase = 'over'; showResult(); }
       drainEvents();
@@ -339,17 +339,17 @@
     svg = $('bf-svg');
     svg.addEventListener('click', onMapClick);
     $('bf-toggle').addEventListener('click', function () { if (phase !== 'over') paused = !paused; });
-    $('bf-surrender').addEventListener('click', function () { if (st && phase !== 'over') V3.issue(st, { kind: 'surrender', side: 0 }); });
-    $('bf-hold').addEventListener('click', function () { if (sel !== null) V3.issue(st, { kind: 'hold', unit: sel }); });
-    $('bf-proceed').addEventListener('click', function () { if (sel !== null) V3.issue(st, { kind: 'proceed', unit: sel }); lastSelected = undefined; });
-    $('bf-unit-strategy').addEventListener('change', function (e) { if (sel !== null) V3.issue(st, { kind: 'strategy', unit: sel, value: e.target.value }); });
-    $('bf-unit-formation').addEventListener('change', function (e) { if (sel !== null) V3.issue(st, { kind: 'formation', unit: sel, value: e.target.value }); });
+    $('bf-surrender').addEventListener('click', function () { if (st && phase !== 'over') V4.issue(st, { kind: 'surrender', side: 0 }); });
+    $('bf-hold').addEventListener('click', function () { if (sel !== null) V4.issue(st, { kind: 'hold', unit: sel }); });
+    $('bf-proceed').addEventListener('click', function () { if (sel !== null) V4.issue(st, { kind: 'proceed', unit: sel }); lastSelected = undefined; });
+    $('bf-unit-strategy').addEventListener('change', function (e) { if (sel !== null) V4.issue(st, { kind: 'strategy', unit: sel, value: e.target.value }); });
+    $('bf-unit-formation').addEventListener('change', function (e) { if (sel !== null) V4.issue(st, { kind: 'formation', unit: sel, value: e.target.value }); });
     $('bf-copy').addEventListener('click', copyLog);
     $('bf-again').addEventListener('click', function () { $('screen-battle').hidden = true; $('screen-setup').hidden = false; phase = 'setup'; st = null; });
     $('bf-back-setup').addEventListener('click', function () { $('screen-battle').hidden = true; $('screen-setup').hidden = false; phase = 'setup'; st = null; });
     requestAnimationFrame(frame);
   }
 
-  V3.view = { start: startBattle };
+  V4.view = { start: startBattle };
   document.addEventListener('DOMContentLoaded', wire);
 })();

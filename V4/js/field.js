@@ -1,11 +1,11 @@
-// Expansion Wars — V3 battlefield. Builds the tiles, objectives and spawn zones from a battle request.
+// Expansion Wars — V4 battlefield. Builds the tiles, objectives and spawn zones from a battle request.
 // Seeded random, no DOM.
 (function () {
   'use strict';
-  var V3 = window.V3, C = V3.CONFIG;
+  var V4 = window.V4, C = V4.CONFIG;
 
   // Mulberry32: a small seeded generator, so the same seed gives the same field and battle.
-  V3.rng = function (seed) {
+  V4.rng = function (seed) {
     var s = (seed >>> 0) || 1;
     return function () {
       s = (s + 0x6D2B79F5) >>> 0;
@@ -16,7 +16,7 @@
     };
   };
 
-  V3.buildField = function (req, rng) {
+  V4.buildField = function (req, rng) {
     var COLS = C.COLS, ROWS = C.ROWS, tiles = [], x, y, i;
     for (i = 0; i < COLS * ROWS; i++) tiles.push('g');
 

@@ -1,9 +1,9 @@
-// Expansion Wars — V3 battle view. Every tuned number lives here.
-// Plain script. Sets window.V3.CONFIG. No DOM.
+// Expansion Wars — V4 battle view. Every tuned number lives here.
+// Plain script. Sets window.V4.CONFIG. No DOM.
 (function () {
   'use strict';
-  window.V3 = window.V3 || {};
-  window.V3.CONFIG = {
+  window.V4 = window.V4 || {};
+  window.V4.CONFIG = {
     // Field: 50 x 32 tiles of 20 units = 1000 x 640, the same space as V1 and V2.
     COLS: 50,
     ROWS: 32,

@@ -80,7 +80,7 @@ Checked against `js/game.js` on `main`. Notes stay `open` in the table until Jim
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.
 - [ ] **Balance pass.** Hard mode beat a player who did nothing in about 20 seconds in testing. Play a few full games and tune the rates, garrisons and move caps.
 - [ ] **Speed and defense boosts, towers, spells, Quick Game** (already listed on the Shop page as coming soon).
-- [x] **V3 battle view: sandbox built** (phases 0 to 4): `V3/`, with rule tests in `V3/tests/sim.test.js`. Not linked from V2.
-- [ ] **V3 phase 5: link battles into V2.** Needs the contract agreed and one change in `js/country.js` behind a setting. Not started.
-- [ ] **V3 balance pass.** Mirror matches lean to the defender, and catapults and archers look too strong. See "Balance notes" in `V3/schematic.md`.
-- [ ] **V3: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V3/schematic.md`.
+- [x] **V4 battle view: sandbox built** (phases 0 to 4): `V4/`, with rule tests in `V4/tests/sim.test.js`. Not linked from V2.
+- [ ] **V4 phase 5: link battles into V2.** Needs the contract agreed and one change in `js/country.js` behind a setting. Not started.
+- [ ] **V4 balance pass.** Mirror matches lean to the defender, and catapults and archers look too strong. See "Balance notes" in `V4/schematic.md`.
+- [ ] **V4: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V4/schematic.md`.

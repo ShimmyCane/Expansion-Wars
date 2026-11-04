@@ -1,12 +1,12 @@
-// Expansion Wars — V3 contract with V2: request checks, auto mode and sample requests. No DOM.
+// Expansion Wars — V4 contract with V2: request checks, auto mode and sample requests. No DOM.
 (function () {
   'use strict';
-  var V3 = window.V3, C = V3.CONFIG;
+  var V4 = window.V4, C = V4.CONFIG;
   var SCALES = ['village', 'fortress', 'country'];
   var SETTLEMENTS = ['none', 'village', 'town', 'city', 'fortress'];
 
   // Returns a list of problems. An empty list means the request can be played.
-  V3.validateRequest = function (req) {
+  V4.validateRequest = function (req) {
     var bad = [];
     if (!req || typeof req !== 'object') return ['request is not an object'];
     if (SCALES.indexOf(req.scale) < 0) bad.push('scale must be village, fortress or country');
@@ -27,16 +27,16 @@
   };
 
   // Plays a battle with no drawing, at the speed of the sim. Used by balance runs and V2's computer battles.
-  V3.runAuto = function (req, opts) {
+  V4.runAuto = function (req, opts) {
     var dt = (opts && opts.dt) || 0.25;
-    var st = V3.createBattle(req, {});
+    var st = V4.createBattle(req, {});
     var guard = Math.ceil((C.CAP[req.scale] || 120) / dt) + 10;
-    while (!st.done && guard-- > 0) V3.step(st, dt);
-    return V3.result(st);
+    while (!st.done && guard-- > 0) V4.step(st, dt);
+    return V4.result(st);
   };
 
   // A small fortress battle, the default in the sandbox.
-  V3.sampleRequest = function (overrides) {
+  V4.sampleRequest = function (overrides) {
     var o = overrides || {};
     return {
       seed: o.seed || 7,

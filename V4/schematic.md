@@ -1,9 +1,9 @@
-# Expansion Wars — V3 Schematic (battle view)
+# Expansion Wars — V4 Schematic (battle view)
 
 **Status:** Sandbox built (phases 0 to 4). Not linked from V2: phase 5 is not started. Balance is a first pass.
 **Owner:** Jimmy
-**Platform:** Same as V2: plain HTML/CSS/JS in `V3/`, no build step. Opens from `V3/index.html`.
-**Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V3 does not edit V2 files until the contract below is agreed.
+**Platform:** Same as V2: plain HTML/CSS/JS in `V4/`, no build step. Opens from `V4/index.html`.
+**Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V4 does not edit V2 files until the contract below is agreed.
 **Conversation:** None yet. Decisions are recorded at the end of this file; items still to confirm are listed there too.
 
 ## Purpose
@@ -16,9 +16,9 @@ The scales of play:
 |---|---|---|---|
 | Country | V2 map (`index.html`, `js/country.js`) | a nation (region) | 60 s turns |
 | Province | V2 zoom (dots), V1 spot map | a population centre or spot | paused during a battle |
-| Battle | V3 (this file) | depends on the battle's scale (below) | battle clock: pause, real time |
+| Battle | V4 (this file) | depends on the battle's scale (below) | battle clock: pause, real time |
 
-**Naming:** in V2's zoom a dot is a population centre. In V3 a dot is a unit (a person, a squad or a battalion, depending on scale). Use "unit" in code and text.
+**Naming:** in V2's zoom a dot is a population centre. In V4 a dot is a unit (a person, a squad or a battalion, depending on scale). Use "unit" in code and text.
 
 ## Scales of battle
 
@@ -40,7 +40,7 @@ The scale is set by the fight: a village skirmish is village scale, an attack on
 4. Strategy matters: each unit starts with a plan, and formations change the trade-offs of speed, defence and flanking.
 5. The defence is more than the garrison: a town or fortress raises levies from its people.
 6. Time runs in real time. Pause lets the player give orders; no slow motion.
-7. The result returns to V2 through one small contract, so V2 works with or without V3.
+7. The result returns to V2 through one small contract, so V2 works with or without V4.
 
 ## Non-goals (first version)
 
@@ -180,10 +180,10 @@ Levies are drawn from the same pool that V2 uses for garrisons. A long battle co
 
 **Balance target:** no single type wins alone. A pure cavalry rush, a pure pike wall and a pure catapult push should all lose to a sensible mix. Test this with auto battles (below) before it is tuned by feel.
 
-## Architecture (inside `V3/`)
+## Architecture (inside `V4/`)
 
 ```
-V3/
+V4/
   index.html        battle sandbox page: scenario picker, then the battle
   css/style.css
   js/config.js      unit types, counters, strategies, formations, scales (grain, tile size, caps) and every tuned number
@@ -196,12 +196,12 @@ V3/
 ```
 
 - `config.js`, `field.js`, `sim.js` and `contract.js` do not touch the DOM. They can run in Node for tests and auto battles. Same plain-JS, no-build rule as V2.
-- Storage: V3 keys start with `xw3-`. No Supabase in the first version. A battle log copies to the clipboard, like V2's game log.
-- Entry: `V3/index.html` starts as a sandbox with a scenario picker. Later, V2 can open a battle with a link that carries the request, in the URL hash or in localStorage under `xw3-battle` (same origin, so it can be read there).
+- Storage: V4 keys start with `xw4-`. No Supabase in the first version. A battle log copies to the clipboard, like V2's game log.
+- Entry: `V4/index.html` starts as a sandbox with a scenario picker. Later, V2 can open a battle with a link that carries the request, in the URL hash or in localStorage under `xw4-battle` (same origin, so it can be read there).
 
 ## The contract with V2
 
-Request (V2 to V3):
+Request (V2 to V4):
 
 ```
 {
@@ -217,7 +217,7 @@ Request (V2 to V3):
 }
 ```
 
-Result (V3 to V2):
+Result (V4 to V2):
 
 ```
 {
@@ -232,7 +232,7 @@ Result (V3 to V2):
 }
 ```
 
-V2 applies the result: pool and survivor changes, the spot taken (`takeSpot`), culture and the log. Until phase 5, V2 keeps its instant `battle()` in `js/country.js`. V3 changes no V2 file.
+V2 applies the result: pool and survivor changes, the spot taken (`takeSpot`), culture and the log. Until phase 5, V2 keeps its instant `battle()` in `js/country.js`. V4 changes no V2 file.
 
 **Auto mode:** `contract.js` runs the same `sim.js` at maximum speed with no drawing. The result matches what a played battle would give for the same seed. This serves V2's computer battles later, and balance runs now.
 
@@ -240,20 +240,20 @@ V2 applies the result: pool and survivor changes, the spot taken (`takeSpot`), c
 
 | Phase | What is built | Check |
 |---|---|---|
-| 0. Sandbox | `V3/index.html`, scenario picker, units placed and moved, fights on contact, win when an army is broken. Plain grass only, fortress scale only. | 10 pikemen against 10 swordsmen gives a believable result. The same seed gives the same result. |
+| 0. Sandbox | `V4/index.html`, scenario picker, units placed and moved, fights on contact, win when an army is broken. Plain grass only, fortress scale only. | 10 pikemen against 10 swordsmen gives a believable result. The same seed gives the same result. |
 | 1. Types and terrain | Six types with insignia, counters, woods, river, town, fortress effects, morale and rout. Line and march column formations. | Each counter in the table shows in a test battle. A column is faster and loses more to an ambush in woods. |
 | 1b. Strategies, scatter, shield wall, animation | Five strategies (slow march, ambush, rush, engage, kite). Scatter and shield wall formations. Volley and catapult animation driven by the sim's events. | An ambush in woods lands its first strike. Scatter takes less area damage per person. The animation matches the sim's log. |
 | 1c. Village and country scales | Village grain (one person a dot) and the country grain (battalions), with their own ground and caps. | Same engine at all three scales; the speeds on screen match the tile sizes in the table. |
 | 2. Objectives, surrender and time | Objective points, surrender rules, 120 s cap (5 min at country scale), Pause and Real time, orders while paused, Proceed. | A battle ends by rout, objectives, surrender and time, each in a test. |
 | 3. Waves and levies | Attacker reinforcements, the bell at the start, levies drawn from the province pool. | Pool counts go down by the right amounts. |
 | 4. Contract and auto | Result shape, auto mode, balance runs, battle log. | 200 seeded battles per matchup; battles under the cap. |
-| 5. Link to V2 | One change in V2 behind a setting ("Play battles in V3" in ⚙️), after the contract is agreed. | First time V2's files change. |
+| 5. Link to V2 | One change in V2 behind a setting ("Play battles in V4" in ⚙️), after the contract is agreed. | First time V2's files change. |
 | Later | Field growing to 5 to 20× the canvas with zoom and panning. Wave 3 from allied provinces. | Not in v1. |
 
 Each phase gets an entry in `todo.md` that is ticked when built, as now.
 
 **Test plan**
-- Node script in `V3/tests/` for `sim.js` and auto battles. Run by hand, no build tool.
+- Node script in `V4/tests/` for `sim.js` and auto battles. Run by hand, no build tool.
 - Headless Chromium at 1024 × 768 for the sandbox, as in earlier rounds.
 - Balance matrix from auto mode: each type against each type, and mixed armies against single types. Check win rates and battle length.
 
@@ -282,8 +282,8 @@ Each phase gets an entry in `todo.md` that is ticked when built, as now.
 
 ## Built (sandbox, first pass)
 
-- Files: `V3/index.html`, `V3/css/style.css`, `V3/js/config.js` (every tuned number), `V3/js/field.js`, `V3/js/sim.js`, `V3/js/insignia.js`, `V3/js/contract.js`, `V3/js/view.js`.
-- Tests: `node V3/tests/sim.test.js` (12 rule checks, all pass). `node V3/tests/balance.js 12` (the type matchup matrix, equal people on each side).
+- Files: `V4/index.html`, `V4/css/style.css`, `V4/js/config.js` (every tuned number), `V4/js/field.js`, `V4/js/sim.js`, `V4/js/insignia.js`, `V4/js/contract.js`, `V4/js/view.js`.
+- Tests: `node V4/tests/sim.test.js` (12 rule checks, all pass). `node V4/tests/balance.js 12` (the type matchup matrix, equal people on each side).
 - Verified in headless Chromium at 1024 × 768: setup, deployment countdown, selecting and ordering a unit, pause, surrender and the result screen, the village and country scales. No console errors.
 - Damage is worked out for all hits together, and units act in a seeded random order each tick, so no side moves first.
 - A catapult attack on a unit on a town, wall or gate tile is multiplied (×1.5). A battle with no units at all ends at once.

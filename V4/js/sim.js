@@ -1,8 +1,8 @@
-// Expansion Wars — V3 battle simulation. No DOM: runs in the browser and in Node.
+// Expansion Wars — V4 battle simulation. No DOM: runs in the browser and in Node.
 // Side 0 is the attacker, side 1 the defender. Positions are in tiles (1 tile = 20 units).
 (function () {
   'use strict';
-  var V3 = window.V3, C = V3.CONFIG;
+  var V4 = window.V4, C = V4.CONFIG;
   var WORD = ['Attacker', 'Defender'];
   var EPS = 0.01;
 
@@ -379,11 +379,11 @@
 
   // ---- Public API ------------------------------------------------------------
 
-  V3.createBattle = function (req, opts) {
+  V4.createBattle = function (req, opts) {
     opts = opts || {};
     var scale = req.scale || 'fortress';
-    var rng = V3.rng(req.seed || 1);
-    var field = V3.buildField(req, rng);
+    var rng = V4.rng(req.seed || 1);
+    var field = V4.buildField(req, rng);
     var st = {
       t: 0, scale: scale, grain: C.GRAIN[scale], cap: C.CAP[scale],
       field: field, rng: rng, units: [], nextId: 1,
@@ -410,7 +410,7 @@
     return st;
   };
 
-  V3.step = function (st, dt) {
+  V4.step = function (st, dt) {
     if (st.done) return;
     st.t += dt;
     if (st.animate) st.events = st.events.filter(function (e) { return st.t - e.t < 1; });
@@ -435,7 +435,7 @@
   };
 
   // Player commands: move, attack, hold, strategy, formation, proceed, surrender.
-  V3.issue = function (st, cmd) {
+  V4.issue = function (st, cmd) {
     if (st.done) return false;
     if (cmd.kind === 'surrender') { st.manual = cmd.side; checkEnd(st); return true; }
     var u = findUnit(st, cmd.unit);
@@ -455,7 +455,7 @@
   };
 
   // The result that goes back to V2. Pool is what each side has at home after the battle.
-  V3.result = function (st) {
+  V4.result = function (st) {
     var d = st.done || { winner: null, how: 'running', t: st.t };
     var survivors = [zeroTypes(), zeroTypes()], surv = [0, 0];
     st.units.forEach(function (u) {
@@ -481,5 +481,5 @@
     };
   };
 
-  V3.sim = { newUnit: newUnit, peopleFor: peopleFor, findUnit: findUnit, nearestEnemy: nearestEnemy, zeroTypes: zeroTypes };
+  V4.sim = { newUnit: newUnit, peopleFor: peopleFor, findUnit: findUnit, nearestEnemy: nearestEnemy, zeroTypes: zeroTypes };
 })();
