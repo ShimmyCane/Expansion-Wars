@@ -275,9 +275,18 @@
     n.food += 2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f - n.soldiers * 0.02;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
-    n.stone += 2 * n.f;
+    // Stone comes from cities: each city mines 1 a turn.
+    n.stone += n.c;
     n.magic += 0.1 + n.tech / 200;
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200);
+    // Culture draws in soldiers: up to +50% at 100 culture.
+    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200);
+    // Culture and magic together found new villages: every 400 points of their sum, one village (on average).
+    n.vprog = (n.vprog || 0) + (n.culture + n.magic) / 400;
+    while (n.vprog >= 1) {
+      n.vprog -= 1;
+      n.v++;
+      if (n.id === 0) addLog('Culture and magic found a new village.');
+    }
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -345,7 +354,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0,
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
