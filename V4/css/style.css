@@ -88,5 +88,12 @@ button:disabled { opacity: 0.5; }
 .seed { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .deploy-note { color: var(--accent); font-weight: 600; margin: 8px 0 0; }
 .deploy-note[hidden] { display: none; }
-.family form input { min-width: 0; flex: 1 1 160px; }
-.family .row { align-items: stretch; }
+
+/* Settings (⚙️) */
+.gear { position: fixed; right: 14px; bottom: 14px; width: 52px; height: 52px; border-radius: 26px; font-size: 24px; padding: 0; background: var(--card); border: 1px solid var(--line); z-index: 10; }
+.settings { position: fixed; right: 14px; bottom: 76px; width: min(340px, calc(100vw - 28px)); max-height: 70vh; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.settings[hidden] { display: none; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.settings form { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.settings form input { width: 100%; }
+.settings .row { margin-top: 6px; }

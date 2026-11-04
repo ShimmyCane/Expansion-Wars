@@ -44,21 +44,6 @@
       </div>
     </div>
 
-    <div class="card family">
-      <h2>Family database</h2>
-      <p id="fam-status" class="muted small" aria-live="polite">Checking…</p>
-      <form id="fam-form" class="row" hidden>
-        <input id="fam-email" type="email" autocomplete="username" placeholder="Family email">
-        <input id="fam-pass" type="password" autocomplete="current-password" placeholder="Password">
-        <button id="fam-signin" type="submit">Sign in</button>
-      </form>
-      <div class="row">
-        <button id="fam-send" class="ghost" type="button" hidden>Send waiting replays</button>
-        <button id="fam-signout" class="ghost" type="button" hidden>Sign out</button>
-      </div>
-      <p id="fam-result" class="muted small" aria-live="polite"></p>
-    </div>
-
     <button id="sc-start" class="big">▶ Set up the field</button>
   </section>
 
@@ -117,6 +102,26 @@
     <button id="bf-back-setup" class="link">← Back to setup</button>
   </section>
 
+  <!-- Settings (⚙️, lower right): family database sign-in and the version. On every screen. -->
+  <button id="gear" class="gear" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <div id="settings-panel" class="settings" hidden>
+    <div class="settings-head"><strong>Settings</strong><button id="settings-close" class="ghost" type="button">Close</button></div>
+    <h3>Family database</h3>
+    <p id="fam-status" class="muted small" aria-live="polite">Checking…</p>
+    <form id="fam-form" hidden>
+      <input id="fam-email" type="email" autocomplete="username" placeholder="Family email">
+      <input id="fam-pass" type="password" autocomplete="current-password" placeholder="Password">
+      <button id="fam-signin" type="submit">Sign in</button>
+    </form>
+    <div class="row">
+      <button id="fam-send" class="ghost" type="button" hidden>Send waiting replays</button>
+      <button id="fam-signout" class="ghost" type="button" hidden>Sign out</button>
+    </div>
+    <p id="fam-result" class="muted small" aria-live="polite"></p>
+    <h3>Version</h3>
+    <p class="muted small">V4 custom battle, round 3 (replays to the family database).</p>
+  </div>
+
   <script src="../js/config.js"></script>
   <script src="js/config.js"></script>
   <script src="js/field.js"></script>
@@ -124,6 +129,7 @@
   <script src="js/insignia.js"></script>
   <script src="js/contract.js"></script>
   <script src="js/replays.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/view.js"></script>
 </body>
 </html>

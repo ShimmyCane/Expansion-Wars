@@ -335,38 +335,6 @@
     V4.replays.save(st.req, st.commands, r).then(function (msg) { $('bf-save-status').textContent = msg; });
   }
 
-  // ---- Family database card on the setup screen ------------------------------
-
-  function renderFamily(status, signedIn) {
-    var waiting = V4.replays.waiting();
-    $('fam-status').textContent = status.message + (waiting && signedIn === false ? ' ' + waiting + ' waiting on this device.' : '');
-    $('fam-form').hidden = !!signedIn;
-    $('fam-send').hidden = !signedIn || !waiting;
-    $('fam-signout').hidden = !signedIn;
-  }
-
-  function wireFamily() {
-    V4.replays.onStatus(renderFamily);
-    V4.replays.getSession();
-    $('fam-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      $('fam-result').textContent = 'Signing in…';
-      V4.replays.signIn($('fam-email').value.trim(), $('fam-pass').value).then(function (msg) {
-        $('fam-pass').value = '';
-        $('fam-result').textContent = msg;
-      }).catch(function (err) {
-        $('fam-result').textContent = 'Sign in failed: ' + (err && err.message ? err.message : err);
-      });
-    });
-    $('fam-send').addEventListener('click', function () {
-      $('fam-result').textContent = 'Sending…';
-      V4.replays.sendPending().then(function (msg) { $('fam-result').textContent = msg; });
-    });
-    $('fam-signout').addEventListener('click', function () {
-      V4.replays.signOut().then(function () { $('fam-result').textContent = ''; });
-    });
-  }
-
   // The replay is the request plus every order given, with the tick it was given on.
   function copyReplay() {
     var text = JSON.stringify({ request: st.req, commands: st.commands, result: V4.result(st) }, null, 2);
@@ -412,11 +380,8 @@
     requestAnimationFrame(frame);
   }
 
-  // ---- Wiring -------------------------------------------------------------------
-
   function wire() {
     buildSetup();
-    wireFamily();
     svg = $('bf-svg');
     svg.addEventListener('click', onMapClick);
     $('bf-begin').addEventListener('click', beginBattle);
