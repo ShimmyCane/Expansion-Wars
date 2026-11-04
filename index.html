@@ -187,6 +187,14 @@
 
   <div id="errors" class="errors" hidden></div>
 
+  <!-- Floating settings and version: on every screen except the game, which has its own ⚙️ -->
+  <button id="float-gear" class="float-gear" aria-label="Settings and version" aria-expanded="false">⚙️</button>
+  <section id="float-panel" class="panel float-panel" hidden>
+    <h2>Settings</h2>
+    <p class="row"><span>Version</span><b id="app-version"></b></p>
+    <button id="float-reset-zoom" class="big">Reset zoom</button>
+    <p id="float-note" class="muted small" aria-live="polite"></p>
+  </section>
   <script src="js/sound.js"></script>
   <script src="js/map.js"></script>
   <script src="js/config.js"></script>
@@ -194,5 +202,6 @@
   <script src="js/store.js"></script>
   <script src="js/game.js"></script>
   <script src="js/country.js"></script>
+  <script src="js/settings.js"></script>
 </body>
 </html>
