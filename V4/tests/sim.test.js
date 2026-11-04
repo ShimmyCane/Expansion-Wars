@@ -67,7 +67,8 @@ test('a column in woods is ambushed when an enemy hides within three tiles', () 
   const st = blank(V4.sampleRequest({ seed: 9, settlement: 'none', attackerUnits: [], defenderUnits: [] }));
   st.field.tiles[10 * C.COLS + 12] = 'w';   // woods at tile (12, 10)
   const col = S.newUnit(st, 0, 'pikemen', 'engage', 'column', 10, 10, 20);
-  S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12.5, 10.5, 20);
+  // Hidden in woods, the enemy is seen only within 2.5 tiles, so it stands 2.2 tiles away.
+  S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12.2, 10.5, 20);
   V4.step(st, 0.1);
   assert.strictEqual(col.ambushSeen, true);
   assert.ok(col.ambushT > 0, 'ambush penalty is running');
@@ -201,6 +202,132 @@ test('pool accounting: what leaves home comes back as survivors', () => {
   const r = V4.result(st);
   const survivingPeople = Object.values(r.survivors.attacker).reduce((a, b) => a + b, 0);
   assert.strictEqual(r.pool.attacker, Math.round(200 - deployed + survivingPeople));
+});
+
+// ---- Battlefield generator and the mechanics added in round 4 --------------
+
+test('the large field is 2 x 2 screens, and the settlement is not at the far edge', () => {
+  const st = V4.createBattle(V4.sampleRequest({ seed: 3, settlement: 'fortress', gen: { size: 'large', river: 'bridges', roads: true, grass: true } }), {});
+  assert.strictEqual(st.cols, 100);
+  assert.strictEqual(st.rows, 64);
+  assert.ok(st.field.objectives[0].x < 0.75 * st.cols, 'settlement sits well inside the map');
+});
+
+test('a settlement has more than one opening, as set by the generator', () => {
+  [2, 3, 4].forEach(n => {
+    const st = V4.createBattle(V4.sampleRequest({ seed: 3, settlement: 'town', gen: { size: 'large', gates: n } }), {});
+    const gates = st.field.tiles.filter(t => t === 'y').length;
+    assert.strictEqual(gates, n, n + ' gates requested');
+  });
+});
+
+test('bridges: deep river is impassable, so a crossing has to use a bridge', () => {
+  const st = blank(V4.sampleRequest({ seed: 3, settlement: 'none', gen: { river: 'bridges' } }));
+  const riverCol = Math.floor(st.cols / 2) - 1;
+  const bridgeRows = [];
+  for (let y = 0; y < st.rows; y++) if (st.field.tiles[y * st.cols + riverCol] === 'b') bridgeRows.push(y);
+  assert.ok(bridgeRows.length > 0, 'the river has bridges');
+  const u = S.newUnit(st, 0, 'swordsmen', 'engage', 'line', riverCol - 2, 0.5, 20);
+  u.order = { kind: 'attackMove', x: riverCol + 4, y: 0.5 };
+  let crossedAt = null;
+  for (let i = 0; i < 400 && u.x < riverCol + 3; i++) {
+    V4.step(st);
+    if (crossedAt === null && u.x >= riverCol) crossedAt = Math.floor(u.y);   // the row it first reaches the river
+  }
+  assert.ok(u.x >= riverCol + 2, 'it got across');
+  assert.ok(bridgeRows.includes(crossedAt), 'and it crossed on a bridge, at row ' + crossedAt);
+});
+
+test('a road is faster than open grass', () => {
+  const st = blank(V4.sampleRequest({ seed: 3, settlement: 'none' }));
+  st.field.tiles[10 * st.cols + 5] = 'd';
+  st.field.tiles[20 * st.cols + 5] = 'g';
+  const onRoad = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5.5, 10.5, 20);
+  const onGrass = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5.5, 20.5, 20);
+  onRoad.order = { kind: 'attackMove', x: 30, y: 10.5 };
+  onGrass.order = { kind: 'attackMove', x: 30, y: 20.5 };
+  for (let i = 0; i < 40; i++) V4.step(st);
+  assert.ok(onRoad.x - 5.5 > onGrass.x - 5.5, 'the road unit got further');
+});
+
+test('fatigue: a long march tires a unit, and rest gives it back', () => {
+  const st = blank(V4.sampleRequest({ seed: 3, settlement: 'none', gen: { fatigue: true } }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 3, 10, 20);
+  u.order = { kind: 'attackMove', x: 40, y: 10.5 };
+  for (let i = 0; i < 400; i++) V4.step(st);
+  assert.ok(u.fat > 5, 'it is tired after marching: ' + u.fat.toFixed(1));
+  u.order = null;
+  const tired = u.fat;
+  for (let i = 0; i < 200; i++) V4.step(st);
+  assert.ok(u.fat < tired, 'resting lowers fatigue');
+});
+
+test('facing: a unit is hit hardest from behind, less from the side, least from the front', () => {
+  // The target faces east (dir 0). Archers stand 3 tiles away: east of it (front), north (side), west (behind).
+  const loss = (angle) => {
+    const st = blank(V4.sampleRequest({ seed: 4, scale: 'fortress', settlement: 'none', gen: { facing: true, fatigue: false } }));
+    const target = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 20, 10, 20);
+    target.dir = 0;
+    target.order = { kind: 'hold' };
+    const shooter = S.newUnit(st, 0, 'archers', 'engage', 'line', 20 + 3 * Math.cos(angle), 10 + 3 * Math.sin(angle), 20);
+    shooter.order = { kind: 'hold' };
+    const before = target.people;
+    V4.step(st);
+    return before - target.people;
+  };
+  const front = loss(0), side = loss(Math.PI / 2), rear = loss(Math.PI);
+  assert.ok(front > 0 && side > 0 && rear > 0, 'all three hit: ' + front + ' ' + side + ' ' + rear);
+  assert.ok(rear > side && side > front, 'rear > side > front: ' + rear.toFixed(3) + ' ' + side.toFixed(3) + ' ' + front.toFixed(3));
+});
+
+test('ambush: a hidden unit offers a strike when an enemy comes near, and does not strike on its own', () => {
+  const st = blank(V4.sampleRequest({ seed: 5, settlement: 'none', gen: { ambush: 'prompt' } }));
+  const waiting = S.newUnit(st, 0, 'swordsmen', 'ambush', 'line', 10, 10, 20);
+  const enemy = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12.5, 10, 20);
+  enemy.order = { kind: 'hold' };
+  for (let i = 0; i < 10; i++) V4.step(st);
+  assert.strictEqual(waiting.strikePrompt, true, 'the prompt is up');
+  assert.strictEqual(enemy.people, 20, 'nothing was struck without the player');
+  assert.strictEqual(V4.issue(st, { kind: 'strike', unit: waiting.id }), true, 'the strike is accepted');
+  for (let i = 0; i < 2; i++) V4.step(st);
+  assert.ok(enemy.people < 20, 'the strike burst hit the enemy');
+});
+
+test('a strike is refused when no enemy is close', () => {
+  const st = blank(V4.sampleRequest({ seed: 5, settlement: 'none', gen: { ambush: 'prompt' } }));
+  const waiting = S.newUnit(st, 0, 'swordsmen', 'ambush', 'line', 10, 10, 20);
+  assert.strictEqual(V4.issue(st, { kind: 'strike', unit: waiting.id }), false);
+});
+
+test('approach: a unit with no order walks toward its approach point', () => {
+  const st = blank(V4.sampleRequest({ seed: 5, settlement: 'none' }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  u.approach = { x: 30, y: 10 };
+  for (let i = 0; i < 40; i++) V4.step(st);
+  assert.ok(u.x > 5.5, 'it moved toward the approach point');
+});
+
+test('local odds: a cavalry unit outnumbered nearby falls back instead of charging', () => {
+  const st = blank(V4.sampleRequest({ seed: 5, settlement: 'none' }));
+  const horse = S.newUnit(st, 0, 'cavalry', 'engage', 'line', 10, 10, 10);
+  S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12.5, 10, 20).order = { kind: 'hold' };
+  S.newUnit(st, 1, 'pikemen', 'engage', 'line', 12.5, 11, 20).order = { kind: 'hold' };
+  S.newUnit(st, 1, 'swordsmen', 'engage', 'line', 13, 9.5, 20).order = { kind: 'hold' };
+  S.newUnit(st, 1, 'swordsmen', 'engage', 'line', 13.5, 10.5, 20).order = { kind: 'hold' };
+  S.newUnit(st, 0, 'pikemen', 'engage', 'line', 4, 10, 20).order = { kind: 'hold' };
+  const before = horse.x;
+  for (let i = 0; i < 10; i++) V4.step(st);
+  assert.ok(horse.x < before, 'it backed away');
+});
+
+test('random teams: the balancer keeps the two sides close in strength', () => {
+  const rng = V4.rng(77);
+  for (let k = 0; k < 20; k++) {
+    const t = V4.balanceTeams(16, rng);
+    const total = t.a ? Object.values(t.a).reduce((n, v) => n + v, 0) + Object.values(t.b).reduce((n, v) => n + v, 0) : -1;
+    assert.strictEqual(total, 16, 'every dot is dealt');
+    assert.ok(Math.abs(t.power[0] - t.power[1]) <= Math.max(...Object.values(C.POWER)), 'strength within one dot: ' + t.power);
+  }
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

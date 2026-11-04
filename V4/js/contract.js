@@ -23,6 +23,16 @@
       });
     });
     if (req.defender && SETTLEMENTS.indexOf(req.defender.settlement || 'none') < 0) bad.push('defender.settlement is not recognised');
+    if (req.gen) {
+      Object.keys(req.gen).forEach(function (k) {
+        if (!(k in C.GEN)) bad.push('generator has an unknown option: ' + k);
+        else if (C.GEN_OPTIONS[k] && C.GEN_OPTIONS[k].indexOf(req.gen[k]) < 0) bad.push('generator ' + k + ' cannot be ' + req.gen[k]);
+      });
+      if (req.gen.facing !== undefined && typeof req.gen.facing !== 'boolean') bad.push('generator facing must be on or off');
+      if (req.gen.roads !== undefined && typeof req.gen.roads !== 'boolean') bad.push('generator roads must be on or off');
+      if (req.gen.grass !== undefined && typeof req.gen.grass !== 'boolean') bad.push('generator grass must be on or off');
+      if (req.gen.fatigue !== undefined && typeof req.gen.fatigue !== 'boolean') bad.push('generator fatigue must be on or off');
+    }
     return bad;
   };
 
@@ -47,6 +57,18 @@
       V4.step(st);
     }
     return V4.result(st);
+  };
+
+  // Deals `dots` random dots between two sides. Each dot goes to the side with less strength, so the teams come out close.
+  V4.balanceTeams = function (dots, rng) {
+    var sides = [V4.sim.zeroTypes(), V4.sim.zeroTypes()], power = [0, 0];
+    for (var i = 0; i < dots; i++) {
+      var type = C.TYPES[Math.floor(rng() * C.TYPES.length)];
+      var side = power[0] < power[1] ? 0 : (power[1] < power[0] ? 1 : (rng() < 0.5 ? 0 : 1));
+      sides[side][type]++;
+      power[side] += C.POWER[type];
+    }
+    return { a: sides[0], b: sides[1], power: power };
   };
 
   // A small fortress battle, the default in the sandbox.
@@ -77,6 +99,8 @@
         ]
       },
       border: { river: !!o.river, road: true },
+      // The small field with no extras: the old one-screen battle, so tests and balance runs stay comparable.
+      gen: Object.assign({ size: 'small', river: o.river ? 'fords' : 'none', roads: false, grass: false, fatigue: false, facing: false, ambush: 'auto', approach: 'none', gates: 3 }, o.gen || {}),
       mode: o.mode || 'play'
     };
   };

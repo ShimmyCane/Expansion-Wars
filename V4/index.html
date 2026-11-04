@@ -24,7 +24,6 @@
       <label>Seed <input type="number" id="sc-seed" min="1" placeholder="random"></label>
       <label>Scale <select id="sc-scale"></select></label>
       <label>Settlement <select id="sc-settle"></select></label>
-      <label class="check"><input type="checkbox" id="sc-river"> River on the border (with fords)</label>
       <label class="check"><input type="checkbox" id="sc-woods" checked> Woods on both sides</label>
       <p class="muted small">The same seed and the same orders give the same battle. The seed is shown during the battle.</p>
     </div>
@@ -33,6 +32,26 @@
       <h2>Armies</h2>
       <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale. The defender is planned by the computer.</p>
       <div id="sc-types"></div>
+      <div class="row">
+        <button id="sc-balance" class="ghost" type="button">🎲 Random balanced teams</button>
+        <span id="sc-balance-note" class="muted small" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Battlefield generator</h2>
+      <p class="muted small">Ground, roads and rules for this battle. The same choices are saved with the replay.</p>
+      <div class="grid2">
+        <label>Field <select id="sc-size"></select></label>
+        <label>Settlement openings <select id="sc-gates"></select></label>
+        <label>River <select id="sc-river"></select></label>
+        <label>Hidden units <select id="sc-ambush"></select></label>
+        <label>Default approach <select id="sc-approach"></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="sc-roads"> Roads (faster travel)</label>
+      <label class="check"><input type="checkbox" id="sc-grass"> Tall grass (hides units)</label>
+      <label class="check"><input type="checkbox" id="sc-facing"> Fronts and flanks (battalions and squads)</label>
+      <label class="check"><input type="checkbox" id="sc-fatigue"> Fatigue (long marches and long fights tire units)</label>
     </div>
 
     <div class="card">
@@ -67,7 +86,15 @@
 
     <div class="field-wrap">
       <svg id="bf-svg" role="img" aria-label="Battlefield"></svg>
+      <svg id="bf-mini" class="mini" role="img" aria-label="Mini map: tap to look at a place" hidden></svg>
+      <div id="bf-pops" class="pops"></div>
       <div id="bf-count" class="count" hidden></div>
+      <div class="cam-pad" aria-label="Move the view">
+        <button id="cam-u" type="button" aria-label="Look up">▲</button>
+        <button id="cam-l" type="button" aria-label="Look left">◀</button>
+        <button id="cam-r" type="button" aria-label="Look right">▶</button>
+        <button id="cam-d" type="button" aria-label="Look down">▼</button>
+      </div>
     </div>
 
     <p id="bf-deploy-note" class="deploy-note" hidden>Deployment. Place your units inside the blue strip, then begin.</p>

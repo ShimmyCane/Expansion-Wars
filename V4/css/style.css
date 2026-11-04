@@ -97,3 +97,16 @@ button:disabled { opacity: 0.5; }
 .settings form { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
 .settings form input { width: 100%; }
 .settings .row { margin-top: 6px; }
+
+/* Round 4: mini map, camera pad, strike pop-ups (all sit on the battle field) */
+.field-wrap .mini { position: absolute; left: 8px; top: 8px; width: 160px; height: 102px; border: 2px solid #fff; border-radius: 6px; background: #7fa566; cursor: crosshair; touch-action: manipulation; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+.field-wrap .mini[hidden] { display: none; }
+.field-wrap .cam-pad { position: absolute; right: 8px; bottom: 8px; display: grid; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(2, 36px); gap: 4px; }
+.field-wrap .cam-pad button { font-size: 16px; padding: 0; border-radius: 8px; background: rgba(255,255,255,0.85); border: 1px solid var(--line); }
+.field-wrap .cam-pad button#cam-u { grid-column: 2; grid-row: 1; }
+.field-wrap .cam-pad button#cam-l { grid-column: 1; grid-row: 2; }
+.field-wrap .cam-pad button#cam-d { grid-column: 2; grid-row: 2; }
+.field-wrap .cam-pad button#cam-r { grid-column: 3; grid-row: 2; }
+.pops { position: absolute; inset: 0; pointer-events: none; }
+.strike-pop { position: absolute; transform: translate(-50%, -140%); pointer-events: auto; background: #d05a4a; color: #fff; border: 2px solid #fff; border-radius: 999px; padding: 4px 12px; font-weight: 800; font-size: 15px; box-shadow: 0 3px 10px rgba(0,0,0,0.4); cursor: pointer; white-space: nowrap; }
+.strike-pop[hidden] { display: none; }
