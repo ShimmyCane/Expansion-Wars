@@ -841,3 +841,9 @@ body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 .dot-c { fill: #ef476f; }
 .dot-f { fill: #118ab2; }
 
+/* Version log in the floating settings panel. */
+.version-log { font-size: 14px; }
+.version-log summary { font-weight: 800; cursor: pointer; padding: 4px 0; }
+.version-log ol { max-height: 180px; overflow-y: auto; margin: 6px 0 0; padding-left: 22px; }
+.version-log li { margin: 0 0 4px; }
+

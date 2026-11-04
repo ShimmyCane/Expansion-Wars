@@ -2,12 +2,38 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.0 (country layer)';
+  var VERSION = '2.13';
+  // One version for each change merged since the country layer began (2.0). Newest first.
+  var LOG = [
+    ['2.13', 'Drifting borders, zoom to population centres, unrest and revolts, attacks cost more under unrest'],
+    ['2.12', 'Answers to the drifting-borders design round (convo v0.12)'],
+    ['2.11', 'Overpowered attacks overrun several spots; defenders surrender'],
+    ['2.10', 'Notes table for the family database (xw_notes), with a rolled-back test'],
+    ['2.9', 'Floating ⚙️ on every screen: version and reset zoom'],
+    ['2.8', 'Design round on drifting borders, zoom and revolts (convo v0.11)'],
+    ['2.7', 'Fortresses hold out longest: spots fall weakest first'],
+    ['2.6', 'Conquered spots pay less for a while; computer nations attack and declare war more'],
+    ['2.5', 'Attacks fight in three waves; overwhelming power capitulates'],
+    ['2.4', 'Guns or butter slider; food helps culture; villages built by hand'],
+    ['2.3', 'Trade routes also gather stone'],
+    ['2.2', 'Stone from cities; culture draws soldiers; magic from tiers and spent per attack; trade costs gold; upgrades scale'],
+    ['2.1', 'Send slider for attacks, remembered between battles; culture only from battles'],
+    ['2.0', 'Country layer: first playable version (six nations, turns of 60 seconds, diplomacy, battles)']
+  ];
   var gear = document.getElementById('float-gear');
   var panel = document.getElementById('float-panel');
   var reset = document.getElementById('float-reset-zoom');
   var note = document.getElementById('float-note');
   document.getElementById('app-version').textContent = VERSION;
+  var list = document.getElementById('version-log');
+  LOG.forEach(function (row) {
+    var li = document.createElement('li');
+    var b = document.createElement('b');
+    b.textContent = row[0] + ' ';
+    li.appendChild(b);
+    li.appendChild(document.createTextNode(row[1]));
+    list.appendChild(li);
+  });
 
   function setOpen(open) {
     panel.hidden = !open;
