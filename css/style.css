@@ -834,12 +834,15 @@ a.link-big { display: flex; align-items: center; justify-content: center; text-d
 body:has(#screen-game:not([hidden])) .float-gear,
 body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 
-/* Population centres on the zoomed country map: one dot per village, town, city or fortress. */
-.dot { stroke: var(--ink); stroke-width: 2; pointer-events: none; }
-.dot-v { fill: #ffffff; }
-.dot-t { fill: #ffd166; }
-.dot-c { fill: #ef476f; }
-.dot-f { fill: #118ab2; }
+/* Population centres on the zoomed country map: the version 1 icons, with an upgrade arrow on your own upgradable provinces. */
+.pop { cursor: pointer; }
+.pop-icon { user-select: none; -webkit-user-select: none; }
+.pop-dot { fill: #ffffff; stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; }
+.upbadge circle { fill: #ffffff; stroke: var(--ink); stroke-width: 2; }
+.upbadge.off circle { fill: #d9d4c7; }
+.upbadge text { pointer-events: none; user-select: none; }
+.terrain-icon { pointer-events: none; user-select: none; }
+.river-edge { fill: none; stroke: #4aa3df; stroke-width: 9; stroke-linecap: round; pointer-events: none; }
 
 /* Version log in the floating settings panel. */
 .version-log { font-size: 14px; }
@@ -850,10 +853,12 @@ body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 /* Province map: borders, terrain, empty dots, the mini map. */
 .border { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; pointer-events: none; }
 .lake { fill: #8fd3f4; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
-.river { fill: none; stroke: #4aa3df; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.mountain { fill: #c9c2b4; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
-.dot-e { fill: #ffffff; stroke-dasharray: 4 3; }
-.dot-neutral { opacity: 0.6; }
+.river { fill: none; stroke: #4aa3df; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+/* Neutral terrain cells: lakes, dense forests and mountains. Troops can cross them, at a cost. */
+.cell.t-lake { fill: #8fd3f4; }
+.cell.t-forest { fill: #8cc084; }
+.cell.t-mountain { fill: #c9c2b4; }
+.country-map-wrap .cell.t-lake, .country-map-wrap .cell.t-forest, .country-map-wrap .cell.t-mountain { stroke: none; cursor: default; }
 .country-mini {
   position: absolute; right: 8px; bottom: 8px; width: 150px; height: 96px;
   background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; z-index: 6; cursor: pointer;

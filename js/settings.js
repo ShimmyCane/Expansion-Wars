@@ -10,9 +10,10 @@
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
-  var VERSION = '2.13';
+  var VERSION = '2.14';
   // One version for each change merged since the country layer began (2.0). Newest first.
   var LOG = [
+    ['2.14', 'Provinces: 15 per nation; neutral lakes, forests and mountains; rivers along borders; zoom shows the version 1 icons, with upgrade arrows; AI upgrades; soldiers bought out or disbanded for gold'],
     ['2.13', 'Drifting borders, zoom to population centres, unrest and revolts, attacks cost more under unrest'],
     ['2.12', 'Answers to the drifting-borders design round (convo v0.12)'],
     ['2.11', 'Overpowered attacks overrun several spots; defenders surrender'],
