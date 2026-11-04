@@ -215,7 +215,13 @@
     return LABEL[key2];
   }
 
+  // Culture comes only from battle victories. The spot fought over sets the amount: a fortress gives 4, anything smaller 1.
+  var CULTURE = { v: 1, t: 1, c: 1, f: 4 };
+  // The highest grade a nation holds: the spot a battle is fought over.
+  function topGrade(n) { return n.f > 0 ? 'f' : n.c > 0 ? 'c' : n.t > 0 ? 't' : 'v'; }
+
   // A country battle: the chosen share of the attacker's soldiers (half by default) against the defender, who has a bonus.
+  // Winning earns the attacker culture; holding earns the defender culture.
   function battle(x) {
     var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
     if (!rel(i, j).war || !a.alive || !b.alive) return;
@@ -223,15 +229,18 @@
     if (sent < 1) return;
     var A = sent * quality(a);
     var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
+    var grade = topGrade(b);
     a.soldiers -= sent;
     if (A > D) {
       a.soldiers += sent * (1 - D / A);      // survivors come home
       b.soldiers *= (1 - DEF_LOSS);
+      a.culture += CULTURE[grade];
       var got = takeSpot(b, a);
-      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.'));
+      addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + CULTURE[grade] + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
-      addLog(b.name + ' holds against ' + a.name + '.');
+      b.culture += CULTURE[grade];
+      addLog(b.name + ' holds against ' + a.name + '. Culture +' + CULTURE[grade] + '.');
     }
   }
 
@@ -268,7 +277,6 @@
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
     n.stone += 2 * n.f;
     n.magic += 0.1 + n.tech / 200;
-    n.culture += n.happy / 50;
     n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200);
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
