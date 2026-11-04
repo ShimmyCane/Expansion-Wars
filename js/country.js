@@ -227,7 +227,8 @@
     if (!rel(i, j).war || !a.alive || !b.alive) return;
     var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent < 1) return;
-    var A = sent * quality(a);
+    // Magic adds attack power: each point is +1% for the attacker.
+    var A = sent * quality(a) * (1 + a.magic / 100);
     var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
     var grade = topGrade(b);
     a.soldiers -= sent;
