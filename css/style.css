@@ -807,3 +807,30 @@ a.link-big { display: flex; align-items: center; justify-content: center; text-d
 .country-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .country-log { width: min(96vw, 900px); margin: 0; padding: 8px 14px 8px 30px; border: 2px dashed var(--ink); border-radius: 14px; background: #fff; font-size: 15px; max-height: 180px; overflow-y: auto; }
 .turn-clock { margin: 0; font-weight: 800; }
+
+/* Floating settings and version: on every screen except the game (which keeps its own ⚙️). */
+.float-gear {
+  position: fixed;
+  right: calc(env(safe-area-inset-right) + 16px);
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  z-index: 50;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: var(--coral);
+  box-shadow: 0 4px 0 var(--ink);
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.float-gear:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.float-panel {
+  right: calc(env(safe-area-inset-right) + 16px);
+  bottom: calc(env(safe-area-inset-bottom) + 84px);
+  z-index: 50;
+}
+body:has(#screen-game:not([hidden])) .float-gear,
+body:has(#screen-game:not([hidden])) .float-panel { display: none; }
+

@@ -1007,6 +1007,7 @@
   $('zoom-in').addEventListener('click', function () { setZoom(g.zoom * ZOOM_STEP); });
   $('zoom-out').addEventListener('click', function () { setZoom(g.zoom / ZOOM_STEP); });
   $('zoom-fit').addEventListener('click', function () { setZoom(1 / g.scale); centreCam(); });
+  document.addEventListener('ew:reset-zoom', function () { setZoom(1 / g.scale); centreCam(); });
 
   // ---------- input ----------
 
