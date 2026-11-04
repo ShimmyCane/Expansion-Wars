@@ -1,6 +1,6 @@
 # Expansion Wars — V3 Schematic (battle view)
 
-**Status:** Design, answers recorded. No code yet.
+**Status:** Sandbox built (phases 0 to 4). Not linked from V2: phase 5 is not started. Balance is a first pass.
 **Owner:** Jimmy
 **Platform:** Same as V2: plain HTML/CSS/JS in `V3/`, no build step. Opens from `V3/index.html`.
 **Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V3 does not edit V2 files until the contract below is agreed.
@@ -207,8 +207,8 @@ Request (V2 to V3):
 {
   seed, turn,
   scale: 'village' | 'fortress' | 'country',
-  attacker: { nation, provinces: [id], pool,
-              units: [{ type, count, strategy, formation }] },
+  attacker: { nation, provinces: [id], pool, terrain: ['grass', 'woods', ...],
+              units: [{ type, count, strategy, formation }], reserve: [...] },
   defender: { nation, province, pool, population,
               settlement: 'none' | 'village' | 'town' | 'city' | 'fortress',
               terrain: ['grass', 'woods', 'river', ...] },
@@ -226,6 +226,7 @@ Result (V3 to V2):
   captured:  bool,
   losses:    { attacker: { type: people }, defender: { type: people } },
   survivors: { attacker: { type: people } },
+  pool:      { attacker: n, defender: n },   // people at home after the battle: pool left plus survivors
   levies:    n,
   seconds:   n
 }
@@ -278,6 +279,21 @@ Each phase gets an entry in `todo.md` that is ticked when built, as now.
 | 11 | Insignia | Medieval style, animals for now (placeholder mapping in the table). The style will change later. |
 | 12 | Formations | All four in v1: line, column, scatter and shield wall. Each has its own effect on speed, defence and flanking. |
 | 13 | Tile size | The field starts at 1× the canvas. Later it grows to 5 to 20× the canvas. Tile distances stay as the table, to confirm. |
+
+## Built (sandbox, first pass)
+
+- Files: `V3/index.html`, `V3/css/style.css`, `V3/js/config.js` (every tuned number), `V3/js/field.js`, `V3/js/sim.js`, `V3/js/insignia.js`, `V3/js/contract.js`, `V3/js/view.js`.
+- Tests: `node V3/tests/sim.test.js` (12 rule checks, all pass). `node V3/tests/balance.js 12` (the type matchup matrix, equal people on each side).
+- Verified in headless Chromium at 1024 × 768: setup, deployment countdown, selecting and ordering a unit, pause, surrender and the result screen, the village and country scales. No console errors.
+- Damage is worked out for all hits together, and units act in a seeded random order each tick, so no side moves first.
+- A catapult attack on a unit on a town, wall or gate tile is multiplied (×1.5). A battle with no units at all ends at once.
+
+## Balance notes (first run, to tune)
+
+- Mirror matches lean slightly to the defender (about 25% to 50% for the attacker over 8 seeds). The cause is not found yet. More seeds, then a look at the first contact.
+- Catapults beat most infantry at range, and pikes do not get close enough to answer them. Cavalry beats catapults. Catapults may need a minimum-range rule that is stricter, or less damage per crew person.
+- Archers beat swordsmen at range (88%), and cavalry and archers each beat the other in turn, because both are listed as strong against the other. Check whether that is the intent.
+- Battles run 28 to 107 seconds, inside the 120 second cap.
 
 ## To confirm later
 

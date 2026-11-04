@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — V3 Battle</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="back" href="../index.html">← Expansion Wars</a>
+    <h1>V3 · Battle view</h1>
+    <span class="note">Sandbox. Not linked from V2 yet.</span>
+  </header>
+
+  <!-- Setup -->
+  <section id="screen-setup" class="screen">
+    <p class="intro">Choose a fight, the size of each army, and how each side starts. Then the battle runs in real time. You can pause at any time to give orders.</p>
+
+    <div class="card">
+      <h2>The fight</h2>
+      <label>Scale <select id="sc-scale"></select></label>
+      <label>Settlement <select id="sc-settle"></select></label>
+      <label class="check"><input type="checkbox" id="sc-river"> River on the border (with fords)</label>
+      <label class="check"><input type="checkbox" id="sc-woods" checked> Woods on both sides</label>
+    </div>
+
+    <div class="card">
+      <h2>Armies</h2>
+      <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale.</p>
+      <div id="sc-types"></div>
+    </div>
+
+    <div class="card">
+      <h2>Opening plan</h2>
+      <div class="grid2">
+        <div>
+          <h3>You (attacker)</h3>
+          <label>Strategy <select id="sc-strat-a"></select></label>
+          <label>Formation <select id="sc-form-a"></select></label>
+        </div>
+        <div>
+          <h3>Them (defender)</h3>
+          <label>Strategy <select id="sc-strat-d"></select></label>
+          <label>Formation <select id="sc-form-d"></select></label>
+        </div>
+      </div>
+    </div>
+
+    <button id="sc-start" class="big">▶ Start battle</button>
+  </section>
+
+  <!-- Battle -->
+  <section id="screen-battle" class="screen" hidden>
+    <div class="bar">
+      <span id="bf-time">0:00</span>
+      <span id="bf-score"></span>
+      <button id="bf-toggle">❚❚ Pause</button>
+      <button id="bf-surrender" class="ghost">Surrender</button>
+    </div>
+
+    <div class="field-wrap">
+      <svg id="bf-svg" role="img" aria-label="Battlefield"></svg>
+      <div id="bf-count" class="count" hidden></div>
+    </div>
+
+    <p id="bf-hint" class="hint"></p>
+
+    <div id="bf-unit" class="card unit-panel" hidden>
+      <div class="unit-head">
+        <strong id="bf-unit-name"></strong>
+        <span id="bf-unit-info" class="muted small"></span>
+      </div>
+      <div class="row">
+        <label>Strategy <select id="bf-unit-strategy"></select></label>
+        <label>Formation <select id="bf-unit-formation"></select></label>
+      </div>
+      <div class="row">
+        <button id="bf-hold" class="ghost">Hold</button>
+        <button id="bf-proceed" class="ghost">Proceed with original plan</button>
+      </div>
+    </div>
+
+    <div id="bf-result" class="card result" hidden>
+      <h2 id="bf-result-title"></h2>
+      <p id="bf-result-body"></p>
+      <textarea id="bf-result-json" rows="6" readonly></textarea>
+      <div class="row">
+        <button id="bf-copy" class="ghost">Copy battle log</button>
+        <button id="bf-again">New battle</button>
+      </div>
+    </div>
+
+    <button id="bf-back-setup" class="link">← Back to setup</button>
+  </section>
+
+  <script src="js/config.js"></script>
+  <script src="js/field.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/insignia.js"></script>
+  <script src="js/contract.js"></script>
+  <script src="js/view.js"></script>
+</body>
+</html>
