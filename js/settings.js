@@ -2,6 +2,14 @@
 (function () {
   'use strict';
 
+  // The page does not zoom (iPhone and iPad): pinches and double taps belong to the canvas, not the page.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (type) {
+    document.addEventListener(type, function (e) { e.preventDefault(); }, { passive: false });
+  });
+  document.addEventListener('touchmove', function (e) {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+
   var VERSION = '2.13';
   // One version for each change merged since the country layer began (2.0). Newest first.
   var LOG = [
