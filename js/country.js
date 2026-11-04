@@ -254,7 +254,9 @@
   // Each wave is a fight: the defenders have an advantage, so casualties split by strength, not all or nothing.
   // After the waves, if the attacker's power is at least 10 times the defence, the defenders capitulate at once.
   // Otherwise the spot falls only if the attackers still standing are stronger than the defenders still standing.
-  var WAVES = 3, CAPITULATE = 10;
+  // Overpowered: at twice the defence, the defenders surrender. The attacker takes one spot for each whole point of
+  // power over the defence, up to all of them (so 10 to 1 takes everything).
+  var WAVES = 3, SURRENDER = 2;
   function battle(x) {
     var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
     if (!rel(i, j).war || !a.alive || !b.alive) return;
@@ -277,11 +279,17 @@
     }
     var ratio = power / defence;
     var got = null;
-    if (ratio >= CAPITULATE) {
-      got = takeSpot(b, a);
+    if (ratio >= SURRENDER) {
+      var take = Math.min(spots(b), Math.floor(ratio));
+      var taken = [];
+      for (var s = 0; s < take; s++) {
+        var g = takeSpot(b, a);
+        if (g) taken.push(g);
+      }
+      got = taken.length ? taken.join(', ') : null;
       a.soldiers += pool + Math.max(0, d);            // the defenders who are left surrender to you
       b.soldiers = 0;
-      addLog(b.name + ' capitulates to ' + a.name + (got ? ', giving up a ' + got + '.' : '.'));
+      addLog(b.name + ' surrenders to ' + a.name + (got ? ', giving up ' + taken.length + ' spot' + (taken.length === 1 ? '' : 's') + ' (' + got + ').' : '.'));
     } else if (pool * quality(a) * bonus > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER && pool > 0) {
       got = takeSpot(b, a);
       b.soldiers = Math.max(0, d);
