@@ -289,8 +289,8 @@
     n.food += 2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f - n.soldiers * 0.02;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
-    // Stone comes from cities: each city mines 1 a turn.
-    n.stone += n.c;
+    // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
+    n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot, and higher tiers gather more: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn.
     // The base trickle from technology stays as before.
     var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
