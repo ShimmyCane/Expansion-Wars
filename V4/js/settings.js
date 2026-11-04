@@ -3,6 +3,11 @@
 (function () {
   'use strict';
   var V4 = window.V4;
+  var VERSION = '4.1';
+  var LOG = [
+    ['4.1', 'Version number in settings; family sign-in in a ⚙️ panel; replays saved to the family database'],
+    ['4.0', 'Custom battle: deployment, fog and vision, defender plan, attack and rush moves, morale rally, fixed-step replays']
+  ];
   var $ = function (id) { return document.getElementById(id); };
 
   function open(on) {
@@ -20,7 +25,21 @@
     $('fam-signout').hidden = !signedIn;
   }
 
+  function showVersion() {
+    $('app-version').textContent = VERSION;
+    var list = $('version-log');
+    LOG.forEach(function (row) {
+      var li = document.createElement('li');
+      var b = document.createElement('b');
+      b.textContent = row[0] + ' ';
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(row[1]));
+      list.appendChild(li);
+    });
+  }
+
   function wire() {
+    showVersion();
     $('gear').addEventListener('click', function () { open($('settings-panel').hidden); });
     $('settings-close').addEventListener('click', function () { open(false); });
     V4.replays.onStatus(render);
