@@ -8,12 +8,13 @@
   var W = 1000, H = 640, TURN = 60, COUNT = 6, SVG_NS = 'http://www.w3.org/2000/svg';
   var NAMES = ['Your nation', 'Oakfield', 'Riverton', 'Stonevale', 'Mirewood', 'Highmoor'];
   var MIN_REP = { trade: -20, ally: 20, ceasefire: -40 };
+  var TRADE_SETUP = 20;   // gold paid once by the nation that opens a trade route; the route then pays gold each turn
   var TRIBUTE = 10, SEND = 0.5, DEFENDER = 1.2, FORT_BONUS = 0.2, DEF_LOSS = 0.6;
   // Growing a spot: village to town and town to city cost gold, city to fortress costs stone.
   var GROW = { v: { to: 't', gold: 10 }, t: { to: 'c', gold: 20 }, c: { to: 'f', stone: 15 } };
   var LABEL = { v: 'village', t: 'town', c: 'city', f: 'fortress' };
   var DIPLO = [
-    { type: 'trade', text: 'Trade route' },
+    { type: 'trade', text: 'Trade route (' + TRADE_SETUP + ' gold to set up)' },
     { type: 'ally', text: 'Neutral alliance' },
     { type: 'ceasefire', text: 'Ceasefire' },
     { type: 'tribute', text: 'Send tribute (' + TRIBUTE + ' gold)' },
@@ -131,6 +132,7 @@
       if (r.war) return 'You are at war.';
       if (r.trade) return 'Already trading.';
       if (r.rep < MIN_REP.trade) return 'They do not trust you enough yet.';
+      if (a.gold < TRADE_SETUP) return 'Not enough gold (' + TRADE_SETUP + ') to open a trade route.';
     }
     if (type === 'ally') {
       if (r.war) return 'You are at war.';
@@ -150,15 +152,22 @@
     return null;
   }
 
+  // Upgrades get dearer as a nation holds more spots: each spot adds 10% to the base cost.
+  function growCost(n, from) {
+    var m = GROW[from], f = 1 + 0.1 * spots(n);
+    return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
+  }
+
   // Spend resources to grow one of your spots. Happens at once.
   function grow(n, from) {
     var m = GROW[from];
     if (!m) return 'That cannot grow.';
     if (n[from] < 1) return 'No ' + LABEL[from] + ' to grow.';
-    if (m.gold && n.gold < m.gold) return 'Not enough gold (' + m.gold + ').';
-    if (m.stone && n.stone < m.stone) return 'Not enough stone (' + m.stone + ').';
-    if (m.gold) n.gold -= m.gold;
-    if (m.stone) n.stone -= m.stone;
+    var c = growCost(n, from);
+    if (c.gold && n.gold < c.gold) return 'Not enough gold (' + c.gold + ').';
+    if (c.stone && n.stone < c.stone) return 'Not enough stone (' + c.stone + ').';
+    n.gold -= c.gold;
+    n.stone -= c.stone;
     n[from]--;
     n[m.to]++;
     return null;
@@ -184,6 +193,7 @@
     if (err) { addLog(a.name + ' could not ' + x.type + ' with ' + b.name + ': ' + err); return; }
     if (x.type === 'trade') {
       r.trade = true;
+      a.gold -= TRADE_SETUP;
       addLog(a.name + ' and ' + b.name + ' open a trade route.');
     } else if (x.type === 'ally') {
       r.ally = true;
@@ -227,7 +237,9 @@
     if (!rel(i, j).war || !a.alive || !b.alive) return;
     var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
     if (sent < 1) return;
-    var A = sent * quality(a);
+    // Magic is used up by the attack: each point adds 1% to its strength, then the magic is gone.
+    var A = sent * quality(a) * (1 + a.magic / 100);
+    a.magic = 0;
     var D = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
     var grade = topGrade(b);
     a.soldiers -= sent;
@@ -235,11 +247,13 @@
       a.soldiers += sent * (1 - D / A);      // survivors come home
       b.soldiers *= (1 - DEF_LOSS);
       a.culture += CULTURE[grade];
+      a.cultGained += CULTURE[grade];
       var got = takeSpot(b, a);
       addLog(a.name + ' wins against ' + b.name + (got ? ' and takes a ' + got + '.' : '.') + ' Culture +' + CULTURE[grade] + '.');
     } else {
       b.soldiers -= b.soldiers * DEF_LOSS * (A / D);
       b.culture += CULTURE[grade];
+      b.cultGained += CULTURE[grade];
       addLog(b.name + ' holds against ' + a.name + '. Culture +' + CULTURE[grade] + '.');
     }
   }
@@ -261,7 +275,7 @@
       if (Math.random() < 0.25) {
         var friends = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
           var r = rel(a.id, b.id);
-          return b.alive && !r.war && !r.trade && r.rep >= -10;
+          return b.alive && !r.war && !r.trade && r.rep >= -10 && a.gold >= TRADE_SETUP;
         });
         if (friends.length) st.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
       }
@@ -275,9 +289,22 @@
     n.food += 2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f - n.soldiers * 0.02;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     n.gold += 0.5 * n.v + n.t + 2 * n.c + 3 * tradeCount(n.id);
-    n.stone += 2 * n.f;
-    n.magic += 0.1 + n.tech / 200;
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200);
+    // Stone comes from cities: each city mines 1 a turn.
+    n.stone += n.c;
+    // Magic is gathered from every spot, and higher tiers gather more: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn.
+    // The base trickle from technology stays as before.
+    var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
+    n.magic += magicIn;
+    // Culture draws in soldiers: up to +50% at 100 culture.
+    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200);
+    // Villages grow gradually from what was gathered this turn: magic counts 1, culture counts 2, and every 10 points make a village.
+    n.vprog = (n.vprog || 0) + (magicIn + 2 * n.cultGained) / 10;
+    n.cultGained = 0;
+    while (n.vprog >= 1) {
+      n.vprog -= 1;
+      n.v++;
+      if (n.id === 0) addLog('Culture and magic found a new village.');
+    }
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -345,7 +372,7 @@
       st.n.push({
         id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
-        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50,
+        v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, vprog: 0, cultGained: 0,
         food: 20, gold: 30, stone: 10, magic: 0, culture: 0
       });
     });
@@ -446,8 +473,8 @@
     if (n.id === 0) {
       var grows = el('div', 'card-buttons');
       Object.keys(GROW).forEach(function (k) {
-        var m = GROW[k];
-        var cost = m.gold ? m.gold + ' gold' : m.stone + ' stone';
+        var m = GROW[k], c = growCost(n, k);
+        var cost = c.gold ? c.gold + ' gold' : c.stone + ' stone';
         var b = el('button', 'big', LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
         b.disabled = n[k] < 1;
         b.addEventListener('click', function () {
