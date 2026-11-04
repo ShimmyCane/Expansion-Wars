@@ -1,6 +1,6 @@
 # Expansion Wars — V4 Schematic (battle view)
 
-**Status:** Custom battle built (V4). Round 2: vision, defender plan, attack and rush moves, rally, fixed-step replay. Not linked from V2: phase 5 is not started. Balance is a first pass.
+**Status:** Custom battle built (V4). Round 2: vision, defender plan, attack and rush moves, rally, fixed-step replay. Round 4 (V4.2): battlefield generator, 2 × 2 field with mini map, walled settlements, roads and bridges, hiding and ambush strikes, fronts, fatigue. Not linked from V2: phase 5 is not started. Balance is a first pass.
 **Owner:** Jimmy
 **Platform:** Same as V2: plain HTML/CSS/JS in `V4/`, no build step. Opens from `V4/index.html`.
 **Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V4 does not edit V2 files until the contract below is agreed.
@@ -335,3 +335,39 @@ Decisions from Jimmy, recorded here.
 - Rows are only added, never edited or deleted, in line with `xw_maps` and `xw_notes`. Anonymous access is refused.
 - Migration: `supabase/003_xw_replays.sql`, with the rollback test in `supabase/test_003_xw_replays_rollback.sql`. The rollback test passed. The migration has not been applied to the Family project yet.
 - If a push fails (table missing, offline, or refused), the replay stays on the device and the result screen says so. "Send waiting replays" retries from the setup screen.
+
+## Round 4 (V4.2): battlefield generator, ground and command
+
+Decisions from Jimmy, recorded here. Built in one pass; the choices where the request was open are listed under "Interpretations" below.
+
+- **The generator.** Every option is on the setup screen in the **Battlefield generator** card, and is saved in the request as `gen`, so a replay gets the same ground and rules. Defaults are in `C.GEN` (`js/config.js`). Options: field (large 2 × 2 or small one screen), settlement openings (2, 3 or 4), river (none, fords, or bridges), hidden units (you choose to strike, or they strike on their own), default approach (flank, middle, base, mixed, or stay put), roads, tall grass, fronts and flanks, and fatigue. Woods stay on the Woods checkbox in "The fight".
+- **Random balanced teams.** "🎲 Random balanced teams" in Armies deals 14 to 18 random dots, one at a time to the weaker side, so the two sides come out close in strength (`V4.balanceTeams`, power per type in `C.POWER`).
+- **2 × 2 field and mini map.** The large field is 100 × 64 tiles. The view is a camera of one screen. The mini map in the upper left shows the whole field, the camera window, and the units you can see. Tap the mini map to jump, or use the ◀ ▲ ▼ ▶ pad. The small field (50 × 32) is the old one-screen battle and is still used by the tests and the balance runs.
+- **Settlements with openings.** Each settlement is walled, with 2 to 4 gates (west toward the attacker, then east, north, south). A settlement sits at about two thirds of the map, not at the far edge. Units walk to gates by a flow field (`goTo` in `sim.js`), so they go round walls and through openings rather than pushing into them.
+- **Roads and rivers.** A road runs along the centre row from the attacker's edge to the settlement's west gate; it travels at 1.6 times the speed of grass. The river is deep water (impassable) with bridges only, or shallow with fords. Bridges and fords sit on the road's row, so the road crosses the river. Bridges are chokepoints.
+- **Woods and tall grass hide units.** A unit in woods or tall grass can be seen only from 2.5 tiles away, until it fires or strikes (then it is revealed for 3 s). Woods and grass are both cover.
+- **Ambush strike.** A unit with the Ambush strategy waits in cover. When an enemy comes within 3 tiles it does not attack on its own: a **⚔ Strike!** pop-up appears over it, and the player taps it (or the setting makes it automatic). A strike is a burst on every enemy within 3 tiles at 2.5 times normal damage, then the unit fights as a rush. The computer's ambushers strike at once. The pop-up goes when the enemy leaves reach.
+- **Default approach.** A player unit with no order walks to its approach point, which the generator sets: the **flank** (in front of the settlement, a quarter of the way down or up), the **middle** of the field, the enemy **base** (the settlement), or **mixed** (each unit picks one at random). Units fight what they meet on the way.
+- **Reading the ground.** Each unit counts friends and seen foes within 4 tiles. An engage-by-default unit that is outnumbered (foes more than 1.5 times its friends) falls back if it is cavalry or ranged, and a melee unit waits for friends to come up before it closes. Otherwise it attacks.
+- **Fronts and flanks.** A unit has a facing: the way it last marched, or the enemy it last fought. Its front is an arc set by formation: a line has a wide front (120°), a column a narrow one (50°, with long exposed sides), a shield wall 150°, and scatter none. A hit from the side takes the formation's flank value; a hit from behind takes that times 1.3. On the map a line is drawn across its march and a column along it, with a short line showing its front.
+- **Fatigue.** Marching tires a unit by ground: grass slowly, tall grass and woods faster, river and ford fastest, road hardly at all. Fighting in contact tires it fastest, and standing still out of contact gives it back. A tired unit is slower (up to 35 per cent at full fatigue) and hits softer (up to 30 per cent). A tired unit shows "tired" in its panel from half fatigue.
+- **Deselect after an order.** After you give a move, rush, attack or hold, the unit is deselected. Tap it again to give the next order.
+
+### Interpretations (to confirm)
+
+- **Facing applies to squads and battalions only** (fortress and country scale). At village scale each dot is one person, so facing is off. "It shouldn't matter for smaller spots" is read as this.
+- **Line and column.** The request said a line is perpendicular to the march and a column parallel. The shape is drawn that way, and the front is the way the unit marches. A line's broad front faces forward; a column's narrow front does, with its long sides exposed. That makes a column easy to flank.
+- **"Waiting and hiding"** is read as units on the Ambush strategy. Other units hidden in cover fight normally.
+- **"Outnumbered"** is more than 1.5 times the friends you can count within 4 tiles (you count yourself).
+- **Mini map position.** Upper left, as asked. Move the view by tapping the mini map or the pad. There is no drag yet.
+
+### Balance notes (round 4, first look)
+
+- The matrix (`node V4/tests/balance.js 12`) is still polarized: most matchups go one way every time, and the mirror pikemen match favours the defender. Roads, walls, fronts and fatigue are new, so the numbers have not been tuned for them.
+- Full battles on the large field with the default approach run 68 to 120 s, inside the caps.
+
+### Still open
+
+- The camera is pan by pad and tap only, with no drag or pinch.
+- The team randomizer deals counts; it does not pick a nation's garrison or a province's pool.
+- The strike pop-up is tested in a browser with a forced prompt. A real hidden-unit approach has not been played.

@@ -96,6 +96,21 @@ Built with the defaults listed in convo v0.13 for Jimmy to check.
 - [x] **Cautious neutral nations.** Neutrals claim, attack and declare less often than the other computer nations, need a bigger lead, and rarely ally.
 - [ ] **Balance.** Claim and garrison numbers are first guesses. Play full games and tune them.
 
+## V4 round 4 (version 4.2): battlefield generator
+
+- [x] **Battlefield generator** on the setup screen: field size, settlement openings, river, hidden units, default approach, roads, tall grass, fronts and flanks, fatigue. Saved in the request.
+- [x] **Random balanced teams** (🎲 in Armies).
+- [x] **2 × 2 field** with a camera, a mini map in the upper left, and pad controls.
+- [x] **Walled settlements** with 2 to 4 openings, sited at two thirds of the map. Units path to gates.
+- [x] **Roads** (faster travel) and **rivers** with bridges (chokepoints) or fords.
+- [x] **Hiding in woods and tall grass**, and an ambush **⚔ Strike!** pop-up (or automatic) with a burst.
+- [x] **Default approach** to the flank, the middle, or the enemy base.
+- [x] **Reading the ground**: outnumbered cavalry and ranged units fall back; melee waits for friends.
+- [x] **Fronts and flanks** for squads and battalions, and **fatigue** from terrain and fighting.
+- [x] **Deselect after an order.**
+- [ ] **V4 balance pass, round 4.** The matrix is still polarized and the new features are not tuned. See "Balance notes (round 4)" in `V4/schematic.md`.
+- [ ] **V4 camera drag and pinch.** Pan is by the pad and the mini map only.
+
 ## Later
 
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.

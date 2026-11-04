@@ -3,8 +3,9 @@
 (function () {
   'use strict';
   var V4 = window.V4;
-  var VERSION = '4.1';
+  var VERSION = '4.2';
   var LOG = [
+    ['4.2', 'Battlefield generator: 2 × 2 field with mini map, walled settlements with 2 to 4 openings, roads, rivers with bridges, tall grass hiding, fronts and flanks, fatigue, default approaches, random balanced teams, hidden units strike on your word, outnumbered units fall back'],
     ['4.1', 'Version number in settings; family sign-in in a ⚙️ panel; replays saved to the family database'],
     ['4.0', 'Custom battle: deployment, fog and vision, defender plan, attack and rush moves, morale rally, fixed-step replays']
   ];
