@@ -834,3 +834,10 @@ a.link-big { display: flex; align-items: center; justify-content: center; text-d
 body:has(#screen-game:not([hidden])) .float-gear,
 body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 
+/* Population centres on the zoomed country map: one dot per village, town, city or fortress. */
+.dot { stroke: var(--ink); stroke-width: 2; pointer-events: none; }
+.dot-v { fill: #ffffff; }
+.dot-t { fill: #ffd166; }
+.dot-c { fill: #ef476f; }
+.dot-f { fill: #118ab2; }
+

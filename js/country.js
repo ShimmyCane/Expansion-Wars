@@ -181,6 +181,8 @@
     n.stone -= c.stone;
     n[from]--;
     n[m.to]++;
+    var dd = (n.dots || []).filter(function (d) { return d.k === from; })[0];
+    if (dd) dd.k = m.to;   // the centre on the map becomes a town or city
     return null;
   }
 
@@ -227,14 +229,15 @@
   // Take one spot from the loser. A captured spot drops one grade (fortress to city, city to town, town to village).
   // Villages fall first and fortresses last, so a fortress holds out the longest.
   function takeSpot(from, to) {
-    var key2;
-    if (from.v > 0) { from.v--; key2 = 'v'; }
-    else if (from.t > 0) { from.t--; key2 = 'v'; }
-    else if (from.c > 0) { from.c--; key2 = 't'; }
-    else if (from.f > 0) { from.f--; key2 = 'c'; }
+    var g0, key2;
+    if (from.v > 0) { from.v--; g0 = 'v'; key2 = 'v'; }
+    else if (from.t > 0) { from.t--; g0 = 't'; key2 = 'v'; }
+    else if (from.c > 0) { from.c--; g0 = 'c'; key2 = 't'; }
+    else if (from.f > 0) { from.f--; g0 = 'f'; key2 = 'c'; }
     else return null;
     to[key2]++;
-    to.occupied.push(RESTORE_TURNS);   // a conquered spot produces less until it is re-incorporated
+    // A conquered spot produces less until it is re-incorporated. It remembers its old owner, for a revolt.
+    to.occupied.push({ t: RESTORE_TURNS, from: from.id, g: g0, k: key2 });
     return LABEL[key2];
   }
 
@@ -257,19 +260,24 @@
   // Overpowered: at twice the defence, the defenders surrender. The attacker takes one spot for each whole point of
   // power over the defence, up to all of them (so 10 to 1 takes everything).
   var WAVES = 3, SURRENDER = 2;
+  var SPOT_COST = 10;   // soldiers an attacker spends per population centre; spent soldiers move the border
   function battle(x) {
     var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
     if (!rel(i, j).war || !a.alive || !b.alive) return;
-    var sent = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
-    if (sent < 1) return;
+    var sent0 = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
+    if (sent0 < 1) return;
+    // Unrest costs both ways: one soldier in every 20 unrest is lost before the march, and unrest cuts the strength of the attack.
+    var flat = Math.min(sent0 - 1, Math.ceil(a.unrest / 20));
+    var sent = sent0 - flat;
     // Magic is used up by the attack: each point adds 1% to its strength, then the magic is gone.
-    var bonus = 1 + a.magic / 100;
+    var bonus = (1 + a.magic / 100) / (1 + a.unrest / 200);
     a.magic = 0;
+    var spotsBefore = spots(b);
     var power = sent * quality(a) * bonus;
     var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
     var grade = weakestGrade(b);
     var pool = sent, d = b.soldiers;
-    a.soldiers -= sent;
+    a.soldiers -= sent0;
     for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
       var w = pool / (WAVES - k);                     // this wave's share of the attackers still standing
       var A = w * quality(a) * bonus;
@@ -300,6 +308,11 @@
       a.soldiers += Math.max(0, pool);
       addLog(b.name + ' holds against ' + a.name + '.');
     }
+    // The border moves toward the defeated nation. Soldiers spent on spots move it, up to a third of the attacking force.
+    var lost = spotsBefore - spots(b);
+    var spent = Math.min(sent - pool, sent / 3);
+    var share = Math.min(0.5, Math.floor(spent / SPOT_COST) * 0.08 + (lost > 0 ? 0.02 : 0));
+    if (share > 0) moveCentre(a, b, share);
     if (got) {
       var gainA = CULTURE[grade] * foodMult(a);
       a.culture += gainA;
@@ -351,7 +364,8 @@
   function foodMult(n) { return 1 + Math.min(n.food, 100) / 100; }
 
   function economy(n) {
-    n.occupied = n.occupied.map(function (t) { return t - 1; }).filter(function (t) { return t > 0; });
+    n.occupied = n.occupied.map(function (e) { return { from: e.from, g: e.g, k: e.k, t: e.t - 1 }; })
+      .filter(function (e) { return e.t > 0; });
     var pf = prodFactor(n);
     var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf;
     var upkeep = n.soldiers * 0.02;
@@ -373,6 +387,16 @@
       n.happy = Math.min(100, n.happy + 1);
       n.morale = Math.min(100, n.morale + 0.5);
     }
+    // Unrest: long wars, several wars, too little butter (food), no trade and allies that are at war push it up.
+    // Peace with food brings it down. At 70 or more a spot may revolt (certain at 90).
+    var wars = st.n.filter(function (j) { return j.id !== n.id && j.alive && rel(n.id, j.id).war; }).length;
+    n.warTurns = wars ? n.warTurns + 1 : 0;
+    var allyAtWar = st.n.filter(function (j) { return j.id !== n.id && j.alive && rel(n.id, j.id).ally && atWar(j.id); }).length;
+    var up = (n.warTurns > 10 ? 1.5 : wars ? 0.5 : 0) + 0.5 * Math.max(0, wars - 1) + (n.food < 20 ? 1 : 0) +
+      (tradeCount(n.id) === 0 ? 0.5 : 0) + 0.5 * allyAtWar;
+    var down = wars === 0 && n.food >= 20 ? 1 : 0;
+    n.unrest = Math.max(0, Math.min(100, n.unrest + up - down));
+    if (n.unrest >= 70 && n.occupied.length && Math.random() < (n.unrest >= 90 ? 1 : 0.3)) revolt(n);
     n.tech = Math.min(100, n.tech + 0.5 + 0.1 * (n.c + n.f));
   }
 
@@ -386,6 +410,7 @@
       .sort(function () { return Math.random() - 0.5; })
       .forEach(battle);
     alive().forEach(economy);
+    drift();
     // Trade and alliances build reputation. A ceasefire counts down.
     Object.keys(st.rel).forEach(function (k) {
       var r = st.rel[k];
@@ -422,30 +447,130 @@
 
   // ---------- starting a game ----------
 
+  // Area of a region (shoelace formula).
+  function polyArea(poly) {
+    var s = 0;
+    for (var i = 0; i < poly.length; i++) {
+      var p = poly[i], q = poly[(i + 1) % poly.length];
+      s += p.x * q.y - q.x * p.y;
+    }
+    return Math.abs(s) / 2;
+  }
+
+  function inPoly(p, poly) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var a = poly[i], b = poly[j];
+      if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+
+  // A random point inside a region.
+  function randomIn(poly) {
+    var xs = poly.map(function (p) { return p.x; }), ys = poly.map(function (p) { return p.y; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    for (var t = 0; t < 200; t++) {
+      var p = { x: rnd(x0, x1), y: rnd(y0, y1) };
+      if (inPoly(p, poly)) return p;
+    }
+    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+  }
+
+  // One dot per population centre: keep each nation's dots in step with its villages, towns, cities and fortresses.
+  function syncDots(n) {
+    if (!n.dots) n.dots = [];
+    ['v', 't', 'c', 'f'].forEach(function (k) {
+      var have = n.dots.filter(function (d) { return d.k === k; });
+      while (have.length > n[k]) {
+        var gone = have.pop();
+        n.dots.splice(n.dots.indexOf(gone), 1);
+      }
+      while (have.length < n[k]) {
+        var p = randomIn(n.poly), d = { k: k, x: p.x, y: p.y };
+        n.dots.push(d);
+        have.push(d);
+      }
+    });
+    // A dot left outside its nation's land (after the border moved) moves inside it.
+    n.dots.forEach(function (d) {
+      if (!inPoly(d, n.poly)) {
+        var p = randomIn(n.poly);
+        d.x = p.x;
+        d.y = p.y;
+      }
+    });
+  }
+
+  // Regions come from the nations' centres; the same centres give who borders whom.
+  function geometry() {
+    var polys = voronoi(st.n.map(function (n) { return { x: n.x, y: n.y }; }));
+    st.n.forEach(function (n, i) { n.poly = polys[i]; n.nb = []; });
+    for (var a = 0; a < st.n.length; a++) {
+      for (var b = a + 1; b < st.n.length; b++) {
+        if (sharesEdge(polys[a], st.n[a], st.n[b])) {
+          st.n[a].nb.push(b);
+          st.n[b].nb.push(a);
+        }
+      }
+    }
+  }
+
+  // The border moves: a nation's centre moves toward another's by a share of the distance between them.
+  function moveCentre(a, b, share) {
+    a.x += (b.x - a.x) * share;
+    a.y += (b.y - a.y) * share;
+  }
+
+  // Borders drift every turn, faster at war. Centres keep a minimum distance from each other.
+  function drift() {
+    alive().forEach(function (n) {
+      var step = atWar(n.id) ? 10 : 4;
+      var ang = Math.random() * Math.PI * 2;
+      var nx = Math.max(60, Math.min(W - 60, n.x + Math.cos(ang) * step));
+      var ny = Math.max(60, Math.min(H - 60, n.y + Math.sin(ang) * step));
+      var clear = st.n.every(function (k) { return k.id === n.id || Math.hypot(k.x - nx, k.y - ny) >= 50; });
+      if (clear) { n.x = nx; n.y = ny; }
+    });
+    geometry();
+  }
+
+  // A revolt returns a conquered spot to its old owner, or to neutral if that owner has fallen.
+  function revolt(n) {
+    var e = n.occupied.splice(Math.floor(Math.random() * n.occupied.length), 1)[0];
+    if (n[e.k] > 0) n[e.k]--;
+    var old = st.n[e.from];
+    if (old.alive) {
+      old[e.g]++;
+      addLog(n.name + ' revolts: a ' + LABEL[e.g] + ' goes back to ' + old.name + '.');
+    } else {
+      addLog(n.name + ' revolts: a spot goes neutral.');
+    }
+    n.unrest = Math.max(0, n.unrest - 15);
+  }
+
   function newGame() {
     var seeds = [], minD = 0.55 * Math.sqrt(W * H / COUNT);
     for (var t = 0; seeds.length < COUNT && t < 4000; t++) {
       var p = { x: rnd(80, W - 80), y: rnd(80, H - 80) };
       if (seeds.every(function (q) { return dist(p, q) >= minD; })) seeds.push(p);
     }
-    var polys = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, zoomed: false };
     seeds.forEach(function (p, i) {
       st.n.push({
-        id: i, name: NAMES[i], x: p.x, y: p.y, poly: polys[i], nb: [], alive: true,
+        id: i, name: NAMES[i], x: p.x, y: p.y, poly: [], nb: [], alive: true,
         neutral: i >= 3,   // the last three start neutral: they defend, but do not start wars
         v: 4, t: 1, c: 0, f: 0, soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5, occupied: [],
-        food: 20, gold: 30, stone: 10, magic: 0, culture: 0
+        food: 20, gold: 30, stone: 10, magic: 0, culture: 0, unrest: 0, warTurns: 0, dots: []
       });
     });
-    for (var a = 0; a < seeds.length; a++) {
-      for (var b = a + 1; b < seeds.length; b++) {
-        if (sharesEdge(polys[a], seeds[a], seeds[b])) {
-          st.n[a].nb.push(b);
-          st.n[b].nb.push(a);
-        }
-      }
-    }
+    geometry();
+    // Start counts depend on size: a bigger region starts with more villages (2 to 7), a smaller one with fewer.
+    st.n.forEach(function (n) {
+      n.v = Math.max(2, Math.min(7, Math.round(4 * polyArea(n.poly) / (W * H / COUNT))));
+      syncDots(n);
+    });
     rel(1, 2).war = true;
     addLog('The country is at peace, except ' + NAMES[1] + ' and ' + NAMES[2] + ', who are at war.');
     addLog('Each turn is 60 seconds. Pick a nation to act, then press Ready.');
@@ -458,7 +583,8 @@
 
   function buildMap() {
     els.svg.innerHTML = '';
-    var gRegions = svgEl('g'), gLines = svgEl('g'), gLabels = svgEl('g');
+    var gRegions = svgEl('g'), gLines = svgEl('g'), gDots = svgEl('g'), gLabels = svgEl('g');
+    st.gDots = gDots;
     st.n.forEach(function (n) {
       n.polyEl = svgEl('polygon', {
         points: n.poly.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ')
@@ -485,17 +611,39 @@
     }
     els.svg.appendChild(gRegions);
     els.svg.appendChild(gLines);
+    els.svg.appendChild(gDots);
     els.svg.appendChild(gLabels);
+  }
+
+  // A population centre on the zoomed map: villages are small dots, towns and cities bigger, fortresses squares.
+  function dotShape(d) {
+    if (d.k === 'f') return svgEl('rect', { x: d.x - 9, y: d.y - 9, width: 18, height: 18, 'class': 'dot dot-f' });
+    var r = { v: 4, t: 7, c: 10 }[d.k];
+    return svgEl('circle', { cx: d.x, cy: d.y, r: r, 'class': 'dot dot-' + d.k });
   }
 
   function drawMap() {
     st.n.forEach(function (n) {
+      n.polyEl.setAttribute('points', n.poly.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' '));
       n.polyEl.setAttribute('class', 'cell ' + (n.alive ? 'o' + n.id : 'neutral') + (n.id === selected ? ' sel' : ''));
+      n.labelEl.setAttribute('x', n.x);
+      n.labelEl.setAttribute('y', n.y);
+      n.nameEl.setAttribute('x', n.x);
+      n.infoEl.setAttribute('x', n.x);
       n.nameEl.textContent = n.name;
       n.infoEl.textContent = n.alive ? Math.floor(n.soldiers) + ' · ' + stage(ratio(n)) : 'fallen';
     });
+    st.gDots.innerHTML = '';
+    st.n.forEach(function (n) {
+      if (!n.alive) return;
+      syncDots(n);
+      if (st.zoomed) n.dots.forEach(function (d) { st.gDots.appendChild(dotShape(d)); });
+    });
+    els.zoom.textContent = st.zoomed ? '🌍 Back to countries' : '🔍 Zoom in';
     st.lineEls.forEach(function (L) {
       var a = st.n[L.i], b = st.n[L.j], r = rel(L.i, L.j);
+      L.el.setAttribute('x1', a.x); L.el.setAttribute('y1', a.y);
+      L.el.setAttribute('x2', b.x); L.el.setAttribute('y2', b.y);
       var cls = 'rel', show = false;
       if (a.alive && b.alive) {
         if (r.war) { cls = 'rel war'; show = true; }
@@ -513,7 +661,7 @@
     [
       ['Soldiers', Math.floor(p.soldiers)], ['Food', Math.floor(p.food)], ['Gold', Math.floor(p.gold)],
       ['Stone', Math.floor(p.stone)], ['Magic', Math.floor(p.magic)], ['Culture', Math.floor(p.culture)],
-      ['Power', Math.round(power(p))], ['Stage', stage(ratio(p)) + ' (' + ratio(p).toFixed(2) + ')']
+      ['Unrest', Math.round(p.unrest)], ['Power', Math.round(power(p))], ['Stage', stage(ratio(p)) + ' (' + ratio(p).toFixed(2) + ')']
     ].forEach(function (pair) {
       var c = el('span', 'res-item');
       c.appendChild(el('b', '', pair[0] + ' '));
@@ -532,6 +680,7 @@
     var R = ratio(n);
     els.card.appendChild(el('p', '', 'Villages ' + n.v + ' · Towns ' + n.t + ' · Cities ' + n.c + ' · Fortresses ' + n.f));
     els.card.appendChild(el('p', '', 'Soldiers ' + Math.floor(n.soldiers) + ' · Power ' + Math.round(power(n)) + ' · ' + stage(R) + ' (ratio ' + R.toFixed(2) + ')'));
+    els.card.appendChild(el('p', '', 'Unrest ' + Math.round(n.unrest) + ' · Occupied spots ' + n.occupied.length));
     if (n.id === 0) {
       var gb = el('div', 'gun-butter');
       var gunLine = el('p', '', '');
@@ -668,9 +817,13 @@
   els.status = $('country-status');
   els.clock = $('country-clock');
   els.ready = $('country-ready');
+  els.zoom = $('country-zoom');
 
   $('btn-country').addEventListener('click', openCountry);
   $('country-back').addEventListener('click', backHome);
   $('country-new').addEventListener('click', function () { newGame(); render(); startTimer(); });
   els.ready.addEventListener('click', resolveTurn);
+  els.zoom.addEventListener('click', function () { st.zoomed = !st.zoomed; render(); });
+  // The floating ⚙️ reset: back to the country view.
+  document.addEventListener('ew:reset-zoom', function () { if (st) { st.zoomed = false; render(); } });
 })();
