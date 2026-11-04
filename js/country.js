@@ -8,12 +8,13 @@
   var W = 1000, H = 640, TURN = 60, COUNT = 6, SVG_NS = 'http://www.w3.org/2000/svg';
   var NAMES = ['Your nation', 'Oakfield', 'Riverton', 'Stonevale', 'Mirewood', 'Highmoor'];
   var MIN_REP = { trade: -20, ally: 20, ceasefire: -40 };
+  var TRADE_SETUP = 20;   // gold paid once by the nation that opens a trade route; the route then pays gold each turn
   var TRIBUTE = 10, SEND = 0.5, DEFENDER = 1.2, FORT_BONUS = 0.2, DEF_LOSS = 0.6;
   // Growing a spot: village to town and town to city cost gold, city to fortress costs stone.
   var GROW = { v: { to: 't', gold: 10 }, t: { to: 'c', gold: 20 }, c: { to: 'f', stone: 15 } };
   var LABEL = { v: 'village', t: 'town', c: 'city', f: 'fortress' };
   var DIPLO = [
-    { type: 'trade', text: 'Trade route' },
+    { type: 'trade', text: 'Trade route (' + TRADE_SETUP + ' gold to set up)' },
     { type: 'ally', text: 'Neutral alliance' },
     { type: 'ceasefire', text: 'Ceasefire' },
     { type: 'tribute', text: 'Send tribute (' + TRIBUTE + ' gold)' },
@@ -131,6 +132,7 @@
       if (r.war) return 'You are at war.';
       if (r.trade) return 'Already trading.';
       if (r.rep < MIN_REP.trade) return 'They do not trust you enough yet.';
+      if (a.gold < TRADE_SETUP) return 'Not enough gold (' + TRADE_SETUP + ') to open a trade route.';
     }
     if (type === 'ally') {
       if (r.war) return 'You are at war.';
@@ -150,15 +152,22 @@
     return null;
   }
 
+  // Upgrades get dearer as a nation holds more spots: each spot adds 10% to the base cost.
+  function growCost(n, from) {
+    var m = GROW[from], f = 1 + 0.1 * spots(n);
+    return { gold: m.gold ? Math.ceil(m.gold * f) : 0, stone: m.stone ? Math.ceil(m.stone * f) : 0 };
+  }
+
   // Spend resources to grow one of your spots. Happens at once.
   function grow(n, from) {
     var m = GROW[from];
     if (!m) return 'That cannot grow.';
     if (n[from] < 1) return 'No ' + LABEL[from] + ' to grow.';
-    if (m.gold && n.gold < m.gold) return 'Not enough gold (' + m.gold + ').';
-    if (m.stone && n.stone < m.stone) return 'Not enough stone (' + m.stone + ').';
-    if (m.gold) n.gold -= m.gold;
-    if (m.stone) n.stone -= m.stone;
+    var c = growCost(n, from);
+    if (c.gold && n.gold < c.gold) return 'Not enough gold (' + c.gold + ').';
+    if (c.stone && n.stone < c.stone) return 'Not enough stone (' + c.stone + ').';
+    n.gold -= c.gold;
+    n.stone -= c.stone;
     n[from]--;
     n[m.to]++;
     return null;
@@ -184,6 +193,7 @@
     if (err) { addLog(a.name + ' could not ' + x.type + ' with ' + b.name + ': ' + err); return; }
     if (x.type === 'trade') {
       r.trade = true;
+      a.gold -= TRADE_SETUP;
       addLog(a.name + ' and ' + b.name + ' open a trade route.');
     } else if (x.type === 'ally') {
       r.ally = true;
@@ -265,7 +275,7 @@
       if (Math.random() < 0.25) {
         var friends = a.nb.map(function (id) { return st.n[id]; }).filter(function (b) {
           var r = rel(a.id, b.id);
-          return b.alive && !r.war && !r.trade && r.rep >= -10;
+          return b.alive && !r.war && !r.trade && r.rep >= -10 && a.gold >= TRADE_SETUP;
         });
         if (friends.length) st.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
       }
@@ -463,8 +473,8 @@
     if (n.id === 0) {
       var grows = el('div', 'card-buttons');
       Object.keys(GROW).forEach(function (k) {
-        var m = GROW[k];
-        var cost = m.gold ? m.gold + ' gold' : m.stone + ' stone';
+        var m = GROW[k], c = growCost(n, k);
+        var cost = c.gold ? c.gold + ' gold' : c.stone + ' stone';
         var b = el('button', 'big', LABEL[k] + ' → ' + LABEL[m.to] + ' (' + cost + ')');
         b.disabled = n[k] < 1;
         b.addEventListener('click', function () {
