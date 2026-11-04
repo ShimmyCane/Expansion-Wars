@@ -327,3 +327,11 @@ Decisions from Jimmy, recorded here.
 - Catapults win most matchups at range, as before.
 - Samples are small (six seeds). Use `node V4/tests/balance.js 40` for steadier numbers.
 
+
+## Replays to the family database (round 3)
+
+- Each finished custom battle is saved on the device first (`xw4-replays` in local storage, the last 50), then written to the Family table `xw_replays` once the family account is signed in. The sign-in session is shared with V2 (same origin).
+- A row holds the request, every order with its tick, and the result. `V4.replay(request, commands)` reproduces the battle.
+- Rows are only added, never edited or deleted, in line with `xw_maps` and `xw_notes`. Anonymous access is refused.
+- Migration: `supabase/003_xw_replays.sql`, with the rollback test in `supabase/test_003_xw_replays_rollback.sql`. The rollback test passed. The migration has not been applied to the Family project yet.
+- If a push fails (table missing, offline, or refused), the replay stays on the device and the result screen says so. "Send waiting replays" retries from the setup screen.

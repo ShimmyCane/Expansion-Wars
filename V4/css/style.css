@@ -88,3 +88,5 @@ button:disabled { opacity: 0.5; }
 .seed { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .deploy-note { color: var(--accent); font-weight: 600; margin: 8px 0 0; }
 .deploy-note[hidden] { display: none; }
+.family form input { min-width: 0; flex: 1 1 160px; }
+.family .row { align-items: stretch; }

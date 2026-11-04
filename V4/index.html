@@ -44,6 +44,21 @@
       </div>
     </div>
 
+    <div class="card family">
+      <h2>Family database</h2>
+      <p id="fam-status" class="muted small" aria-live="polite">Checking…</p>
+      <form id="fam-form" class="row" hidden>
+        <input id="fam-email" type="email" autocomplete="username" placeholder="Family email">
+        <input id="fam-pass" type="password" autocomplete="current-password" placeholder="Password">
+        <button id="fam-signin" type="submit">Sign in</button>
+      </form>
+      <div class="row">
+        <button id="fam-send" class="ghost" type="button" hidden>Send waiting replays</button>
+        <button id="fam-signout" class="ghost" type="button" hidden>Sign out</button>
+      </div>
+      <p id="fam-result" class="muted small" aria-live="polite"></p>
+    </div>
+
     <button id="sc-start" class="big">▶ Set up the field</button>
   </section>
 
@@ -91,6 +106,7 @@
     <div id="bf-result" class="card result" hidden>
       <h2 id="bf-result-title"></h2>
       <p id="bf-result-body"></p>
+      <p id="bf-save-status" class="muted small" aria-live="polite"></p>
       <textarea id="bf-result-json" rows="8" readonly></textarea>
       <div class="row">
         <button id="bf-copy" class="ghost">Copy replay</button>
@@ -101,11 +117,13 @@
     <button id="bf-back-setup" class="link">← Back to setup</button>
   </section>
 
+  <script src="../js/config.js"></script>
   <script src="js/config.js"></script>
   <script src="js/field.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/insignia.js"></script>
   <script src="js/contract.js"></script>
+  <script src="js/replays.js"></script>
   <script src="js/view.js"></script>
 </body>
 </html>
