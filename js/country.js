@@ -225,12 +225,13 @@
   }
 
   // Take one spot from the loser. A captured spot drops one grade (fortress to city, city to town, town to village).
+  // Villages fall first and fortresses last, so a fortress holds out the longest.
   function takeSpot(from, to) {
     var key2;
-    if (from.f > 0) { from.f--; key2 = 'c'; }
-    else if (from.c > 0) { from.c--; key2 = 't'; }
+    if (from.v > 0) { from.v--; key2 = 'v'; }
     else if (from.t > 0) { from.t--; key2 = 'v'; }
-    else if (from.v > 0) { from.v--; key2 = 'v'; }
+    else if (from.c > 0) { from.c--; key2 = 't'; }
+    else if (from.f > 0) { from.f--; key2 = 'c'; }
     else return null;
     to[key2]++;
     to.occupied.push(RESTORE_TURNS);   // a conquered spot produces less until it is re-incorporated
@@ -246,7 +247,8 @@
     return 1 - OCC_PENALTY * Math.min(1, occ);
   }
   // The highest grade a nation holds: the spot a battle is fought over.
-  function topGrade(n) { return n.f > 0 ? 'f' : n.c > 0 ? 'c' : n.t > 0 ? 't' : 'v'; }
+  // The grade of the spot a battle would take first (the weakest one), which sets the culture earned.
+  function weakestGrade(n) { return n.v > 0 ? 'v' : n.t > 0 ? 't' : n.c > 0 ? 'c' : 'f'; }
 
   // A country battle runs in three waves. The chosen share of the attacker's soldiers is split across them.
   // Each wave is a fight: the defenders have an advantage, so casualties split by strength, not all or nothing.
@@ -263,7 +265,7 @@
     a.magic = 0;
     var power = sent * quality(a) * bonus;
     var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER;
-    var grade = topGrade(b);
+    var grade = weakestGrade(b);
     var pool = sent, d = b.soldiers;
     a.soldiers -= sent;
     for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
