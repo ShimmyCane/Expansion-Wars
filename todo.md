@@ -200,7 +200,12 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 
 ## Combined scale (in progress)
 
-- [x] **Combined folder.** `combined/` holds copies of the country, province and unit scales, with their own saved-data keys, so the originals are untouched (see `combined/schematic.md`).
-- [ ] **Zoom chain.** Zoom from country to province to unit, with actions at each level changing the whole game.
-- [ ] **Time dilation.** Each level runs at its own speed. Values to be set by play and balance.
-- [ ] **Family database.** Decide whether combined needs its own `xw_maps` and `xw_replays` tables (copies still write to the shared ones).
+- [x] **Combined folder.** `combined/` is its own game, rebuilt as small files (largest under 200 lines). The original scales are untouched. File map: `combined/README.md`; design: `combined/schematic.md`.
+- [x] **One world.** A single JSON world holds nations, provinces with garrisons, marches, the battle being fought, and the clock. Every scale reads and writes it; a reload comes back to the same scale and battle.
+- [x] **Zoom chain.** Country → province (the button on a province's card, or wheel or pinch in) → battle (⚔️ between two neighbouring provinces), and back up by the crumbs, the minimap, or wheel or pinch out. Each transition hands its state back to the world.
+- [x] **Time dilation.** One world clock: ×1 on the country map, ×0.2 in a province, ×0.05 in a battle. Set in `combined/js/world/config.js`.
+- [x] **Battle engine split** into 12 files. It gives the same results as `V4/` on 160 test battles; its 51 tests pass.
+- [x] **Saving.** On this device after every turn, scale change and battle; to the family database as one row per world (`xw_worlds`).
+- [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Until then ⚙️ says the world is saved on this device only.
+- [ ] **Decide** the open questions in `combined/schematic.md`: dilation values, where soldiers live, country attacks as battles, growth outside the window, battle size.
+- [ ] **Rebalance** after real games on the iPad.

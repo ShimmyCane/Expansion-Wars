@@ -1,30 +1,71 @@
 # Expansion Wars — Combined scale (schematic)
 
-**Status:** not started. The folder holds copies of the three scales so that the combined mode can be revised here without changing the originals.
+**Status:** first playable build. Not device-tested. Numbers are carried over from the three scales and not rebalanced.
+**Files:** see `README.md` for the file map and where to change what.
 
 ## Goal
 
-One game in three zoom levels. The player zooms in from the country to a province, and from a province to a unit. Actions at each level change the state of the whole game: a battle at unit scale changes the province, and a province change changes the country. Each level runs at its own speed (time dilation), so the lower levels move slower or faster than the country turn clock.
+One game in three zoom levels. Zoom in from the country to a province, and from a province to a battle. What you do at any level changes the same world, so it shows at every other level. Each level runs at its own speed (time dilation).
 
-## What is copied here
+## One world (single source of truth)
 
-| Folder | Copied from | Role in combined |
+Everything that matters lives in one plain JSON object, the world (`js/world/state.js` documents every field). The country map, the province close-up and the battle all read it and write it. Views keep only their drawing; reload the page and the world brings you back to the same scale, province and battle.
+
+What the world holds:
+
+- **Nations:** stocks, research, direction, and the **field army** (`soldiers`), as at country scale.
+- **Provinces:** the country map's cells, each with an owner, a tier (empty dot, village, town, city, fortress) and a **garrison** (`gar`): the soldiers stationed there. New.
+- **Marches:** soldiers on the road at province scale.
+- **The battle being fought:** its request and every order given, with the step it was given on. The engine is deterministic, so the battle is rebuilt exactly from these after a reload.
+- **Finished battles, relations, the order queue, the log, the clock, and where you are looking.**
+
+A soldier is always in exactly one place: a field army, a garrison, a march, or a battle. The tests check that province play neither makes nor loses soldiers.
+
+## The three scales
+
+| Scale | What you see | Time | What you do |
+|---|---|---|---|
+| Country | the whole map | turns of 60 world seconds | diplomacy, economy, research, claims and attacks (resolved at the end of the turn) |
+| Province | the province you zoomed into and the provinces up to two steps from it | real time | station soldiers (muster from the field army), send them along roads, take neutral land or land of a nation you are at war with |
+| Unit | one battle between two neighbouring provinces | the engine's fixed steps | order your units; pause; 1×, 2×, 4× |
+
+The province close-up is the same map as the country, zoomed in, so they cannot disagree. Roads run between provinces that share a border. Lakes, forests and mountains are drawn but have no roads at province scale.
+
+## Links between the scales
+
+- **Country → province.** A province's garrison grows in real time while you watch, drawn from its nation's field army up to the tier's cap. Peace and war come from the country: you can only march into neutral land, or land of a nation you are at war with.
+- **Province → country.** A capture at province scale changes the owner at once, through the one capture rule (`world/rules.js`): taking a nation's land drops it one grade and leaves it occupied, as at country scale. Garrisons join the defence when a country attack reaches that province; survivors of a lost garrison fall back to the field army.
+- **Province → unit.** Select one of your provinces and a neighbour, then **⚔️ Battle**. The soldiers sent and the defending garrison become the two armies: at most 10 dots a side, up to two of each type, so one dot stands for several soldiers (the battle's grain). The settlement is the province's tier. There is no town bell: no defenders appear from outside the garrison.
+- **Unit → province.** The winner holds the province with what it has left. Losing attackers go back to the province they came from. Leaving a battle early lets the computer fight the rest, and the result is applied the same way.
+- **Leaving a province.** Every march lands at once, so no soldiers are left on a road the country map cannot show.
+
+## Time dilation
+
+One world clock, in world seconds (`js/world/clock.js`). Each real second adds the rate of the scale on screen (`js/world/config.js` RATE):
+
+| Scale | Rate | A country turn takes |
 |---|---|---|
-| `country/` | `country/` | The top level: turns, diplomacy, nations. |
-| `province/` | `province/` | The middle level: spots, soldiers, roads. |
-| `unit/` | `V4/` (with `schematic.md`, `js/`, `tests/`) | The bottom level: the battle sandbox. |
+| Country | ×1 | 60 s |
+| Province | ×0.2 | 5 min |
+| Unit | ×0.05 | 20 min |
 
-The originals are untouched. Copies differ from the originals in only two ways:
+So the country waits while you fight. Province time runs only for the window you look at; the rest of the world moves on country turns. Ready (country map) ends the turn at once.
 
-1. **Shared files** are read from `../../shared/` (one level deeper than the originals).
-2. **Saved data keys** are prefixed so the copies do not overwrite the originals' saves on the same device:
-   - `combined_xw_maps_v1`, `combined_xw_progress_v1`, `combined_xw_scores_v1` (`country/js/store.js`, `province/js/store.js`)
-   - `combined-expansion-wars-send-pct` (`country/js/country.js`)
-   - `combined-xw4-replays` (`unit/js/replays.js`)
+## Saving
+
+- **This device:** after every turn, scale change and battle, every 10 s, and when the page is hidden.
+- **Family database:** the whole world as one row in `xw_worlds` (migration `supabase/004_xw_worlds.sql`), written whole each time, at once after a turn or a battle and otherwise at most once a minute. Sign in from ⚙️ (the shared notes sign-in). ⚙️ also loads the latest world from the database. Not signed in, or the table not there yet: the game carries on, saved on the device, and ⚙️ says so.
 
 ## Open decisions
 
-- **Family database.** The copies still write to the shared Supabase tables `xw_maps` and `xw_replays`, so combined maps and replays appear beside the originals' records. Decide whether combined needs its own tables (a new migration in `supabase/`).
-- **Time dilation.** How fast each level runs relative to the others. Not planned yet.
-- **Linking.** How a unit battle feeds back into a province and a country. Not designed yet.
-- **Entry point.** `index.html` is a placeholder page linking to the three copies. It is not linked from the home hub (`index.html` at the repo root).
+1. **Time dilation values.** ×1, ×0.2 and ×0.05 are first guesses.
+2. **Where soldiers live.** Field army and garrisons are separate pools. Should country attacks also draw on garrisons, or should recruits go straight to garrisons?
+3. **Country attacks as battles.** Attacks queued on the country map still resolve at once at the end of the turn. Should you be able to zoom into one and fight it?
+4. **Province scale outside the window.** Garrisons grow only in the province you are looking at. Should they also grow a little each turn everywhere?
+5. **Battle size.** 10 dots a side at most, with grain set by the bigger army. Bigger battles (the large field) are possible.
+6. **The database migration** is written and has a rollback test, but is not applied to the Family project.
+7. **Rebalance** everything once played: the numbers come from three games built separately.
+
+## Not carried over
+
+The province scale's level ladder, shop, high scores and saved-map records; the unit scale's custom battle setup screen and replays to `xw_replays`. They stay in the original scales.

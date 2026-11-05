@@ -1,0 +1,96 @@
+/* Expansion Wars (combined) — shared look: colours, the top bar, cards, buttons, the settings panel.
+   Each scale adds its own sheet (country.css, province.css, unit.css). */
+:root {
+  --ink: #3d3434; --paper: #fbf6e9; --card: #ffffff; --line: #d8cfbb; --muted: #6d6758;
+  --meadow: #dff0d8; --neutral: #efe3c4;
+  /* one colour per nation, the same at every scale */
+  --o0: #8fe0bd; --o1: #ff9e87; --o2: #ffd966; --o3: #c3adf0; --o4: #ffc9a8; --o5: #f7b6d2;
+  --war: #d1495b; --trade: #2f9e6a; --ally: #3b7dd8; --river: #4aa3df;
+  --lake: #8fd3f4; --forest: #8cc084; --mountain: #c9c2b4;
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: "Trebuchet MS", "Avenir Next Rounded", system-ui, sans-serif;
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+button {
+  font: inherit; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 12px;
+  padding: 8px 12px; min-height: 40px; cursor: pointer; box-shadow: 0 2px 0 var(--line);
+}
+button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--line); }
+button:disabled { opacity: 0.45; cursor: default; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+/* Top bar: back link, where you are, the world clock, Ready */
+.bar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; flex-wrap: wrap; }
+.back { color: var(--muted); text-decoration: none; white-space: nowrap; }
+.crumbs { display: flex; gap: 4px; align-items: center; flex: 1; flex-wrap: wrap; font-weight: 700; }
+.crumbs button { min-height: 34px; padding: 4px 10px; box-shadow: none; }
+.crumbs .here { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.crumbs .sep { color: var(--muted); }
+.clock { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.ready { font-weight: 700; }
+
+/* Your nation at a glance, at every scale */
+.glance { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 16px 8px; font-size: 14px; }
+.glance b { font-weight: 700; }
+.glance .warn { color: var(--war); }
+
+/* A scale: the map, then the card beside it on wide screens and below it on narrow ones */
+main { padding: 0 16px 90px; }
+.scale-view { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+.scale-view > .card { grid-column: 2; grid-row: 1 / span 3; }
+@media (max-width: 860px) {
+  .scale-view { grid-template-columns: minmax(0, 1fr); }
+  .scale-view > .card { grid-column: 1; grid-row: auto; }
+}
+.map-wrap { position: relative; background: var(--card); border: 2px solid var(--line); border-radius: 16px; overflow: hidden; }
+.map { display: block; width: 100%; height: auto; touch-action: none; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 12px 14px; display: grid; gap: 8px; }
+.card h3 { margin: 0; font-size: 19px; }
+.card p { margin: 0; }
+.card .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.card input[type="range"] { width: 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 1; }
+.actions:empty { display: none; }
+.actions .note { align-self: center; color: var(--muted); font-size: 14px; }
+.log { margin: 0; padding: 10px 14px 10px 30px; background: var(--card); border: 2px solid var(--line); border-radius: 16px; font-size: 13px; grid-column: 1; }
+.log li { margin: 2px 0; }
+
+/* The whole country in a corner of the province and battle maps */
+.mini { position: absolute; right: 8px; top: 8px; width: 17%; min-width: 96px; height: auto; border: 2px solid var(--ink);
+  border-radius: 8px; background: var(--paper); cursor: pointer; opacity: 0.92; }
+.mini polygon { stroke: rgba(0, 0, 0, 0.25); stroke-width: 2; }
+.mini .focus { stroke: var(--ink); stroke-width: 10; }
+.mini .window { fill: none; stroke: var(--ink); stroke-width: 6; stroke-dasharray: 16 10; }
+
+/* Owner colours, the same on every map */
+.o0 { fill: var(--o0); } .o1 { fill: var(--o1); } .o2 { fill: var(--o2); }
+.o3 { fill: var(--o3); } .o4 { fill: var(--o4); } .o5 { fill: var(--o5); }
+.neutral { fill: var(--neutral); }
+.t-lake { fill: var(--lake); } .t-forest { fill: var(--forest); } .t-mountain { fill: var(--mountain); }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.swatch.o0 { background: var(--o0); } .swatch.o1 { background: var(--o1); } .swatch.o2 { background: var(--o2); }
+.swatch.o3 { background: var(--o3); } .swatch.o4 { background: var(--o4); } .swatch.o5 { background: var(--o5); }
+.swatch.neutral { background: var(--neutral); }
+
+/* Settings (⚙️), as on the home screen */
+.gear { position: fixed; right: 14px; bottom: 14px; width: 52px; height: 52px; border-radius: 50%; font-size: 22px; padding: 0; z-index: 5; }
+.settings { position: fixed; right: 14px; bottom: 76px; width: min(360px, calc(100vw - 28px)); max-height: 74vh; overflow: auto;
+  background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); z-index: 5; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; }
+.settings h3 { margin: 14px 0 6px; font-size: 16px; }
+.settings p { margin: 4px 0; }
+.settings .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.settings input[type="number"] { width: 110px; font: inherit; padding: 6px; border-radius: 8px; border: 2px solid var(--line); }
+.settings .ok { color: var(--trade); }
+.settings .bad { color: var(--war); }
+
+/* A message that shows for a moment */
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--paper);
+  padding: 10px 16px; border-radius: 12px; max-width: calc(100vw - 120px); z-index: 6; font-size: 15px; }
