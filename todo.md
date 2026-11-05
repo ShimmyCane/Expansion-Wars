@@ -137,6 +137,19 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **V4 balance pass, round 4.** The matrix is still polarized and the new features are not tuned. See "Balance notes (round 4)" in `V4/schematic.md`.
 - [ ] **V4 camera drag and pinch.** Pan is by the pad and the mini map only.
 
+## V4 round 5 (version 4.3): routes, formations, third team, defending
+
+- [x] **Planned marches** as dashed lines, and a dashed ring where a stopped unit will stand.
+- [x] **Editable routes.** Tap to add points, drag to move them, tap a line to insert one. Planning only (deploy or paused).
+- [x] **Two formations** per side, arranged by role (front, archers in the middle, cavalry on the flanks). A formation takes one command, and its units keep their places.
+- [x] **Third team and allies.** Allied teams share vision and win together.
+- [x] **Defending.** You can be the attacker, the defender or the third team. Random teams sets it too.
+- [x] **Random teams** for every team, with numbers that scroll to adjust.
+- [x] **Geography button** with its own seed, and toggles for woods, grass, roads, walls and the river.
+- [x] **Collapsible panels** on the setup and battle screens.
+- [ ] **V4 balance, round 5.** The third team, the formations and defending are not tuned.
+- [ ] **Multi-point formation routes.** A formation takes one point; each unit's route is its own.
+
 ## Later
 
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.

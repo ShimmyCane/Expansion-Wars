@@ -165,7 +165,9 @@
       fatigue: true,        // units tire on the march and in contact
       facing: true,         // units have a front; flanks and rear are exposed (battalions and squads)
       ambush: 'prompt',     // prompt: you choose when a hidden unit strikes. auto: it strikes on its own
-      approach: 'mixed'     // where units head by default: flank, centre, base, or mixed ('none' keeps them still)
+      approach: 'mixed',    // where units head by default: flank, centre, base, or mixed ('none' keeps them still)
+      woods: true,          // dark woods on both sides (the Woods option)
+      walls: true           // settlement walls; off leaves the settlement as open ground with its buildings
     },
     GEN_OPTIONS: {
       size: ['small', 'large'],
@@ -173,6 +175,12 @@
       river: ['none', 'fords', 'bridges'],
       ambush: ['prompt', 'auto'],
       approach: ['flank', 'centre', 'base', 'mixed', 'none']
-    }
+    },
+    // Formations. Each side can arrange up to two groups. A unit's role sets where it stands when the army is arranged.
+    GROUPS: 2,
+    GROUP_NAME: { 1: 'Line', 2: 'Horse' },
+    ROLE: { pikemen: 'front', swordsmen: 'front', archers: 'centre', slingers: 'centre', catapults: 'centre', cavalry: 'flank' },
+    DEFAULT_GROUP: { pikemen: 1, swordsmen: 1, archers: 1, slingers: 1, catapults: 1, cavalry: 2 },
+    TEAM_NAME: ['attacker', 'defender', 'third']
   };
 })();

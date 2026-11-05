@@ -228,7 +228,7 @@ test('bridges: deep river is impassable, so a crossing has to use a bridge', () 
   for (let y = 0; y < st.rows; y++) if (st.field.tiles[y * st.cols + riverCol] === 'b') bridgeRows.push(y);
   assert.ok(bridgeRows.length > 0, 'the river has bridges');
   const u = S.newUnit(st, 0, 'swordsmen', 'engage', 'line', riverCol - 2, 0.5, 20);
-  u.order = { kind: 'attackMove', x: riverCol + 4, y: 0.5 };
+  V4.issue(st, { kind: 'move', unit: u.id, x: riverCol + 4, y: 0.5 });
   let crossedAt = null;
   for (let i = 0; i < 400 && u.x < riverCol + 3; i++) {
     V4.step(st);
@@ -244,8 +244,8 @@ test('a road is faster than open grass', () => {
   st.field.tiles[20 * st.cols + 5] = 'g';
   const onRoad = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5.5, 10.5, 20);
   const onGrass = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5.5, 20.5, 20);
-  onRoad.order = { kind: 'attackMove', x: 30, y: 10.5 };
-  onGrass.order = { kind: 'attackMove', x: 30, y: 20.5 };
+  V4.issue(st, { kind: 'move', unit: onRoad.id, x: 30, y: 10.5 });
+  V4.issue(st, { kind: 'move', unit: onGrass.id, x: 30, y: 20.5 });
   for (let i = 0; i < 40; i++) V4.step(st);
   assert.ok(onRoad.x - 5.5 > onGrass.x - 5.5, 'the road unit got further');
 });
@@ -253,7 +253,7 @@ test('a road is faster than open grass', () => {
 test('fatigue: a long march tires a unit, and rest gives it back', () => {
   const st = blank(V4.sampleRequest({ seed: 3, settlement: 'none', gen: { fatigue: true } }));
   const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 3, 10, 20);
-  u.order = { kind: 'attackMove', x: 40, y: 10.5 };
+  V4.issue(st, { kind: 'move', unit: u.id, x: 40, y: 10.5 });
   for (let i = 0; i < 400; i++) V4.step(st);
   assert.ok(u.fat > 5, 'it is tired after marching: ' + u.fat.toFixed(1));
   u.order = null;
@@ -328,6 +328,168 @@ test('random teams: the balancer keeps the two sides close in strength', () => {
     assert.strictEqual(total, 16, 'every dot is dealt');
     assert.ok(Math.abs(t.power[0] - t.power[1]) <= Math.max(...Object.values(C.POWER)), 'strength within one dot: ' + t.power);
   }
+});
+
+// ---- Round 5: routes, groups, arrangement, third team and allies, defending -----
+
+test('a route visits its points in order, then stops', () => {
+  const st = blank(V4.sampleRequest({ seed: 13, settlement: 'none', gen: { size: 'small', fatigue: false } }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  V4.issue(st, { kind: 'route', unit: u.id, points: [{ x: 15, y: 10 }, { x: 15, y: 20 }], mode: 'move' });
+  let passedCorner = false;
+  for (let i = 0; i < 3000 && u.order; i++) {
+    V4.step(st);
+    if (u.x >= 14.8 && u.y < 11) passedCorner = true;
+  }
+  assert.ok(passedCorner, 'it reached the first point before the second');
+  assert.strictEqual(u.order, null, 'the route is finished');
+  assert.ok(Math.abs(u.y - 20) < 1.5 && Math.abs(u.x - 15) < 1.5, 'and stands near the last point');
+});
+
+test('a route with a bad point is refused', () => {
+  const st = blank(V4.sampleRequest({ seed: 13, settlement: 'none' }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  assert.strictEqual(V4.issue(st, { kind: 'route', unit: u.id, points: [{ x: NaN, y: 3 }] }), false);
+  assert.strictEqual(V4.issue(st, { kind: 'route', unit: u.id, points: [] }), false);
+});
+
+test('a planned march is drawn from the unit to its route, and a stopped unit has a future spot', () => {
+  const st = blank(V4.sampleRequest({ seed: 13, settlement: 'none' }));
+  const u = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5.5, 10.5, 20);
+  V4.issue(st, { kind: 'route', unit: u.id, points: [{ x: 20.5, y: 10.5 }] });
+  const march = V4.plannedPath(st, u);
+  assert.strictEqual(march.kind, 'march');
+  assert.ok(march.points.length > 2, 'it has points along the way');
+  const last = march.points[march.points.length - 1];
+  assert.ok(last.x === 20.5 && last.y === 10.5, 'it ends at the route point');
+  V4.issue(st, { kind: 'hold', unit: u.id });
+  const stop = V4.plannedPath(st, u);
+  assert.strictEqual(stop.kind, 'stop');
+  assert.ok(stop.stop, 'a dashed ring marks where it will stand');
+});
+
+test('a group move keeps each member in its place in the formation', () => {
+  const st = blank(V4.sampleRequest({ seed: 14, settlement: 'none' }));
+  const a = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  const b = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 13, 20);
+  a.group = 1; b.group = 1;
+  assert.strictEqual(V4.issue(st, { kind: 'group', group: 1, action: 'nonsense' }), false, 'an unknown action is refused');
+  assert.strictEqual(V4.issue(st, { kind: 'group', group: 3, action: 'move', x: 20, y: 12 }), false, 'only groups 1 and 2');
+});
+
+test('a group move keeps the gap between members', () => {
+  const st = blank(V4.sampleRequest({ seed: 14, settlement: 'none', gen: { size: 'small' } }));
+  st.you = 0;
+  const a = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  const b = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 13, 20);
+  a.group = 1; b.group = 1;
+  assert.strictEqual(V4.issue(st, { kind: 'group', group: 1, action: 'move', x: 15, y: 15 }), true);
+  assert.ok(a.order && b.order, 'both have orders');
+  const gapBefore = 3;
+  const gapAfter = Math.abs(a.order.points[0].y - b.order.points[0].y);
+  assert.ok(Math.abs(gapAfter - gapBefore) < 1e-6, 'the gap is kept: ' + gapAfter);
+});
+
+test('assign moves a player unit to group 2, and not an enemy unit', () => {
+  const st = blank(V4.sampleRequest({ seed: 14, settlement: 'none' }));
+  st.you = 0;
+  const mine = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 5, 10, 20);
+  const theirs = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 40, 10, 20);
+  assert.strictEqual(V4.issue(st, { kind: 'assign', unit: mine.id, group: 2 }), true);
+  assert.strictEqual(mine.group, 2);
+  assert.strictEqual(V4.issue(st, { kind: 'assign', unit: theirs.id, group: 2 }), false);
+});
+
+test('the army arranges by role: front line toward the enemy, archers behind, cavalry on the flanks', () => {
+  const req = V4.sampleRequest({ seed: 15, settlement: 'none', gen: { size: 'large' },
+    attackerUnits: [{ type: 'pikemen', count: 3 }, { type: 'archers', count: 2 }, { type: 'cavalry', count: 2 }] });
+  req.you = 0;
+  const st = V4.createBattle(req, {});
+  const mine = st.units.filter(u => u.side === 0);
+  const front = mine.filter(u => u.type === 'pikemen'), arch = mine.filter(u => u.type === 'archers'), cav = mine.filter(u => u.type === 'cavalry');
+  const frontX = Math.min(...front.map(u => u.x));
+  const archX = Math.min(...arch.map(u => u.x));
+  assert.ok(frontX > archX, 'the front line stands ahead of the archers: ' + frontX + ' > ' + archX);
+  const archY = arch.map(u => u.y);
+  assert.ok(Math.min(...cav.map(u => Math.abs(u.y - (st.field.bbox[0].y0 + st.field.bbox[0].y1) / 2))) >
+    Math.max(...archY.map(y => Math.abs(y - (st.field.bbox[0].y0 + st.field.bbox[0].y1) / 2))), 'cavalry on the flanks, archers in the middle');
+});
+
+test('an army with no third team cannot be given one', () => {
+  const req = V4.sampleRequest({ seed: 16, settlement: 'none' });
+  assert.ok(V4.validateRequest(Object.assign({}, req, { alliances: [[0, 2]] })).length > 0, 'alliance to a team that is not there');
+});
+
+test('allies win together: when the enemy is gone, the attacker and its ally both win', () => {
+  const req = V4.sampleRequest({ seed: 17, settlement: 'none', attackerUnits: [{ type: 'pikemen', count: 2 }], defenderUnits: [] });
+  req.third = { nation: 'Third', pool: 300, units: [{ type: 'pikemen', count: 2 }] };
+  req.alliances = [[0, 2]];
+  req.mode = 'play';
+  const st = V4.createBattle(req, {});
+  st.done = null;
+  st.units.filter(u => u.side === 1).forEach(u => { u.state = 'dead'; });
+  V4.step(st);
+  assert.ok(st.done, 'the battle is over');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(st.done.winners.slice().sort())), [0, 2], 'both allies are winners');
+  assert.strictEqual(V4.result(st).winner, 'attacker');
+});
+
+test('allies share what they see', () => {
+  const req = V4.sampleRequest({ seed: 18, settlement: 'none', attackerUnits: [{ type: 'archers', count: 1 }], defenderUnits: [{ type: 'pikemen', count: 1 }] });
+  req.third = { nation: 'Third', pool: 300, units: [{ type: 'pikemen', count: 1 }] };
+  req.alliances = [[0, 2]];
+  const st = blank(req);
+  const archer = S.newUnit(st, 0, 'archers', 'engage', 'line', 10, 10, 20);
+  archer.order = { kind: 'hold' };
+  const foe = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 14, 10, 20);
+  const ally = S.newUnit(st, 2, 'pikemen', 'engage', 'line', 4, 10, 20);
+  V4.step(st);
+  assert.ok(st.seen[2][foe.id], 'the third team sees the enemy through its ally');
+});
+
+test('a team that is down to a twentieth of its enemies gives up, and the enemies win', () => {
+  const req = V4.sampleRequest({ seed: 19, scale: 'village', settlement: 'none', attackerUnits: [{ type: 'pikemen', count: 1 }], defenderUnits: [{ type: 'pikemen', count: 25 }] });
+  req.third = { nation: 'Third', pool: 300, units: [{ type: 'pikemen', count: 1 }] };
+  const r = V4.runAuto(req);
+  assert.ok(r.winner, 'the battle ended with a winner');
+});
+
+test('defending: when you are the defender, your units obey and the attacker\'s do not', () => {
+  const req = V4.sampleRequest({ seed: 20, settlement: 'none', attackerUnits: [{ type: 'pikemen', count: 1 }], defenderUnits: [{ type: 'pikemen', count: 1 }] });
+  req.you = 1;
+  const st = V4.createBattle(req, {});
+  const mine = st.units.find(u => u.side === 1), theirs = st.units.find(u => u.side === 0);
+  assert.strictEqual(V4.issue(st, { kind: 'move', unit: mine.id, x: 30, y: 10 }), true, 'your unit moves');
+  assert.strictEqual(V4.issue(st, { kind: 'move', unit: theirs.id, x: 30, y: 10 }), false, 'the attacker is not yours');
+});
+
+test('geography has its own seed: a new geography keeps the armies, and a new army keeps the ground', () => {
+  const a = V4.sampleRequest({ seed: 21, settlement: 'none', gen: { size: 'large', roads: false, grass: true } });
+  const b = Object.assign({}, a, { geoSeed: 999 });
+  const fa = V4.buildField(a), fb = V4.buildField(b);
+  assert.notDeepStrictEqual(fa.tiles, fb.tiles, 'the ground changed');
+  const a2 = Object.assign({}, a, { geoSeed: 5 });
+  const c = Object.assign({}, a2, { seed: 77 });
+  assert.ok(V4.buildField(a2).tiles.join('') === V4.buildField(c).tiles.join(''), 'a new battle seed keeps the ground');
+});
+
+test('site toggles: woods and walls can be left out', () => {
+  const on = V4.buildField(V4.sampleRequest({ seed: 22, settlement: 'town', attackerWoods: true, gen: { size: 'large', woods: true, walls: true } }));
+  const off = V4.buildField(V4.sampleRequest({ seed: 22, settlement: 'town', attackerWoods: true, gen: { size: 'large', woods: false, walls: false } }));
+  assert.ok(on.tiles.filter(t => t === 'w').length > 0, 'woods are there when on');
+  assert.strictEqual(off.tiles.filter(t => t === 'w').length, 0, 'no woods when off');
+  assert.strictEqual(off.tiles.filter(t => t === 'x').length, 0, 'no walls when off');
+  assert.ok(on.tiles.filter(t => t === 'x').length > 0, 'walls are there when on');
+});
+
+test('the balancer deals dots across three teams', () => {
+  const rng = V4.rng(8);
+  const counts = [0, 0, 0];
+  const t = V4.balanceTeams(18, rng, 3);
+  assert.strictEqual(t.sides.length, 3);
+  const total = t.sides.reduce((n, side) => n + Object.values(side).reduce((a, b) => a + b, 0), 0);
+  assert.strictEqual(total, 18, 'every dot dealt across three teams');
+  assert.ok(Math.max(...t.power) - Math.min(...t.power) <= Math.max(...Object.values(C.POWER)), 'strength within one dot');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

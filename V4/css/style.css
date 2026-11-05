@@ -110,3 +110,31 @@ button:disabled { opacity: 0.5; }
 .pops { position: absolute; inset: 0; pointer-events: none; }
 .strike-pop { position: absolute; transform: translate(-50%, -140%); pointer-events: auto; background: #d05a4a; color: #fff; border: 2px solid #fff; border-radius: 999px; padding: 4px 12px; font-weight: 800; font-size: 15px; box-shadow: 0 3px 10px rgba(0,0,0,0.4); cursor: pointer; white-space: nowrap; }
 .strike-pop[hidden] { display: none; }
+
+/* Round 5: collapsible panels, the team table, toggles, formations, routes */
+details.panel { padding: 0; overflow: hidden; }
+details.panel > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary::after { content: "▾"; font-size: 18px; color: var(--muted); transition: transform 0.15s; }
+details.panel:not([open]) > summary::after { transform: rotate(-90deg); }
+details.panel > summary h2 { margin: 0; }
+details.panel .panel-body { padding: 0 16px 16px; }
+details.panel[hidden] { display: none; }
+h3.sub { font-size: 15px; margin: 14px 0 6px; color: var(--muted); }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+.team-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; color: var(--muted); padding: 4px 0; }
+.team-head span:first-child, .team-head span:nth-child(2) { min-width: 0; flex: 0 0 32px; }
+.team-head span:nth-child(2) { flex: 1 1 110px; }
+.team-head .col-a, .team-head .col-d, .team-head .col-t { flex: 0 0 96px; text-align: center; }
+.type-row label.col-a, .type-row label.col-d, .type-row label.col-t { flex: 0 0 96px; }
+.type-row label.col-t[hidden], .team-head .col-t[hidden] { display: none; }
+.type-row input[type=number] { width: 64px; }
+.group-row { border-top: 1px solid var(--line); padding: 10px 0; }
+.group-row:first-child { border-top: 0; }
+.group-row.selected { background: rgba(255, 210, 74, 0.18); border-radius: 8px; }
+.group-row .row { margin-top: 6px; }
+#bf-svg .handle { cursor: grab; }
+#bf-svg .seg { cursor: copy; }
+#bf-unit .panel-body .row label { min-width: 120px; }
+#bf-unit .panel-body .row > * { flex: 0 1 auto; }
+.field-wrap .mini { cursor: crosshair; }

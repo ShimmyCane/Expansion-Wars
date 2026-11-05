@@ -23,6 +23,24 @@
       });
     });
     if (req.defender && SETTLEMENTS.indexOf(req.defender.settlement || 'none') < 0) bad.push('defender.settlement is not recognised');
+    if (req.third) {
+      if (!Array.isArray(req.third.units)) bad.push('third.units must be a list');
+      else req.third.units.forEach(function (u) {
+        if (C.TYPES.indexOf(u.type) < 0) bad.push('third has an unknown type: ' + u.type);
+      });
+      if (!(req.third.pool >= 0)) bad.push('third.pool must be a number of 0 or more');
+    }
+    var teams = req.third ? 3 : 2;
+    if (req.you !== undefined && (req.you === null ? false : (req.you < 0 || req.you >= teams || req.you % 1 !== 0))) {
+      bad.push('you must be the attacker, the defender' + (teams === 3 ? ' or the third team' : ''));
+    }
+    (req.alliances || []).forEach(function (pair) {
+      if (!Array.isArray(pair) || pair.length !== 2 || pair[0] === pair[1] ||
+          [pair[0], pair[1]].some(function (t) { return t < 0 || t >= teams || t % 1 !== 0; })) {
+        bad.push('an alliance must join two different teams that are in the battle');
+      }
+    });
+    if (req.geoSeed !== undefined && !(req.geoSeed >= 0)) bad.push('geoSeed must be a number');
     if (req.gen) {
       Object.keys(req.gen).forEach(function (k) {
         if (!(k in C.GEN)) bad.push('generator has an unknown option: ' + k);
@@ -32,6 +50,8 @@
       if (req.gen.roads !== undefined && typeof req.gen.roads !== 'boolean') bad.push('generator roads must be on or off');
       if (req.gen.grass !== undefined && typeof req.gen.grass !== 'boolean') bad.push('generator grass must be on or off');
       if (req.gen.fatigue !== undefined && typeof req.gen.fatigue !== 'boolean') bad.push('generator fatigue must be on or off');
+      if (req.gen.woods !== undefined && typeof req.gen.woods !== 'boolean') bad.push('generator woods must be on or off');
+      if (req.gen.walls !== undefined && typeof req.gen.walls !== 'boolean') bad.push('generator walls must be on or off');
     }
     return bad;
   };
@@ -59,16 +79,24 @@
     return V4.result(st);
   };
 
-  // Deals `dots` random dots between two sides. Each dot goes to the side with less strength, so the teams come out close.
-  V4.balanceTeams = function (dots, rng) {
-    var sides = [V4.sim.zeroTypes(), V4.sim.zeroTypes()], power = [0, 0];
-    for (var i = 0; i < dots; i++) {
+  // Deals `dots` random dots between `teams` sides (2 or 3). Each dot goes to the side with least strength,
+  // so the sides come out close. Returns the counts per side (sides), the strength of each (power), and for two
+  // sides the same as a and b.
+  V4.balanceTeams = function (dots, rng, teams) {
+    var n = teams || 2, sides = [], power = [], i, t;
+    for (i = 0; i < n; i++) { sides.push(V4.sim.zeroTypes()); power.push(0); }
+    for (i = 0; i < dots; i++) {
       var type = C.TYPES[Math.floor(rng() * C.TYPES.length)];
-      var side = power[0] < power[1] ? 0 : (power[1] < power[0] ? 1 : (rng() < 0.5 ? 0 : 1));
+      var least = [];
+      for (t = 0; t < n; t++) {
+        if (least.length === 0 || power[t] < power[least[0]] - 1e-9) least = [t];
+        else if (Math.abs(power[t] - power[least[0]]) < 1e-9) least.push(t);
+      }
+      var side = least[Math.floor(rng() * least.length)];
       sides[side][type]++;
       power[side] += C.POWER[type];
     }
-    return { a: sides[0], b: sides[1], power: power };
+    return { sides: sides, power: power, a: sides[0], b: sides[1] };
   };
 
   // A small fortress battle, the default in the sandbox.

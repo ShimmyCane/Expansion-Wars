@@ -23,7 +23,9 @@
     return g;
   };
 
-  V4.buildField = function (req, rng) {
+  // The ground has its own seed (req.geoSeed), so a new geography keeps the armies and orders.
+  V4.buildField = function (req) {
+    var rng = V4.rng(req.geoSeed || req.seed || 1);
     var gen = V4.genOf(req);
     var size = C.SIZE[gen.size] || C.SIZE.small;
     var COLS = size.cols, ROWS = size.rows, k = COLS / C.COLS, big = k > 1;
@@ -51,8 +53,8 @@
 
     var attackerTerrain = (req.attacker && req.attacker.terrain) || [];
     var defenderTerrain = (req.defender && req.defender.terrain) || [];
-    if (attackerTerrain.indexOf('woods') >= 0) patches(3 * k, 21 * k, 3 * k, 'w', 2, 4.5);
-    if (defenderTerrain.indexOf('woods') >= 0) patches(29 * k, 46 * k, 3 * k, 'w', 2, 4.5);
+    if (gen.woods && attackerTerrain.indexOf('woods') >= 0) patches(3 * k, 21 * k, 3 * k, 'w', 2, 4.5);
+    if (gen.woods && defenderTerrain.indexOf('woods') >= 0) patches(29 * k, 46 * k, 3 * k, 'w', 2, 4.5);
     if (gen.grass) {
       patches(3 * k, 21 * k, 2 * k, 'h', 1.5, 3);
       patches(29 * k, 46 * k, 2 * k, 'h', 1.5, 3);
@@ -98,10 +100,12 @@
         for (y = sy - hy + 1; y <= sy + hy - 1; y++) for (x = sx - hx + 1; x <= sx + hx - 1; x++) put(x, y, 't');
         zoneDef = { x0: sx - hx + 1, x1: sx + hx - 1, y0: sy - hy + 1, y1: sy + hy - 1 };
       }
-      for (x = sx - hx; x <= sx + hx; x++) { put(x, sy - hy, 'x'); put(x, sy + hy, 'x'); }
-      for (y = sy - hy; y <= sy + hy; y++) { put(sx - hx, y, 'x'); put(sx + hx, y, 'x'); }
-      var gates = [[sx - hx, sy], [sx + hx, sy], [sx, sy - hy], [sx, sy + hy]];
-      for (i = 0; i < gen.gates && i < gates.length; i++) put(gates[i][0], gates[i][1], 'y');
+      if (gen.walls) {
+        for (x = sx - hx; x <= sx + hx; x++) { put(x, sy - hy, 'x'); put(x, sy + hy, 'x'); }
+        for (y = sy - hy; y <= sy + hy; y++) { put(sx - hx, y, 'x'); put(sx + hx, y, 'x'); }
+        var gates = [[sx - hx, sy], [sx + hx, sy], [sx, sy - hy], [sx, sy + hy]];
+        for (i = 0; i < gen.gates && i < gates.length; i++) put(gates[i][0], gates[i][1], 'y');
+      }
     } else {
       zoneDef = { x0: COLS - 6, x1: COLS - 2, y0: 3, y1: ROWS - 4 };   // mirror of the attacker's zone, so open-field fights are fair
     }
@@ -129,6 +133,23 @@
       objectives.push({ id: 'flag-s', name: 'the south flag', x: flagX, y: Math.round(ROWS * 0.78), r: C.HOLD_RADIUS, settlement: false, owner: null, prog: [0, 0] });
     }
 
+    // A third team (if the request has one) comes down from the north edge, by the middle.
+    var spawn = { 0: zone({ x0: 1, x1: 5 * k, y0: 3 * k, y1: ROWS - 4 }), 1: zone(zoneDef) };
+    if (req.third) spawn[2] = zone({ x0: flagX - 4 * k, x1: flagX + 4 * k, y0: 1, y1: 4 * k });
+
+    // Where each team may place its units by hand: its spawn area, one tile wider.
+    var bbox = {};
+    [0, 1, 2].forEach(function (t) {
+      var pts = spawn[t] || [];
+      if (!pts.length) { bbox[t] = null; return; }
+      bbox[t] = {
+        x0: Math.max(0, Math.min.apply(null, pts.map(function (p) { return p.x; })) - 1.5),
+        x1: Math.min(COLS, Math.max.apply(null, pts.map(function (p) { return p.x; })) + 1.5),
+        y0: Math.max(0, Math.min.apply(null, pts.map(function (p) { return p.y; })) - 1.5),
+        y1: Math.min(ROWS, Math.max.apply(null, pts.map(function (p) { return p.y; })) + 1.5)
+      };
+    });
+
     var edgeA = [], edgeB = [];
     for (y = 0; y < ROWS; y++) {
       if (get(0, y) !== null && !C.TERRAIN[get(0, y)].impassable) edgeA.push({ x: 0.5, y: y + 0.5 });
@@ -145,7 +166,8 @@
       tiles: tiles,
       woodTiles: woodTiles,
       objectives: objectives,
-      spawn: { 0: zone({ x0: 1, x1: 5 * k, y0: 3 * k, y1: ROWS - 4 }), 1: zone(zoneDef) },
+      spawn: spawn,
+      bbox: bbox,
       edge: { 0: edgeA, 1: edgeB },
       bell: { x: sx + 0.5, y: sy + 0.5 },
       settle: { x: sx + 0.5, y: sy + 0.5 },
