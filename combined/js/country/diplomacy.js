@@ -22,6 +22,7 @@
     }
     if (type === 'ceasefire') {
       if (!r.war) return 'You are not at war.';
+      if (w.time.turn - r.warSince < K().MIN_WAR_TURNS) return 'The war must run ' + K().MIN_WAR_TURNS + ' turns before peace can be offered.';
       if (r.rep < K().MIN_REP.ceasefire) return 'They will not talk yet.';
     }
     if (type === 'tribute' && a.gold < K().TRIBUTE) return 'Not enough gold (' + K().TRIBUTE + ').';
@@ -78,6 +79,32 @@
     w.queue = w.queue.filter(function (x) { return !(x.type === 'claim' && x.from === w.you && x.prov === pid); });
   };
 
+  // A side accepts peace when it is the weaker one: its power is at most ACCEPT_RATIO of the other's.
+  C.acceptsCeasefire = function (w, decider, other) {
+    return C.power(w, w.nations[decider]) <= K().ACCEPT_RATIO * C.power(w, w.nations[other]);
+  };
+  C.makePeace = function (w, i, j) {
+    var r = W.rel(w, i, j);
+    r.war = false; r.truce = 10;
+    W.log(w, w.nations[i].name + ' and ' + w.nations[j].name + ' agree a ceasefire for 10 turns.');
+  };
+  // The computer offers peace to you: it stands on your card for OFFER_TURNS turns. Nothing changes until you accept.
+  C.offerCeasefire = function (w, from, to) {
+    if (w.offers.some(function (o) { return o.from === from && o.to === to; })) return;
+    w.offers.push({ from: from, to: to, turn: w.time.turn });
+    W.log(w, w.nations[from].name + ' offers a ceasefire. It stands for ' + K().OFFER_TURNS + ' turns; accept or refuse it on the card.');
+  };
+  C.acceptOffer = function (w, o) {
+    w.offers = w.offers.filter(function (x) { return x !== o; });
+    if (!W.rel(w, o.from, o.to).war) return 'No longer at war.';
+    C.makePeace(w, o.from, o.to);
+    return null;
+  };
+  C.refuseOffer = function (w, o) {
+    w.offers = w.offers.filter(function (x) { return x !== o; });
+    W.log(w, 'You refuse the ceasefire from ' + w.nations[o.from].name + '. The war goes on.');
+  };
+
   // Apply one diplomatic order (everything but attacks and claims).
   C.applyDiplomacy = function (w, x) {
     var i = x.from, j = x.to, r = W.rel(w, i, j), a = w.nations[i], b = w.nations[j];
@@ -90,13 +117,14 @@
       r.ally = true;
       W.log(w, a.name + ' and ' + b.name + ' agree a neutral alliance.');
     } else if (x.type === 'ceasefire') {
-      r.war = false; r.truce = 10;
-      W.log(w, a.name + ' and ' + b.name + ' agree a ceasefire for 10 turns.');
+      // A ceasefire is never unilateral: the other side decides, by its own strength (see acceptsCeasefire).
+      if (C.acceptsCeasefire(w, j, i)) C.makePeace(w, i, j);
+      else W.log(w, b.name + ' refuses a ceasefire from ' + a.name + '. The war goes on.');
     } else if (x.type === 'tribute') {
       a.gold -= K().TRIBUTE; b.gold += K().TRIBUTE; r.rep = Math.min(100, r.rep + 8);
       W.log(w, a.name + ' sends ' + K().TRIBUTE + ' gold to ' + b.name + '.');
     } else if (x.type === 'declare') {
-      r.war = true; r.trade = false; r.ally = false; r.rep -= 20;
+      r.war = true; r.warSince = w.time.turn; r.trade = false; r.ally = false; r.rep -= 20;
       w.nations.forEach(function (k) { if (k.id !== i && k.id !== j && k.alive) W.rel(w, k.id, i).rep -= 5; });
       W.log(w, a.name + ' declares war on ' + b.name + '.');
     }

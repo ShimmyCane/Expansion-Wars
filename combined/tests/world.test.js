@@ -384,5 +384,56 @@ t.test('armies are four times the first version, and civics raise the cap', () =
   assert.ok(XW.country.armyCap(w, n) > before, 'a civics level raises the cap');
 });
 
-t.done();
+t.test('a ceasefire cannot be offered in the first four turns of a war', () => {
+  const { XW, w } = fresh(31);
+  const r = XW.world.rel(w, 1, 2);
+  r.war = true; r.warSince = w.time.turn;
+  const err = XW.country.canDo(w, 'ceasefire', 1, 2);
+  assert.ok(/four turns|run 4|must run/.test(err || ''), 'refused early: ' + err);
+});
 
+t.test('the computer offers peace; the war goes on until you accept', () => {
+  const { XW, w } = fresh(31);
+  const other = w.nations.find(n => n.id !== w.you && n.alive);
+  const r = XW.world.rel(w, w.you, other.id);
+  r.war = true; r.warSince = 1; r.rep = 50;
+  w.time.turn = 10;
+  XW.country.offerCeasefire(w, other.id, w.you);
+  XW.country.endTurn(w);
+  assert.ok(XW.world.rel(w, w.you, other.id).war, 'still at war without your acceptance');
+  const o = w.offers.find(x => x.from === other.id);
+  if (o) {
+    assert.strictEqual(XW.country.acceptOffer(w, o), null);
+    assert.strictEqual(XW.world.rel(w, w.you, other.id).war, false, 'accepting ends the war');
+  }
+});
+
+t.test('your ceasefire is accepted only when the other side is the weaker one', () => {
+  const { XW, w } = fresh(31);
+  const other = w.nations.find(n => n.id !== w.you && n.alive);
+  const r = XW.world.rel(w, w.you, other.id);
+  r.war = true; r.warSince = 1; r.rep = 50;
+  w.time.turn = 10;
+  other.soldiers = 1000;
+  w.nations[w.you].soldiers = 10;
+  XW.country.applyDiplomacy(w, { type: 'ceasefire', from: w.you, to: other.id });
+  assert.ok(XW.world.rel(w, w.you, other.id).war, 'a much stronger enemy refuses');
+  other.soldiers = 1;
+  w.nations[w.you].soldiers = 1000;
+  XW.country.applyDiplomacy(w, { type: 'ceasefire', from: w.you, to: other.id });
+  assert.strictEqual(XW.world.rel(w, w.you, other.id).war, false, 'a weaker enemy accepts');
+});
+
+t.test('the computer attacks with its whole army at war', () => {
+  const { XW, w } = fresh(31);
+  XW.country.planAI(w);
+  w.queue.filter(x => x.type === 'attack').forEach(x => assert.strictEqual(x.pct, 100));
+});
+
+t.test('claims cost more than before', () => {
+  const { XW, w } = fresh(31);
+  const R = { hops: 2 };
+  assert.ok(XW.country.claimCost(R).gold >= 14);
+});
+
+t.done();

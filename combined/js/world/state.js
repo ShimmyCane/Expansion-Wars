@@ -33,7 +33,7 @@
       v: VERSION, id: XW.core.uuid(), seed: seed, created: now, updated: now,
       time: { t: 0, turn: 1 }, you: 0,
       nations: [], provs: [], rivers: [], rel: {}, queue: [], used: {},
-      marches: [], battle: null, battles: [],
+      marches: [], battle: null, battles: [], offers: [],
       view: { scale: 'country', prov: null, sendPct: 50, marchPct: 25 },
       log: [], over: null, nextMarch: 0
     };
@@ -49,6 +49,7 @@
     if (!w.view.sendPct) w.view.sendPct = 50;
     if (!w.view.marchPct) w.view.marchPct = 25;
     w.used = w.used || {};
+    w.offers = w.offers || [];
     if (w.v > VERSION) return null;
     return w;
   };
@@ -76,7 +77,7 @@
   W.relKey = function (i, j) { return i < j ? i + '-' + j : j + '-' + i; };
   W.rel = function (w, i, j) {
     var k = W.relKey(i, j);
-    if (!w.rel[k]) w.rel[k] = { war: false, trade: false, ally: false, truce: 0, rep: 0 };
+    if (!w.rel[k]) w.rel[k] = { war: false, trade: false, ally: false, truce: 0, rep: 0, warSince: 0 };
     return w.rel[k];
   };
   W.ownerName = function (w, owner) { return owner >= 0 ? w.nations[owner].name : 'Neutral'; };

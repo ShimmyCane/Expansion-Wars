@@ -36,10 +36,24 @@
     });
   }
 
+  // A ceasefire the computer offers you: it stands for a few turns. Nothing changes until you accept it.
+  function offerBoard(w) {
+    w.offers.forEach(function (o) {
+      if (o.to !== w.you) return;
+      var box = D.el('div', 'fight-box');
+      var left = o.turn + C.CONFIG.OFFER_TURNS - w.time.turn;
+      box.appendChild(D.el('p', 'small', W.ownerName(w, o.from) + ' offers a ceasefire. It stands for ' + left + ' more turn' + (left === 1 ? '' : 's') + '. Until you accept it, the war goes on.'));
+      box.appendChild(D.button('Accept the ceasefire', function () { done(C.acceptOffer(w, o)); }));
+      box.appendChild(D.button('Refuse', function () { C.refuseOffer(w, o); done(); }));
+      card.appendChild(box);
+    });
+  }
+
   function render(w) {
     if (ui.nation === null) ui.nation = w.you;
     C.view.drawMap(svgEl, w, ui);
     D.clear(card);
+    offerBoard(w);
     fightBoard(w);
     var p = W.prov(w, ui.prov);
     if (p && p.kind === 'province') {

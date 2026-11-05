@@ -18,19 +18,26 @@
           if (!best || value > best.value) best = { b: b, value: value };
         });
         var attackP = (a.neutral ? 0.3 : 0.6) * (a.aim === 'war' ? 1.3 : a.aim === 'wealth' ? 0.5 : 1);
+        // At war the computer commits everything: the whole army, not half.
         if (best && a.soldiers * C.quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * C.quality(best.b) && Math.random() < attackP) {
-          w.queue.push({ type: 'attack', from: a.id, to: best.b.id });
+          w.queue.push({ type: 'attack', from: a.id, to: best.b.id, pct: 100 });
         }
         // Sue for peace when badly outmatched.
         foes.forEach(function (b) {
-          if (b.soldiers > 2.5 * a.soldiers && W.rel(w, a.id, b.id).rep >= K().MIN_REP.ceasefire && Math.random() < 0.3) {
-            w.queue.push({ type: 'ceasefire', from: a.id, to: b.id });
+          var r = W.rel(w, a.id, b.id);
+          if (b.soldiers > 2.5 * a.soldiers && r.rep >= K().MIN_REP.ceasefire && w.time.turn - r.warSince >= K().MIN_WAR_TURNS && Math.random() < 0.3) {
+            // Peace is offered, not declared: you decide on your card, and the war goes on until you accept.
+            if (b.id === w.you) C.offerCeasefire(w, a.id, b.id);
+            else w.queue.push({ type: 'ceasefire', from: a.id, to: b.id });
           }
         });
       } else if (Math.random() < (a.neutral ? 0.03 : 0.2)) {
-        // A stronger neighbour declares war: a 20% lead is enough (neutrals need double).
+        // Build up, then strike: a neighbour is attacked only when this nation is well ahead (DECLARE_RATIO) and the
+        // neighbour's power has been falling over the last turn (a weak opponent in decline). Neutrals need double.
         var prey = a.nb.map(function (id) { return w.nations[id]; }).filter(function (b) {
-          return b.alive && !W.rel(w, a.id, b.id).war && C.power(w, a) >= (a.neutral ? 2 : 1.2) * C.power(w, b);
+          var falling = b.powerOld !== undefined && b.powerNow < b.powerOld;
+          return b.alive && !W.rel(w, a.id, b.id).war && falling &&
+            C.power(w, a) >= (a.neutral ? 2 : K().DECLARE_RATIO) * C.power(w, b);
         });
         if (prey.length) w.queue.push({ type: 'declare', from: a.id, to: prey[0].id });
       }
@@ -48,7 +55,8 @@
         });
         if (friends.length) w.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
       }
-      var claimP = (a.neutral ? 0.15 : 0.45) * (a.aim === 'growth' ? 1.5 : a.aim === 'wealth' ? 0.5 : 1);
+      // At war a nation fights its enemy rather than claim neutral land, so it claims less.
+      var claimP = (a.neutral ? 0.15 : 0.45) * (a.aim === 'growth' ? 1.5 : a.aim === 'wealth' ? 0.5 : 1) * (C.atWar(w, a.id) ? 0.5 : 1);
       if (Math.random() < claimP) {
         var pid = C.claimTarget(w, a);
         if (pid !== null) w.queue.push({ type: 'claim', from: a.id, to: -1, prov: pid, pct: 50 });
