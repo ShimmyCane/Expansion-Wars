@@ -212,7 +212,7 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 
 ## Combined round 2: first-playthrough notes (read 2026-11-05)
 
-Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160). Left `open` in the database: the status column only allows `open` and `done`. Plan and questions: `combined/plan-round-2.md`.
+Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160). Marked `done` in the database on 2026-11-05, as read (the status column only allows `open` and `done`). Plan and questions: `combined/plan-round-2.md`.
 
 - [ ] **Time.** Country turn half as fast (120 s). Province time half as fast. Fortress fights get double dilation. ×2 fast-forward at country and province.
 - [ ] **Province view.** Select provinces, not population centres. Click and drag to move troops.

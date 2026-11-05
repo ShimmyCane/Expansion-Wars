@@ -1,6 +1,6 @@
 # Combined — round 2 plan (from the first playthrough)
 
-**Source:** 14 notes in the Family database (`xw_notes`, page `Combined`), written 2026-11-05 between 05:02 and 05:18 UTC on turn 160, after one playthrough. All 14 are copied below, with the plan for each. The database status values are only `open` and `done`, so the notes stay `open` until they are built and you confirm them.
+**Source:** 14 notes in the Family database (`xw_notes`, page `Combined`), written 2026-11-05 between 05:02 and 05:18 UTC on turn 160, after one playthrough. All 14 are copied below, with the plan for each. Marked `done` in the database on 2026-11-05 as read. The status column only allows `open` and `done`; `done` means read, not built.
 
 **Status:** plan only. No code changed. Numbers are first defaults to check.
 
@@ -70,7 +70,7 @@
 3. **Field army trips.** How many trips does a nation get per turn? Default 3.
 4. **Garrison move.** An order you give, or automatic each turn toward the border (as the computer does)?
 5. **Allies.** Marching into an ally's province adds the soldiers to that ally's garrison. Is that what you expect?
-6. **Status.** The database only allows `open` and `done`. Should I mark them `done` once built and you confirm, or add a `read` status to the table? Adding it needs a migration.
+6. **Status.** Answered: `done` is fine. The 14 notes are marked `done` now, as read.
 
 ## Order of work (after you answer)
 
