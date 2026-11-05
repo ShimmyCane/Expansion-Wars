@@ -209,3 +209,20 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Until then ⚙️ says the world is saved on this device only.
 - [ ] **Decide** the open questions in `combined/schematic.md`: dilation values, where soldiers live, country attacks as battles, growth outside the window, battle size.
 - [ ] **Rebalance** after real games on the iPad.
+
+## Combined round 2: first-playthrough notes (read 2026-11-05)
+
+Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160). Left `open` in the database: the status column only allows `open` and `done`. Plan and questions: `combined/plan-round-2.md`.
+
+- [ ] **Time.** Country turn half as fast (120 s). Province time half as fast. Fortress fights get double dilation. ×2 fast-forward at country and province.
+- [ ] **Province view.** Select provinces, not population centres. Click and drag to move troops.
+- [ ] **Country route orders.** Tap a source, then a target, through neighbours. Moves the chosen share.
+- [ ] **Muster once a turn.** The +10 from the field army button is limited (question 2).
+- [ ] **Food.** Garrisons and the field army eat. War uses much more food.
+- [ ] **One army cap.** Field army and garrisons count together.
+- [ ] **Garrisons to the border.** Move garrisons toward hostile borders first, then neutral (question 4).
+- [ ] **Towers.** Slow attackers to 50% and keep shooting. Upgrade doubles the range.
+- [ ] **Walls from town up.** Villages get no settlement wall.
+- [ ] **Allies fold in.** Soldiers marching into an ally's province join its garrison instead of vanishing (bug).
+- [ ] **Province fights.** Risk-like dice, or unit battles for fights (question 1).
+- [ ] **Field army trips.** A set number of trips per turn (question 3).
