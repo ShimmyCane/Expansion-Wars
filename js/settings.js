@@ -10,9 +10,10 @@
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
-  var VERSION = '2.16';
+  var VERSION = '2.17';
   // One version for each change merged since the country layer began (2.0). Newest first.
   var LOG = [
+    ['2.17', 'Allies attack together: every ally at war with the target joins one army, each paying its own march, with 5% less strength for each extra nation (convo v0.15)'],
     ['2.16', 'Directions: Growth, War or Wealth, and an autopilot that spends towards it each turn. Population is made by cities; upgrades, villages, claims and marches cost gold and food; magic is spent per soldier sent; fortresses hold the ground (convo v0.14)'],
     ['2.15', 'Maps from a seed (type one to make that map again). Start with two villages and a town; neutral land to claim; cautious neutral nations'],
     ['2.14','Provinces: 15 per nation; neutral lakes, forests and mountains; rivers along borders; zoom shows the version 1 icons, with upgrade arrows; AI upgrades; soldiers bought out or disbanded for gold'],

@@ -112,6 +112,16 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **Wealth stock sits unused** once the reserve is full. Open: convo v0.14 question 3.
 - [ ] **Balance pass.** Six maps, 40 turns, no hand moves: the three directions now differ (see convo v0.14). Play real games before tuning again.
 
+## Round 10 (version 2.17): allies attack together (convo v0.15)
+
+- [x] **Allies join one attack.** Every ally at war with the target, and able to reach it, joins a lead nation's attack as one army. Each sends the lead's share and pays its own march and magic.
+- [x] **No friendly fire.** Allies are not at war, so they never fight each other.
+- [x] **Slight penalty.** 5% less strength for each nation beyond the first, at most 20%.
+- [x] **One joint attack a turn.** A nation that has already attacked does not join a second order.
+- [x] **The card shows who joins** and the penalty.
+- [ ] **Open:** the penalty size, who joins (at peace, or pulled in by a declaration), and how a joint capture is split (convo v0.15, questions 1 to 3).
+- [ ] **Open:** the War plan counts the lead nation alone when choosing an attack, not its allies.
+
 ## V4 round 4 (version 4.2): battlefield generator
 
 - [x] **Battlefield generator** on the setup screen: field size, settlement openings, river, hidden units, default approach, roads, tall grass, fronts and flanks, fatigue. Saved in the request.
