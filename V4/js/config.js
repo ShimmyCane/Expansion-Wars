@@ -4,7 +4,12 @@
   'use strict';
   window.V4 = window.V4 || {};
   window.V4.CONFIG = {
-    // Field: 50 x 32 tiles of 20 units = 1000 x 640, the same space as V1 and V2.
+    // Field sizes. 'small' is the old one-screen field (50 x 32 tiles of 20 units, the same space as V1 and V2).
+    // 'large' is 2 x 2 screens (100 x 64 tiles) with a camera and a mini map.
+    SIZE: {
+      small: { cols: 50, rows: 32 },
+      large: { cols: 100, rows: 64 }
+    },
     COLS: 50,
     ROWS: 32,
     TILE: 20,
@@ -24,6 +29,9 @@
       slingers:  { label: 'Slingers',  speed: 1.2, atk: 0.5, range: 4,   melee: false, mounted: false, minRange: 0, reload: 1.0 },
       catapults: { label: 'Catapults', speed: 0.4, atk: 0.6, range: 9,   melee: false, mounted: false, minRange: 2, reload: 2.5 }
     },
+
+    // Rough strength of one dot, used to balance random teams. Not used in battle.
+    POWER: { cavalry: 3, pikemen: 2, swordsmen: 2.5, archers: 2, slingers: 1.5, catapults: 3.5 },
 
     // How far a unit can see enemies, in tiles. Defenders see further (see DEFENDER_SIGHT_BONUS).
     SIGHT: { cavalry: 8, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6 },
@@ -49,6 +57,7 @@
     COUNTER: { up: 1.5, down: 0.6 },
     RANGED_IN_MELEE: 0.6,   // ranged units hitting at arm's length
     CATAPULT_WALLS: 1.5,    // catapults against units on town, wall or gate tiles
+    REAR_MUL: 1.3,          // extra damage taken when hit from directly behind
 
     // People per dot at each battle scale (cavalry and catapults are set in sim.js).
     GRAIN: { village: 1, fortress: 20, country: 100 },
@@ -65,30 +74,52 @@
     },
 
     // Formations. melee: defence against melee (divides damage taken).
-    // flank: damage multiplier when hit from the side or rear. area: multiplier on ranged damage taken.
-    // charge: multiplier on a cavalry charge.
+    // flank: damage multiplier when hit from the side. area: multiplier on ranged damage taken.
+    // charge: multiplier on a cavalry charge. arc: the front, in degrees, centred on the unit's facing.
+    // A column is long along its march (narrow front, exposed sides); a line is wide across it.
     FORMATION: {
-      line:    { label: 'Line',         speed: 1.0, melee: 1.0, flank: 1.5, area: 1.0, charge: 1.0 },
-      column:  { label: 'March column', speed: 1.5, melee: 0.8, flank: 2.0, area: 1.3, charge: 1.0 },
-      scatter: { label: 'Scatter',      speed: 0.8, melee: 1.0, flank: 0.7, area: 0.5, charge: 0.8 },
-      shield:  { label: 'Shield wall',  speed: 0.5, melee: 1.2, flank: 2.0, area: 0.5, charge: 1.0 }
+      line:    { label: 'Line',         speed: 1.0, melee: 1.0, flank: 1.5, area: 1.0, charge: 1.0, arc: 120, fatigue: 1.0 },
+      column:  { label: 'March column', speed: 1.5, melee: 0.8, flank: 2.0, area: 1.3, charge: 1.0, arc: 50,  fatigue: 1.2 },
+      scatter: { label: 'Scatter',      speed: 0.8, melee: 1.0, flank: 0.7, area: 0.5, charge: 0.8, arc: 360, fatigue: 0.9 },
+      shield:  { label: 'Shield wall',  speed: 0.5, melee: 1.2, flank: 2.0, area: 0.5, charge: 1.0, arc: 150, fatigue: 1.3 }
     },
 
     // Terrain by tile code. def divides damage taken. cavSpeed: extra speed factor for cavalry.
+    // hides: units in it cannot be seen beyond HIDE.range.
     TERRAIN: {
-      g: { label: 'Grass', speed: 1.0, def: 1.0, noCharge: false },
-      w: { label: 'Woods', speed: 0.7, def: 1.2, noCharge: true,  cavSpeed: 0.5 },
-      r: { label: 'River', speed: 0.5, def: 0.8, noCharge: false },
-      f: { label: 'Ford',  speed: 0.8, def: 1.0, noCharge: false },
-      t: { label: 'Town',  speed: 0.8, def: 1.2, noCharge: true },
-      x: { label: 'Wall',  speed: 0,   def: 1.0, noCharge: true,  impassable: true },
-      y: { label: 'Gate',  speed: 0.8, def: 1.2, noCharge: true }
+      g: { label: 'Grass',      speed: 1.0, def: 1.0, noCharge: false },
+      w: { label: 'Woods',      speed: 0.7, def: 1.2, noCharge: true,  cavSpeed: 0.5, hides: true },
+      h: { label: 'Tall grass', speed: 0.8, def: 1.0, noCharge: false, hides: true },
+      d: { label: 'Road',       speed: 1.6, def: 1.0, noCharge: false },
+      r: { label: 'River',      speed: 0.5, def: 0.8, noCharge: false },
+      v: { label: 'Deep river', speed: 0,   def: 1.0, noCharge: true,  impassable: true },
+      f: { label: 'Ford',       speed: 0.8, def: 1.0, noCharge: false },
+      b: { label: 'Bridge',     speed: 1.2, def: 1.0, noCharge: true },
+      t: { label: 'Town',       speed: 0.8, def: 1.2, noCharge: true },
+      x: { label: 'Wall',       speed: 0,   def: 1.0, noCharge: true,  impassable: true },
+      y: { label: 'Gate',       speed: 0.8, def: 1.2, noCharge: true }
+    },
+
+    // Fatigue, 0 (fresh) to 100 (spent). Marching costs more on rough ground; contact costs the most.
+    // Resting (still and out of contact) gives it back. Tired units are slower and hit softer.
+    FATIGUE: {
+      move: { g: 0.25, h: 0.35, w: 0.4, r: 0.75, f: 0.5, d: 0.1, t: 0.25, y: 0.25, b: 0.2 },   // per second moving
+      contact: 1.2,           // per second in contact
+      rest: 3.0,              // per second recovered when still and out of contact
+      contactWindow: 20,      // steps (1 second) that count as "in contact" after a hit
+      speedLoss: 0.35,        // speed multiplier falls by this much at full fatigue
+      atkLoss: 0.3            // damage multiplier falls by this much at full fatigue
     },
 
     DAMAGE_K: 0.02,            // overall scale of damage per second
     AMBUSH: { range: 3, duration: 5, dmgMul: 1.5 },
+    // Hiding: a unit in woods or tall grass can only be seen from HIDE.range tiles away, until it fires.
+    HIDE: { range: 2.5, reveal: 3 },
+    // A strike from hiding: everything within range takes the burst at mul times the normal damage.
+    STRIKE: { range: 3, mul: 2.5 },
     CHARGE: { window: 3, mul: 1.3 },
     RUSH_MOVE: 1.3,            // speed factor for a rush move (ignores enemies on the way)
+    LOCAL: { range: 4, outnumbered: 1.5 },   // how far a unit looks for friends and foes, and when it counts as outnumbered
 
     // Morale is per unit, 0 to 100. Losses and rout are as before. Recovery and rally are new.
     MORALE: {
@@ -121,7 +152,27 @@
     // Computer-planned defence. A share of the infantry ambushes from woods, the rest hold a station.
     AI: { ambushShare: 0.34, leash: 8 },
 
-    // Deployment: the player's units may be placed within this many tiles of their edge.
-    DEPLOY_X: 6
+    // Deployment: the player's units may be placed within this many tiles of their edge (small field).
+    DEPLOY_X: 6,
+
+    // Battlefield generator defaults. The setup screen starts from these; the request carries the chosen values.
+    GEN: {
+      size: 'large',        // small (one screen) or large (2 x 2 with a mini map)
+      gates: 3,             // openings in each settlement wall: 2, 3 or 4
+      river: 'bridges',     // none, fords (shallow crossings) or bridges (deep water, bridges only)
+      roads: true,          // a road from the attacker's edge to the settlement
+      grass: true,          // tall grass patches (hiding)
+      fatigue: true,        // units tire on the march and in contact
+      facing: true,         // units have a front; flanks and rear are exposed (battalions and squads)
+      ambush: 'prompt',     // prompt: you choose when a hidden unit strikes. auto: it strikes on its own
+      approach: 'mixed'     // where units head by default: flank, centre, base, or mixed ('none' keeps them still)
+    },
+    GEN_OPTIONS: {
+      size: ['small', 'large'],
+      gates: [2, 3, 4],
+      river: ['none', 'fords', 'bridges'],
+      ambush: ['prompt', 'auto'],
+      approach: ['flank', 'centre', 'base', 'mixed', 'none']
+    }
   };
 })();
