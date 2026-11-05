@@ -10,9 +10,15 @@
     var bad = [];
     if (!req || typeof req !== 'object') return ['request is not an object'];
     if (SCALES.indexOf(req.scale) < 0) bad.push('scale must be village, fortress or country');
-    ['attacker', 'defender'].forEach(function (side) {
+    ['attacker', 'defender', 'third'].forEach(function (side) {
       var s = req[side];
-      if (!s) { bad.push(side + ' is missing'); return; }
+      if (!s) { if (side !== 'third') bad.push(side + ' is missing'); return; }
+      // No more than MAX_PER_TYPE of one type on a side.
+      var per = {};
+      (s.units || []).forEach(function (u) { per[u.type] = (per[u.type] || 0) + (u.count || 0); });
+      Object.keys(per).forEach(function (t) {
+        if (per[t] > C.MAX_PER_TYPE) bad.push(side + ' can have at most ' + C.MAX_PER_TYPE + ' ' + t + ' (has ' + per[t] + ')');
+      });
       if (!(s.pool >= 0)) bad.push(side + '.pool must be a number of 0 or more');
       if (!Array.isArray(s.units)) bad.push(side + '.units must be a list');
       else s.units.forEach(function (u) {
@@ -86,13 +92,20 @@
     var n = teams || 2, sides = [], power = [], i, t;
     for (i = 0; i < n; i++) { sides.push(V4.sim.zeroTypes()); power.push(0); }
     for (i = 0; i < dots; i++) {
-      var type = C.TYPES[Math.floor(rng() * C.TYPES.length)];
-      var least = [];
+      // The weakest side that still has room for some type gets the next dot. A side holds at most MAX_PER_TYPE of each type.
+      var room = [];
       for (t = 0; t < n; t++) {
-        if (least.length === 0 || power[t] < power[least[0]] - 1e-9) least = [t];
-        else if (Math.abs(power[t] - power[least[0]]) < 1e-9) least.push(t);
+        if (C.TYPES.some(function (ty) { return sides[t][ty] < C.MAX_PER_TYPE; })) room.push(t);
       }
+      if (!room.length) break;
+      var least = [];
+      room.forEach(function (k) {
+        if (least.length === 0 || power[k] < power[least[0]] - 1e-9) least = [k];
+        else if (Math.abs(power[k] - power[least[0]]) < 1e-9) least.push(k);
+      });
       var side = least[Math.floor(rng() * least.length)];
+      var open = C.TYPES.filter(function (ty) { return sides[side][ty] < C.MAX_PER_TYPE; });
+      var type = open[Math.floor(rng() * open.length)];
       sides[side][type]++;
       power[side] += C.POWER[type];
     }

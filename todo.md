@@ -172,6 +172,19 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **V4 balance, round 5.** The third team, the formations and defending are not tuned.
 - [ ] **Multi-point formation routes.** A formation takes one point; each unit's route is its own.
 
+## Home and scales (hub round)
+
+- [x] **Home screen: three scales and an archive.** Unit scale (the battle), province scale, country scale. Archive holds the original spot game.
+- [x] **Version labels removed** from the screens. Scales are named by what they are.
+- [x] **Notes on every scale.** The ⚙️ panel saves a note to the family database (`xw_notes`) with the screen it was written on. Notes written while signed out wait on the device and send on sign-in.
+- [x] **Unit scale: two of each type per side.** Set-up, the random teams and the validator all enforce it.
+- [x] **Units take room.** They keep a footprint clear of each other.
+- [x] **Walled settlements hold a set number.** Village 4, town and city 8, fortress 12. Units beyond that stand outside, with no shelter or wall sight.
+- [x] **Walls shelter the inside.** Arrows from outside do half damage, and the inside is seen from outside only up close.
+- [x] **Unit icons are three times larger** to tap.
+- [ ] **Province scale: port the current rules.** It is a copy of the original spot game for now. The current country rules (soldiers pool, garrisons, upgrades, the turn clock) still need to come across.
+- [ ] **Balance after footprints.** The matrix changed (pikemen mirror now to the attacker; cavalry weaker against pikemen). Not re-tuned.
+
 ## Later
 
 - [ ] **Village and country zoom.** Zoom and minimap are built (round 5). The country view beyond Fit is unplanned.

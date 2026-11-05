@@ -63,9 +63,9 @@
       var row = document.createElement('div');
       row.className = 'type-row';
       row.innerHTML = '<span class="animal">' + I.animal[t] + '</span><span class="tname">' + label(t) + '</span>' +
-        '<label class="col-a"><input type="number" min="0" max="60" data-side="a" data-type="' + t + '" value="' + (DEFAULT_A[t] || 0) + '"></label>' +
-        '<label class="col-d"><input type="number" min="0" max="60" data-side="d" data-type="' + t + '" value="' + (DEFAULT_D[t] || 0) + '"></label>' +
-        '<label class="col-t"><input type="number" min="0" max="60" data-side="t" data-type="' + t + '" value="0"></label>';
+        '<label class="col-a"><input type="number" min="0" max="' + C.MAX_PER_TYPE + '" data-side="a" data-type="' + t + '" value="' + (DEFAULT_A[t] || 0) + '"></label>' +
+        '<label class="col-d"><input type="number" min="0" max="' + C.MAX_PER_TYPE + '" data-side="d" data-type="' + t + '" value="' + (DEFAULT_D[t] || 0) + '"></label>' +
+        '<label class="col-t"><input type="number" min="0" max="' + C.MAX_PER_TYPE + '" data-side="t" data-type="' + t + '" value="0"></label>';
       rows.appendChild(row);
     });
     var strategies = options(Object.keys(C.STRATEGY), function (k) { return C.STRATEGY[k].label; });
@@ -146,7 +146,7 @@
   function readCounts(side) {
     var out = [];
     document.querySelectorAll('input[data-side="' + SIDE_COL[side] + '"]').forEach(function (inp) {
-      var n = parseInt(inp.value, 10) || 0;
+      var n = clamp(parseInt(inp.value, 10) || 0, 0, C.MAX_PER_TYPE);
       if (n > 0) out.push({ type: inp.getAttribute('data-type'), count: n });
     });
     return out;
@@ -297,16 +297,20 @@
     shield: function (g) { svgEl('rect', { x: -15, y: -13, width: 30, height: 26, rx: 8, fill: 'none', stroke: '#222', 'stroke-width': 3 }, g); }
   };
 
+  // A unit is drawn at three times its old size, so it is easier to tap. The disc and the animal are scaled up;
+  // the formation outline stays at its size and sits on the disc.
+  var ICON = 3;
   function ensureUnit(u) {
     if (unitEls[u.id]) return unitEls[u.id];
     var g = svgEl('g', { 'data-id': u.id, class: 'unit' }, layers.units);
-    var ring = svgEl('circle', { cx: 0, cy: 0, r: 28, fill: 'none', stroke: '#ffd24a', 'stroke-width': 3, visibility: 'hidden' }, g);
+    var ring = svgEl('circle', { cx: 0, cy: 0, r: 12 * ICON, fill: 'none', stroke: '#ffd24a', 'stroke-width': 3, visibility: 'hidden' }, g);
+    var icon = svgEl('g', { transform: 'scale(' + ICON + ')' }, g);
+    svgEl('circle', { cx: 0, cy: 0, r: 11, fill: FRAME[u.side], stroke: '#fff', 'stroke-width': 1.5 }, icon);
+    var animal = svgEl('text', { x: 0, y: 5, 'text-anchor': 'middle', 'font-size': 14 }, icon);
+    animal.textContent = I.animal[u.type];
+    var count = svgEl('text', { x: 0, y: 17, 'text-anchor': 'middle', 'font-size': 7, fill: '#222', 'font-weight': 700 }, icon);
     var shape = svgEl('g', {}, g);
     var front = svgEl('line', { x1: 0, y1: 0, x2: 0, y2: 0, stroke: '#222', 'stroke-width': 3, 'stroke-linecap': 'round', visibility: 'hidden' }, g);
-    svgEl('circle', { cx: 0, cy: 0, r: 11, fill: FRAME[u.side], stroke: '#fff', 'stroke-width': 1.5 }, g);
-    var animal = svgEl('text', { x: 0, y: 5, 'text-anchor': 'middle', 'font-size': 14 }, g);
-    animal.textContent = I.animal[u.type];
-    var count = svgEl('text', { x: 0, y: 24, 'text-anchor': 'middle', 'font-size': 11, fill: '#222', 'font-weight': 700 }, g);
     unitEls[u.id] = { g: g, ring: ring, shape: shape, front: front, shapeName: null, count: count };
     return unitEls[u.id];
   }

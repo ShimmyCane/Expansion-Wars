@@ -170,6 +170,10 @@
       bbox: bbox,
       edge: { 0: edgeA, 1: edgeB },
       bell: { x: sx + 0.5, y: sy + 0.5 },
+      // Inside the walls: the interior box, and how many units can fit in it. Units beyond that stand outside.
+      interior: (settlement !== 'none' && gen.walls)
+        ? { x0: sx - hx + 1, x1: sx + hx, y0: sy - hy + 1, y1: sy + hy, cap: C.CAPACITY[settlement] || 0 }
+        : null,
       settle: { x: sx + 0.5, y: sy + 0.5 },
       flank: [Math.round(ROWS * 0.25), Math.round(ROWS * 0.75)]
     };
