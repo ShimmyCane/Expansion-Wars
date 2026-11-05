@@ -7,6 +7,9 @@
 
   C.endTurn = function (w) {
     if (!w || w.over) return;
+    // Power at the start of each turn, so the computer can see who is falling.
+    C.alive(w).forEach(function (n) { n.powerOld = n.powerNow; n.powerNow = C.power(w, n); });
+    w.offers = w.offers.filter(function (o) { return w.time.turn - o.turn < K().OFFER_TURNS; });
     C.alive(w).forEach(function (n) { C.autopilot(w, n); });
     C.planAI(w);
     var q = w.queue;

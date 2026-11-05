@@ -16,7 +16,11 @@
     // Growing a province costs gold and food; city to fortress also needs stone. Scaled by costScale (spots held).
     GROW: { v: { to: 't', gold: 10, food: 8 }, t: { to: 'c', gold: 20, food: 12 }, c: { to: 'f', gold: 20, food: 10, stone: 15 } },
     VILLAGE: { gold: 8, food: 6 },   // a village on an empty dot
-    CLAIM: { gold: 3, food: 2 },     // a claim on neutral land, per step of the route (plus one)
+    CLAIM: { gold: 12, food: 8 },    // a claim on neutral land (its garrison is held by soldiers), per step of the route (plus one)
+    MIN_WAR_TURNS: 4,                // a war runs at least this many turns before peace can be offered
+    ACCEPT_RATIO: 0.7,               // a nation accepts a ceasefire when its power is at most this share of the other's
+    DECLARE_RATIO: 1.5,              // the computer declares war only with this lead, on a neighbour whose power is falling
+    OFFER_TURNS: 2,                  // a ceasefire offered to you stands for this many turns, then lapses
     MARCH: { food: 0.05, gold: 1 },  // an attack: food per soldier sent, gold per step plus one
     // Magic: made by fortresses only. An attack or defence spends up to one per four soldiers; each adds a soldier's strength.
     MAGIC_PER_SOLDIER: 0.25, MAGIC_PER_FORT: 25, MAGIC_CAP: 0.25,

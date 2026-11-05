@@ -234,3 +234,10 @@ Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160).
 - [x] **Civics raise the cap.** Civics multiplies the army cap and the land that feeds it.
 - [x] **Garrisons drift to the border all the time,** in peace and in war, every 3 world seconds.
 - [ ] **Open:** the land limit (56 a province) caps an empire of three provinces at 168 soldiers, below the 240 base. Decide whether that is right.
+
+## Combined round 4 (from the second playthrough, part two)
+
+- [x] **Two steps of war.** The computer builds up: it declares only with 1.5x the power of a neighbour whose power fell over the last turn. Once at war it attacks with its whole army.
+- [x] **Peace needs acceptance.** A ceasefire is never unilateral. The computer offers peace on your card; it stands for 2 turns, and the war goes on until you accept. Your own ceasefire is accepted only if the other side is weaker (power at most 0.7 of yours). Nothing can be offered in the first 4 turns of a war.
+- [x] **Claims cost more.** A claim costs 12 gold and 8 food base (was 3 and 2), plus one per step. A nation at war claims half as often.
+- [ ] **Open: unrest.** It falls only at peace with food of at least 20. At war it rises every turn and never falls. Decide whether it should fall at war too.

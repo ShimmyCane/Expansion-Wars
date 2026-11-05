@@ -136,6 +136,7 @@
     makeRivers(w, rnd, range);
     C.updateNeighbours(w);
     W.rel(w, 1, 2).war = true;
+    W.rel(w, 1, 2).warSince = 1;
     W.log(w, 'Map seed ' + seed + '. Each nation holds two villages and a town; the rest of the land is neutral.');
     W.log(w, 'The country is at peace, except ' + k.NAMES[1] + ' and ' + k.NAMES[2] + ', who are at war.');
     W.log(w, 'Zoom into a province to fight for it in real time, and into a fight to command the battle.');
