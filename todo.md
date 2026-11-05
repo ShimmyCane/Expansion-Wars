@@ -226,3 +226,11 @@ Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160).
 - [x] **Allies fold in.** Soldiers marching into an ally's province join its garrison, as a donation, instead of vanishing (bug).
 - [x] **Province fights.** Enemy entering a province shows a red Join battle button. If not joined, the fight resolves in risk-style dice rounds.
 - [x] **Movement limit.** Each army moves up to 3 provinces per turn (starting value).
+
+## Combined round 3 (from the second playthrough)
+
+- [x] **Fight tickers.** Every fight shows its two sides, its round and the seconds to the next round, live, on the country card and the province card. A red join button is on the fights you are in. Fights resolve by themselves in rounds if nobody joins.
+- [x] **Numbers 4x.** Army cap base 240 (was 60), Arms +240 a level, land per province 56 (was 14), starting soldiers 160 (was 40), province garrison caps and growth 4x, neutral garrisons 4x, starting garrison 20.
+- [x] **Civics raise the cap.** Civics multiplies the army cap and the land that feeds it.
+- [x] **Garrisons drift to the border all the time,** in peace and in war, every 3 world seconds.
+- [ ] **Open:** the land limit (56 a province) caps an empire of three provinces at 168 soldiers, below the 240 base. Decide whether that is right.

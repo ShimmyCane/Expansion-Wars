@@ -4,22 +4,35 @@
   'use strict';
   var XW = window.XW, C = XW.country, W = XW.world, A = XW.app, D = XW.core;
   var ui = { prov: null, nation: null, moveFrom: null };
-  var svgEl, card, logEl, bound = false;
+  var svgEl, card, logEl, bound = false, tickT = 0;
 
   function done(msg) {
     if (msg) A.toast(msg);
     W.changed('country');
   }
 
-  // A fight on one of your provinces, or one you started: a red button joins it as a battle at unit scale.
-  function joinButtons(w) {
+  // Every fight on the map has a ticker: the two sides, the round and the time to it, updated as it runs. A red button
+  // joins the fights you are in, as a battle at unit scale. Fights resolve by themselves in rounds if nobody joins.
+  function fightCount(w) { return w.provs.filter(function (p) { return p.fight; }).length; }
+  function fightText(w, p) {
+    return '⚔️ ' + W.ownerName(w, p.fight.owner) + ' attack ' + W.aLabel(p.tier) + ' of ' + W.ownerName(w, p.owner) + ': ' + XW.province.fightLine(w, p);
+  }
+  function fightBoard(w) {
     w.provs.forEach(function (p) {
-      if (!p.fight || (p.owner !== w.you && p.fight.owner !== w.you)) return;
-      card.appendChild(D.button('⚔️ Join the fight at ' + W.aLabel(p.tier) + ' (' + Math.floor(p.fight.count) + ' attacking)', function () {
-        var err = XW.unit.startFight(w, p);
-        if (err) { done(err); return; }
-        A.scales.go('unit');
-      }, { cls: 'join' }));
+      if (!p.fight) return;
+      var mine = p.owner === w.you || p.fight.owner === w.you;
+      var box = D.el('div', 'fight-box');
+      var line = D.el('p', 'small fight-line', fightText(w, p));
+      line.setAttribute('data-prov', String(p.id));
+      box.appendChild(line);
+      if (mine) {
+        box.appendChild(D.button('Join the fight at ' + W.aLabel(p.tier), function () {
+          var err = XW.unit.startFight(w, p);
+          if (err) { done(err); return; }
+          A.scales.go('unit');
+        }, { cls: 'join' }));
+      }
+      card.appendChild(box);
     });
   }
 
@@ -27,7 +40,7 @@
     if (ui.nation === null) ui.nation = w.you;
     C.view.drawMap(svgEl, w, ui);
     D.clear(card);
-    joinButtons(w);
+    fightBoard(w);
     var p = W.prov(w, ui.prov);
     if (p && p.kind === 'province') {
       C.view.provinceCard(card, w, p, ui, done);
@@ -97,6 +110,16 @@
     },
     hide: function () {},
     render: render,
-    tick: function () {}
+    // The tickers update twice a second; the card is redrawn only when a fight starts or ends.
+    tick: function (w, dt) {
+      tickT += dt;
+      if (tickT < 0.5) return;
+      tickT = 0;
+      if (fightCount(w) !== card.querySelectorAll('.fight-line').length) { render(w); return; }
+      card.querySelectorAll('.fight-line').forEach(function (el) {
+        var p = w.provs[Number(el.getAttribute('data-prov'))];
+        if (p && p.fight) el.textContent = fightText(w, p);
+      });
+    }
   };
 })();

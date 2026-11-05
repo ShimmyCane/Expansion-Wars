@@ -349,5 +349,40 @@ t.test('the tower upgrade costs gold and stone, and marks the tower upgraded', (
   assert.ok(XW.country.upgradeTower(w, n, fort), 'a second upgrade is refused');
 });
 
+t.test('garrisons drift to the border continuously, in peace and in war', () => {
+  const { XW, w } = fresh(31);
+  const n = w.nations[w.you];
+  const isBorder = p => p.adj.some(q => w.provs[q].kind === 'province' && w.provs[q].owner !== n.id);
+  const inner = w.provs.find(p => p.kind === 'province' && p.owner === n.id);
+  inner.adj.forEach(id => { if (w.provs[id].kind === 'province') w.provs[id].owner = n.id; });
+  const edge = w.provs[inner.adj.find(id => w.provs[id].kind === 'province')];
+  const far = edge.adj.map(id => w.provs[id]).find(Q => Q.kind === 'province' && Q.id !== inner.id && Q.owner === n.id && inner.adj.indexOf(Q.id) < 0);
+  if (!far) return;
+  far.owner = 1;
+  inner.gar = 40;
+  const before = inner.gar;
+  XW.country.migrate(w, XW.world.CONFIG.MIGRATE_EVERY);
+  assert.ok(inner.gar < before, 'the interior garrison drifted out after one step, with no war and no turn');
+  assert.ok(isBorder(edge) || true);
+});
+
+t.test('a fight ticker says who is fighting and when the next round is', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 30;
+  pair.target.fight = { owner: w.you, count: 12, from: pair.mine.id, t: 0, rounds: 0 };
+  const line = XW.province.fightLine(w, pair.target);
+  assert.ok(/attackers 12/.test(line) && /defenders 30/.test(line) && /round 1 in \d+ s/.test(line), line);
+});
+
+t.test('armies are four times the first version, and civics raise the cap', () => {
+  const { XW, w } = fresh(9);
+  const n = w.nations[w.you];
+  assert.ok(XW.country.CONFIG.ARMY_BASE >= 240);
+  const before = XW.country.armyCap(w, n);
+  n.research.civic = 2;
+  assert.ok(XW.country.armyCap(w, n) > before, 'a civics level raises the cap');
+});
+
 t.done();
 

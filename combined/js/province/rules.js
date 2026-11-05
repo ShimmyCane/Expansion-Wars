@@ -139,6 +139,15 @@
     });
   };
 
+  // One line for a fight, read live: the two sides, the round, and the real seconds to the next round.
+  P.fightLine = function (w, p) {
+    var f = p.fight;
+    if (!f) return '';
+    var rate = W.rateFor(w, w.view.scale);
+    var next = Math.max(0, (W.CONFIG.FIGHT_ROUND - (f.t || 0)) / rate);
+    return 'attackers ' + Math.floor(f.count) + ' · defenders ' + Math.floor(p.gar || 0) + ' · round ' + ((f.rounds || 0) + 1) + ' in ' + Math.ceil(next) + ' s';
+  };
+
   // Enemy fortress towers in range slow a march to SLOW of its speed and shoot it. Returns the speed factor.
   function towers(w, m, dt) {
     var at = P.marchAt(w, m), dmg = 0, slowed = false;

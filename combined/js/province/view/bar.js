@@ -23,7 +23,7 @@
     win.ids.forEach(function (id) {
       var f = w.provs[id];
       if (!f.fight || (f.owner !== w.you && f.fight.owner !== w.you)) return;
-      bar.appendChild(button('⚔️ Join the fight at ' + W.aLabel(f.tier) + ' (' + Math.floor(f.fight.count) + ' attacking)', function () {
+      bar.appendChild(button('⚔️ Join the fight at ' + W.aLabel(f.tier) + ' · ' + P.fightLine(w, f), function () {
         var err = U.startFight(w, f);
         if (err) { act.done(err); return; }
         A.scales.go('unit');
@@ -75,6 +75,11 @@
       card.appendChild(el('p', 'small', 'Selected: ' + W.label(info.tier) + ' of ' + W.ownerName(w, info.owner) + ', ' + Math.floor(info.gar || 0) + ' stationed.' +
         (info.owner !== w.you && W.whyNot(w, w.you, info) ? ' ' + W.whyNot(w, w.you, info) : '')));
     }
+    win.ids.forEach(function (id) {
+      var f = w.provs[id];
+      if (!f.fight) return;
+      card.appendChild(el('p', 'small fight-line', '⚔️ ' + W.ownerName(w, f.fight.owner) + ' attack ' + W.aLabel(f.tier) + ' of ' + W.ownerName(w, f.owner) + ': ' + P.fightLine(w, f)));
+    });
     var here = w.battles.filter(function (b) { return win.inside[b.prov]; }).slice(-3).reverse();
     if (here.length) {
       card.appendChild(el('p', 'muted small', 'Battles here: ' + here.map(function (b) {
