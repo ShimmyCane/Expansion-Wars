@@ -12,5 +12,6 @@
 #country-map .terrain-icon { font-size: 18px; pointer-events: none; opacity: 0.8; }
 #country-map .label { font-size: 20px; font-weight: 800; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 4px; }
 #country-map .label tspan.info { font-size: 14px; font-weight: 600; }
+#country-map .fight-mark { font-size: 12px; pointer-events: none; }
 #country-map .queued { fill: none; stroke: var(--ink); stroke-width: 3; stroke-dasharray: 5 5; pointer-events: none; }
 .direction-seg { display: flex; gap: 6px; flex-wrap: wrap; }

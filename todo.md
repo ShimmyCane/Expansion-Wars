@@ -209,3 +209,20 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Until then ⚙️ says the world is saved on this device only.
 - [ ] **Decide** the open questions in `combined/schematic.md`: dilation values, where soldiers live, country attacks as battles, growth outside the window, battle size.
 - [ ] **Rebalance** after real games on the iPad.
+
+## Combined round 2: first-playthrough notes (read 2026-11-05)
+
+Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160). Marked `done` in the database on 2026-11-05, as read (the status column only allows `open` and `done`). Plan and questions: `combined/plan-round-2.md`.
+
+- [x] **Time.** Country turn half as fast (120 s). Province time half as fast. Fortress fights get double dilation. ×2 fast-forward at country and province.
+- [x] **Province view.** Select provinces, not population centres. Click and drag to move troops.
+- [x] **Country route orders.** Tap a source, then a target, through neighbours. Moves the chosen share.
+- [x] **Muster once a turn.** The +10 from the field army button works once per province per turn.
+- [x] **Food.** Garrisons and the field army eat. War uses much more food.
+- [x] **One army cap.** Field army and garrisons count together.
+- [x] **Garrisons to the border.** Garrisons move by command (then act as a field army), or automatically toward hostile then neutral borders in province and country views.
+- [x] **Towers.** Slow attackers to 50% and keep shooting. Upgrade doubles the range.
+- [x] **Walls from town up.** Villages get no settlement wall.
+- [x] **Allies fold in.** Soldiers marching into an ally's province join its garrison, as a donation, instead of vanishing (bug).
+- [x] **Province fights.** Enemy entering a province shows a red Join battle button. If not joined, the fight resolves in risk-style dice rounds.
+- [x] **Movement limit.** Each army moves up to 3 provinces per turn (starting value).

@@ -20,6 +20,8 @@
     return box;
   }
 
+  function sendShare(w) { return w.view.sendPct; }
+
   function routeText(w, R, i) {
     if (!R) return 'Route: no land route.';
     var F = C.attackFactors(w, i, R);
@@ -42,6 +44,17 @@
     card.appendChild(button('🔍 Zoom into this province (real time)', function () { XW.app.scales.go('province', p.id); }, { cls: 'big' }));
     if (p.owner === w.you) {
       var row = el('div', 'row');
+      // Garrison moves: pick this province, then tap another of yours (up to MOVE_HOPS away) on the map.
+      if (ui.moveFrom === p.id) {
+        row.appendChild(button('Cancel the move', function () { ui.moveFrom = null; done(); }));
+        card.appendChild(el('p', 'muted small', 'Tap one of your provinces, up to ' + W.CONFIG.MOVE_HOPS + ' away, to move ' + sendShare(w) + '% of this garrison there.'));
+      } else if (p.gar >= 1) {
+        row.appendChild(button('Move the garrison from here', function () { ui.moveFrom = p.id; done(); }));
+      }
+      if (p.tier === 'f') {
+        row.appendChild(button(p.tower === 2 ? 'Tower upgraded (range doubled)' : 'Upgrade the tower (' + K().TOWER_COST.gold + ' gold, ' + K().TOWER_COST.stone + ' stone)',
+          function () { done(C.upgradeTower(w, me, p)); }, { disabled: p.tower === 2 || !!C.shortfall(me, K().TOWER_COST) }));
+      }
       if (p.tier === 'e') {
         var vc = C.villageCost(w, me);
         row.appendChild(button('Build a village (' + vc.gold + ' gold, ' + vc.food + ' food)', function () {

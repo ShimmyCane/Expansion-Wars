@@ -35,6 +35,11 @@ button[aria-pressed="true"] { background: var(--ink); color: var(--paper); borde
 .crumbs .sep { color: var(--muted); }
 .clock { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .ready { font-weight: 700; }
+.fast { min-height: 34px; padding: 4px 10px; box-shadow: none; }
+.fast[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* A fight that wants joining: red, so it cannot be missed */
+button.join { background: var(--war); color: #fff; border-color: #9c2a3a; box-shadow: 0 2px 0 #9c2a3a; font-weight: 700; }
+button.join:active { box-shadow: 0 1px 0 #9c2a3a; }
 
 /* Your nation at a glance, at every scale */
 .glance { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 16px 8px; font-size: 14px; }

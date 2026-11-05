@@ -63,8 +63,8 @@ t.test('time dilation: a minute in a battle is three world seconds; the country 
   assert.ok(!W.turnDue(w));
   W.advance(w, 60, 'province');
   assert.ok(Math.abs(w.time.t - 60 * (W.CONFIG.RATE.unit + W.CONFIG.RATE.province)) < 1e-9);
-  W.advance(w, 60, 'country');
-  assert.ok(W.turnDue(w), 'a full minute on the country map ends the turn');
+  W.advance(w, 120, 'country');
+  assert.ok(W.turnDue(w), 'two minutes on the country map (a turn of 120 s) end the turn');
   XW.country.endTurn(w);
   assert.strictEqual(w.time.turn, 2);
   assert.ok(!W.turnDue(w));
@@ -98,9 +98,10 @@ t.test('a march into neutral land takes it, and the country map shows the new ow
   pair.target.gar = 3;
   assert.strictEqual(XW.province.send(w, win, w.you, pair.mine.id, pair.target.id, 100), null);
   for (let i = 0; i < 200 && w.marches.length; i++) XW.province.step(w, win, 0.1, { grow: false });
+  for (let i = 0; i < 1000 && pair.target.fight; i++) XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);
   assert.strictEqual(pair.target.owner, w.you);
   assert.strictEqual(XW.country.ownedBy(w, w.nations[w.you]).length, 4);
-  assert.strictEqual(Math.round(pair.target.gar), 27);
+  assert.ok(pair.target.gar > 0 && pair.target.gar <= 30, 'the attackers who are left hold it (' + Math.round(pair.target.gar) + ')');
 });
 
 t.test('a march into a nation you are at peace with is refused', () => {
@@ -207,4 +208,146 @@ t.test('a capture at any scale goes through one rule: a nation\'s land drops a g
   assert.strictEqual(p.gar, 5);
 });
 
+t.test('the time scales: country 0.5, province 0.1, a fortress window at half again, and ×2 fast-forward', () => {
+  const { XW, w } = fresh(5);
+  const W = XW.world;
+  assert.strictEqual(W.rateFor(w, 'country'), 0.5);
+  assert.strictEqual(W.rateFor(w, 'province'), 0.1);
+  assert.strictEqual(W.rateFor(w, 'unit'), 0.05);
+  w.view.fast = true;
+  assert.strictEqual(W.rateFor(w, 'country'), 1, 'fast-forward doubles the country clock');
+  assert.strictEqual(W.rateFor(w, 'unit'), 0.05, 'the battle is not fast-forwarded');
+  w.view.fast = false;
+  const fort = w.provs.find(p => p.owner === w.you);
+  fort.tier = 'f';
+  w.view.prov = fort.id;
+  assert.strictEqual(W.rateFor(w, 'province'), 0.05, 'a fortress in the window halves province time');
+});
+
+t.test('a village has no settlement wall, a town does', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  pair.target.tier = 'v';
+  assert.strictEqual(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 20).gen.walls, false);
+  pair.target.tier = 't';
+  assert.strictEqual(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 20).gen.walls, true);
+});
+
+t.test('recruits stop at the army cap less the garrisons', () => {
+  const { XW, w } = fresh(9);
+  const n = w.nations[w.you];
+  const p = w.provs.find(q => q.owner === w.you);
+  p.gar = 30;
+  const room = XW.country.armyCap(w, n) - XW.country.garrisons(w, n);
+  for (let i = 0; i < 40; i++) XW.country.economy(w, n);
+  assert.ok(n.soldiers <= Math.max(40, room) + 1e-6, 'soldiers ' + n.soldiers + ' room ' + room);
+});
+
+t.test('a march into an ally is a donation: the soldiers join its garrison', () => {
+  const { XW, w } = fresh(31);
+  // Make the neighbour an ally: find one of your provinces next to another nation's.
+  const mine = w.provs.find(p => p.kind === 'province' && p.owner === w.you);
+  const theirs = w.provs[mine.adj.find(q => w.provs[q].kind === 'province')];
+  theirs.owner = 1;   // a neighbour of yours belongs to another nation
+  const ally = w.nations[theirs.owner];
+  XW.world.rel(w, w.you, ally.id).ally = true;
+  const win = XW.province.window(w, mine.id);
+  mine.gar = 20;
+  const before = theirs.gar || 0;
+  assert.strictEqual(XW.province.send(w, win, w.you, mine.id, theirs.id, 50), null);
+  for (let i = 0; i < 200 && w.marches.length; i++) XW.province.step(w, win, 0.1, { grow: false });
+  assert.ok(theirs.gar > before, 'the ally garrison grew');
+  assert.strictEqual(theirs.owner, ally.id, 'the ally keeps its land');
+});
+
+t.test('muster into a province works once a turn', () => {
+  const { XW, w } = fresh();
+  const p = w.provs.find(q => q.owner === w.you);
+  assert.strictEqual(XW.province.muster(w, w.you, p.id, 5), null);
+  assert.ok(/once a turn/.test(XW.province.muster(w, w.you, p.id, 5)));
+  XW.country.endTurn(w);
+  assert.strictEqual(XW.province.muster(w, w.you, p.id, 5), null, 'a new turn allows one more');
+});
+
+t.test('an enemy that reaches a province starts a fight; risk rounds settle it in world time', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 3;
+  pair.mine.gar = 40;
+  const win = XW.province.window(w, pair.mine.id);
+  XW.province.send(w, win, w.you, pair.mine.id, pair.target.id, 100);
+  for (let i = 0; i < 300 && w.marches.length; i++) XW.province.step(w, win, 0.1, { grow: false });
+  assert.ok(pair.target.fight, 'the fight is on');
+  assert.strictEqual(pair.target.owner, -1, 'not taken yet: it is a fight');
+  for (let i = 0; i < 1000 && pair.target.fight; i++) XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);
+  assert.ok(!pair.target.fight, 'the fight resolved');
+  assert.ok(pair.target.owner === w.you || pair.target.owner === -1, 'one side holds it');
+});
+
+t.test('Join battle takes the fight into the unit scale, and the result comes back', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 4;
+  pair.mine.gar = 40;
+  const win = XW.province.window(w, pair.mine.id);
+  XW.province.send(w, win, w.you, pair.mine.id, pair.target.id, 100);
+  for (let i = 0; i < 300 && w.marches.length; i++) XW.province.step(w, win, 0.1, { grow: false });
+  assert.ok(pair.target.fight, 'a fight is on');
+  assert.strictEqual(XW.unit.startFight(w, pair.target), null);
+  assert.ok(w.battle && w.battle.fight === true, 'a battle is set up');
+  assert.strictEqual(pair.target.fight, null, 'the fight is now the battle');
+  XW.unit.apply(w, XW.unit.finishAuto(XW.unit.rebuild(w)));
+  assert.strictEqual(w.battle, null);
+  assert.ok(w.battles[w.battles.length - 1].fight, 'recorded as a fight');
+});
+
+t.test('a garrison move between your provinces happens at the end of the turn', () => {
+  const { XW, w } = fresh(31);
+  const mine = w.provs.find(p => p.owner === w.you && p.adj.some(q => w.provs[q].owner === w.you && w.provs[q].kind === 'province'));
+  const to = w.provs[mine.adj.find(q => w.provs[q].owner === w.you && w.provs[q].kind === 'province')];
+  mine.gar = 20; to.gar = 0;
+  assert.strictEqual(XW.country.queueMove(w, mine.id, to.id, 50), null);
+  XW.country.endTurn(w);
+  assert.ok(to.gar >= 10, 'about half moved');
+});
+
+t.test('garrisons move towards the border on their own', () => {
+  const { XW, w } = fresh(31);
+  const n = w.nations[w.you];
+  // Build an interior province: its neighbours are yours, and one of them borders another nation.
+  const inner = w.provs.find(p => p.kind === 'province' && p.owner === n.id);
+  inner.adj.forEach(id => { if (w.provs[id].kind === 'province') w.provs[id].owner = n.id; });
+  const edge = w.provs[inner.adj.find(id => w.provs[id].kind === 'province')];
+  const far = edge.adj.map(id => w.provs[id]).find(Q => Q.kind === 'province' && Q.id !== inner.id && Q.owner === n.id && inner.adj.indexOf(Q.id) < 0);
+  assert.ok(far, 'a neighbour two steps out');
+  far.owner = 1;
+  inner.gar = 30;
+  XW.country.autoMoves(w);
+  assert.ok(inner.gar < 30, 'the interior garrison moved out');
+});
+
+t.test('a fortress tower slows and shoots a march in range', () => {
+  const { XW, w } = fresh(31);
+  const fort = w.provs.find(p => p.kind === 'province' && p.owner >= 0 && p.owner !== w.you);
+  fort.tier = 'f';
+  XW.world.rel(w, w.you, fort.owner).war = true;
+  const m = { id: 1, owner: w.you, from: fort.id, to: fort.id, count: 10, p: 0, route: [] };
+  w.marches.push(m);
+  const win = XW.province.window(w, fort.id);
+  XW.province.step(w, win, 0.1, { grow: false });
+  assert.ok(m.count < 10, 'the tower shoots at the march');
+});
+
+t.test('the tower upgrade costs gold and stone, and marks the tower upgraded', () => {
+  const { XW, w } = fresh(31);
+  const n = w.nations[w.you];
+  const fort = w.provs.find(p => p.owner === w.you);
+  fort.tier = 'f';
+  n.gold = 100; n.stone = 100;
+  assert.strictEqual(XW.country.upgradeTower(w, n, fort), null);
+  assert.strictEqual(fort.tower, 2);
+  assert.ok(XW.country.upgradeTower(w, n, fort), 'a second upgrade is refused');
+});
+
 t.done();
+

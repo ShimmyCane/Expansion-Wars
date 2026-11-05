@@ -27,6 +27,7 @@
       if (p.tier !== 'e') D.svgText(gIcons, p.x, p.y - 4, W.TIERS[p.tier].icon, { 'class': 'icon' });
       else D.svg('circle', { cx: p.x, cy: p.y - 4, r: 3, fill: '#7a705c' }, gIcons);
       if ((p.gar || 0) >= 1) D.svgText(gIcons, p.x, p.y + 11, String(Math.floor(p.gar)), { 'class': 'gar' });
+      if (p.fight) D.svgText(gIcons, p.x + 14, p.y - 12, '⚔️', { 'class': 'fight-mark' });
     });
 
     // Rivers follow the borders between provinces.

@@ -33,10 +33,10 @@ js/world/                  the single source of truth
   save.js                  this device (localStorage)
   cloud.js                 the family database (table xw_worlds), via the shared sign-in
 js/country/                country scale: turns, economy, diplomacy, war
-  config.js  query.js  route.js  build.js  diplomacy.js  war.js  economy.js  ai.js  turn.js  mapgen.js
+  config.js  query.js  route.js  build.js  diplomacy.js  war.js  economy.js  move.js (garrison moves)  ai.js  turn.js  mapgen.js
   view/map.js  view/card.js  view/view.js
 js/province/               province scale: real time on the world's provinces
-  config.js  scene.js (the window)  rules.js (growth, marches, captures)  ai.js
+  config.js  scene.js (the window)  rules.js (growth, marches, towers, risk-style fights, donations)  ai.js
   view/map.js  view/bar.js  view/view.js
 js/unit/                   unit scale
   engine/                  the battle engine (window.V4), split from V4/js/sim.js; same results, seed for seed

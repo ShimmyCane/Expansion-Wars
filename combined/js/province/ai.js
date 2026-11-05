@@ -10,7 +10,8 @@
 
   P.aiReset = function () { clock = 0; moves = {}; };
 
-  function hostileTo(w, owner, p) { return p.owner !== owner && W.mayEnter(w, owner, p); }
+  // Enemy or neutral land only: the computer never sends soldiers to an ally.
+  function hostileTo(w, owner, p) { return p.owner !== owner && (p.owner < 0 || W.rel(w, owner, p.owner).war); }
   function onFront(w, win, owner, id) {
     return P.links(w, win, id).some(function (q) { return hostileTo(w, owner, w.provs[q]) && w.provs[q].owner >= 0; });
   }

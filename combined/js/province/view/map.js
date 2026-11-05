@@ -57,7 +57,7 @@
     // Fortress ranges.
     win.ids.forEach(function (id) {
       var p = w.provs[id];
-      if (p.tier === 'f' && p.owner >= 0) D.svg('circle', { cx: p.x, cy: p.y, r: P.CONFIG.FORT.range, 'class': 'range' }, layer);
+      if (p.tier === 'f' && p.owner >= 0) D.svg('circle', { cx: p.x, cy: p.y, r: P.CONFIG.FORT.range * (p.tower === 2 ? P.CONFIG.FORT.upgradedMul : 1), 'class': 'range' }, layer);
     });
   };
 
@@ -69,6 +69,7 @@
       if (id === ui.sel) cls += ' sel';
       if (id === ui.target) cls += ' target';
       D.svg('circle', { cx: p.x, cy: p.y, r: R, 'class': cls, 'data-id': id }, layer);
+      if (p.fight) D.svg('circle', { cx: p.x, cy: p.y, r: R + 5, 'class': 'fight' }, layer);
       if (p.tier !== 'e') D.svgText(layer, p.x, p.y - 1, W.TIERS[p.tier].icon, { 'class': 'spot-icon', 'font-size': 12 });
       D.svgText(layer, p.x, p.y + R + 5, String(Math.floor(p.gar || 0)), { 'class': 'spot-count', 'font-size': 9 });
     });
