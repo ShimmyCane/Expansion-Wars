@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — Map creator</title>
+  <link rel="stylesheet" href="../shared/hub.css">
+  <style>
+    .list { display: grid; gap: 12px; text-align: left; margin: 0; padding: 0; list-style: none; }
+    .game { display: grid; grid-template-columns: 132px 1fr; gap: 12px; align-items: center; width: 100%; text-align: left;
+      background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 10px; color: var(--ink);
+      font: inherit; cursor: pointer; box-shadow: 0 3px 0 var(--line); }
+    .game:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+    .game svg { width: 132px; height: 88px; border-radius: 10px; border: 1px solid var(--line); display: block; }
+    .game b { font-size: 17px; }
+    .game small { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+    .empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="hub">
+    <a class="archive" href="../index.html" style="margin:0 0 16px;display:block;">← Expansion Wars</a>
+    <h1>Map creator</h1>
+    <p class="tag">Your last 10 battles. Pick one to play its seed again.</p>
+    <ol id="games" class="list" aria-label="Last 10 battles"></ol>
+    <p id="none" class="empty" hidden>No battles yet. Play one on the Unit scale and it will appear here.</p>
+  </main>
+
+  <!-- The same field-building code the unit scale uses, to draw each battle's ground. -->
+  <script src="../V4/js/config.js"></script>
+  <script src="../V4/js/field.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var V4 = window.V4, C = V4.CONFIG;
+      var COLOUR = {
+        g: '#cfe6a0', w: '#5f8f4e', h: '#b9c76a', d: '#c8a46a', r: '#8fc6e8', v: '#4a86b8', b: '#a0764a',
+        f: '#c9e7f5', t: '#dcc7a0', x: '#8d857c', y: '#b48c55'
+      };
+      var SVG_NS = 'http://www.w3.org/2000/svg';
+
+      // Unit-scale battles kept on this device (V4 saves each finished battle under this key).
+      function load() {
+        try { return JSON.parse(localStorage.getItem('xw4-replays') || '[]'); } catch (e) { return []; }
+      }
+
+      function thumb(req) {
+        var svg = document.createElementNS(SVG_NS, 'svg');
+        var f;
+        try { f = V4.buildField(req); } catch (e) { f = null; }
+        if (!f) return svg;
+        svg.setAttribute('viewBox', '0 0 ' + f.cols + ' ' + f.rows);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        for (var r = 0; r < f.rows; r++) {
+          var c = 0;
+          while (c < f.cols) {
+            var code = f.tiles[r * f.cols + c], end = c;
+            while (end + 1 < f.cols && f.tiles[r * f.cols + end + 1] === code) end++;
+            var rect = document.createElementNS(SVG_NS, 'rect');
+            rect.setAttribute('x', c); rect.setAttribute('y', r);
+            rect.setAttribute('width', end - c + 1); rect.setAttribute('height', 1);
+            rect.setAttribute('fill', COLOUR[code] || COLOUR.g);
+            svg.appendChild(rect);
+            c = end + 1;
+          }
+        }
+        return svg;
+      }
+
+      function when(iso) {
+        var d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' +
+          d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      }
+
+      // The engine's result names the winning side: 'attacker', 'defender' or 'third'.
+      function outcome(rec) {
+        var r = rec.result || {};
+        if (!r.winner) return 'Not finished';
+        var words = { attacker: 'Attackers won', defender: 'Defenders held', third: 'The third team won' };
+        return (words[r.winner] || r.winner) + (r.how ? ' (' + r.how + ')' : '');
+      }
+
+      function render() {
+        var list = load().slice().sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); }).slice(0, 10);
+        var box = document.getElementById('games');
+        document.getElementById('none').hidden = list.length > 0;
+        list.forEach(function (rec) {
+          var req = rec.request || {};
+          var li = document.createElement('li');
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'game';
+          btn.appendChild(thumb(req));
+          var info = document.createElement('span');
+          var title = document.createElement('b');
+          title.textContent = 'Seed ' + (rec.seed !== undefined ? rec.seed : req.seed) + ' · ' + (req.scale || 'battle');
+          info.appendChild(title);
+          var lines = [
+            when(rec.created_at),
+            outcome(rec) + (rec.result && rec.result.seconds ? ' · ' + rec.result.seconds + ' s' : ''),
+            (req.attacker ? req.attacker.nation : 'Attacker') + ' against ' + (req.defender ? req.defender.nation : 'Defender')
+          ];
+          lines.forEach(function (t) { var s = document.createElement('small'); s.textContent = t; info.appendChild(s); });
+          btn.appendChild(info);
+          btn.addEventListener('click', function () {
+            // The battle is started again from its request: same seed, same field, same armies.
+            try { sessionStorage.setItem('xw-launch', JSON.stringify({ request: req })); } catch (e) { /* no storage */ }
+            window.location.href = '../V4/index.html';
+          });
+          li.appendChild(btn);
+          box.appendChild(li);
+        });
+      }
+      render();
+    })();
+  </script>
+</body>
+</html>

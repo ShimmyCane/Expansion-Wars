@@ -203,6 +203,8 @@ window.V4.replays = (function () {
     signOut: signOut,
     onStatus: onStatus,
     waiting: function () { return readLocal().filter(function (r) { return !r.sent; }).length; },
+    // The battles kept on this device, oldest first (each has its request, orders and result).
+    local: function () { return readLocal(); },
     isSignedIn: function () { return !!session; },
     // The table name and row shape are in one place, so a change to the migration shows up here.
     TABLE: TABLE
