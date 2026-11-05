@@ -450,7 +450,7 @@
       if (b.ambushT > 0) taken *= C.AMBUSH.dmgMul;
 
       var morale = clamp(a.morale / 100, C.MORALE.floor, 1);
-      pending.push({ b: b, dmg: a.people * base * mul * charge * morale * C.DAMAGE_K * taken });
+      pending.push({ b: b, a: a, dmg: a.people * base * mul * charge * morale * C.DAMAGE_K * taken });
     });
 
     var targets = [];
@@ -459,7 +459,13 @@
       p.b.incoming += p.dmg;
     });
     targets.forEach(function (b) {
-      var lost = Math.min(b.people, b.incoming);
+      var total = b.incoming, lost = Math.min(b.people, total);
+      // Kills are credited to the unit types that dealt the damage, in proportion to what each dealt.
+      if (total > 0) {
+        pending.forEach(function (p) {
+          if (p.b === b) st.kills[p.a.side][p.a.type] += lost * p.dmg / total;
+        });
+      }
       b.incoming = 0;
       b.people -= lost;
       b.hitThis += lost;
@@ -863,7 +869,7 @@
       field: field, rng: rng, units: [], nextId: 1, flows: {},
       animate: !!opts.animate, events: [], log: [], commands: [],
       pool: [req.attacker.pool || 0, req.defender.pool || 0, req.third ? (req.third.pool || 0) : 0],
-      losses: [zeroTypes(), zeroTypes(), zeroTypes()], levies: 0,
+      losses: [zeroTypes(), zeroTypes(), zeroTypes()], kills: [zeroTypes(), zeroTypes(), zeroTypes()], levies: 0,
       done: null, manual: null, captures: 0,
       reserve: [], bell: null, reinforceT: C.REINFORCE_EVERY,
       seen: []
@@ -1056,6 +1062,8 @@
       losses: { attacker: losses.attacker, defender: losses.defender, third: losses.third || {} },
       survivors: { attacker: sv.attacker, defender: sv.defender, third: sv.third || {} },
       pool: { attacker: pool.attacker, defender: pool.defender, third: pool.third || 0 },
+      // Kills by unit type: the people each side's units killed, credited to the type that killed them.
+      killsBy: { attacker: round(st.kills[0]), defender: round(st.kills[1]), third: round(st.kills[2]) },
       levies: st.levies,
       seconds: Math.round(st.t)
     };

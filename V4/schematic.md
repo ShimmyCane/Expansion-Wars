@@ -406,3 +406,9 @@ Decisions from Jimmy, recorded here.
 - The balance is not tuned for the third team, the formations, or defending.
 - Formations march to one point; there are no multi-point formation routes.
 - The third team has no plan of its own.
+
+
+## Round 6 (V4.4): kills report and an archer nerf
+
+- **Kills by unit type.** The result (and so the replay JSON) gains `killsBy`: for each side, the people its units killed, credited to the unit type that dealt the damage, in proportion to each unit's share of the damage on the target. Shown on the result screen too.
+- **Archers nerfed.** Damage per person 0.5 to 0.35. Before: archers beat cavalry, pikemen, swordsmen, slingers and catapults in the matrix (`node V4/tests/balance.js 12`). After: they still beat cavalry, pikemen, swordsmen and catapults, lose to slingers, and the archer mirror now favours the attacker (83%). This is one step; further change is a judgement call.

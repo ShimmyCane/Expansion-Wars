@@ -147,6 +147,8 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [x] **Random teams** for every team, with numbers that scroll to adjust.
 - [x] **Geography button** with its own seed, and toggles for woods, grass, roads, walls and the river.
 - [x] **Collapsible panels** on the setup and battle screens.
+- [x] **Kills by unit type** in the result and replay report (V4.4).
+- [x] **Archer nerf** (damage 0.5 to 0.35; V4.4). Archers still beat most types at range; revisit after play.
 - [ ] **V4 balance, round 5.** The third team, the formations and defending are not tuned.
 - [ ] **Multi-point formation routes.** A formation takes one point; each unit's route is its own.
 

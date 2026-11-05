@@ -25,7 +25,7 @@
       cavalry:   { label: 'Cavalry',   speed: 2.0, atk: 0.9, range: 1.2, melee: true,  mounted: true,  minRange: 0, reload: 0 },
       pikemen:   { label: 'Pikemen',   speed: 0.8, atk: 0.6, range: 1.2, melee: true,  mounted: false, minRange: 0, reload: 0 },
       swordsmen: { label: 'Swordsmen', speed: 1.0, atk: 0.9, range: 1.2, melee: true,  mounted: false, minRange: 0, reload: 0 },
-      archers:   { label: 'Archers',   speed: 1.0, atk: 0.5, range: 6,   melee: false, mounted: false, minRange: 0, reload: 1.5 },
+      archers:   { label: 'Archers',   speed: 1.0, atk: 0.35, range: 6,   melee: false, mounted: false, minRange: 0, reload: 1.5 },
       slingers:  { label: 'Slingers',  speed: 1.2, atk: 0.5, range: 4,   melee: false, mounted: false, minRange: 0, reload: 1.0 },
       catapults: { label: 'Catapults', speed: 0.4, atk: 0.6, range: 9,   melee: false, mounted: false, minRange: 2, reload: 2.5 }
     },

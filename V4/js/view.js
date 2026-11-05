@@ -709,6 +709,10 @@
       time: 'because the time ran out with the objectives not all held'
     }[r.how] || r.how;
     $('bf-result-title').textContent = youWin ? 'You win ' + how + '.' : (r.winner ? r.winner.charAt(0).toUpperCase() + r.winner.slice(1) + ' wins ' + how + '.' : 'No one wins.');
+    var killList = function (side) {
+      return C.TYPES.filter(function (t) { return side[t] > 0.5; })
+        .map(function (t) { return Math.round(side[t]) + ' by ' + label(t).toLowerCase(); }).join(', ') || 'none';
+    };
     var lossList = function (side) {
       return C.TYPES.filter(function (t) { return side[t] > 0.5; })
         .map(function (t) { return Math.round(side[t]) + ' ' + label(t).toLowerCase(); }).join(', ') || 'none';
@@ -717,6 +721,7 @@
       'Battle lasted ' + r.seconds + ' s. Attacker losses: ' + lossList(r.losses.attacker) + '. ' +
       'Defender losses: ' + lossList(r.losses.defender) + '.' +
       (st.teams > 2 ? ' Third team losses: ' + lossList(r.losses.third) + '.' : '') +
+      ' Kills by the attacker: ' + killList(r.killsBy.attacker) + '. Kills by the defender: ' + killList(r.killsBy.defender) + '.' +
       (r.captured ? ' The settlement is held by the attacker.' : '') + (r.levies ? ' Levies raised: ' + r.levies + '.' : '') +
       ' Seed ' + r.seed + '.';
     $('bf-result-json').value = JSON.stringify(r, null, 2);
