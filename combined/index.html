@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — Combined scale</title>
+  <link rel="stylesheet" href="../shared/hub.css">
+  <link rel="stylesheet" href="../shared/notes.css">
+</head>
+<body>
+  <main class="hub">
+    <a class="archive" href="../index.html" style="margin:0 0 16px;display:block;">← Expansion Wars</a>
+    <h1>Combined scale</h1>
+    <p class="tag">Zoom in from the country to the province, and from the province to the unit. Work in progress.</p>
+
+    <!-- Copies of the three scales, with their own saved data (see schematic.md). -->
+    <nav class="scales" aria-label="Scales in this build">
+      <a class="scale" href="country/index.html">
+        <span class="scale-name">Country (combined copy)</span>
+        <span class="scale-what">Copied from the country scale. Not yet linked to the lower scales.</span>
+      </a>
+      <a class="scale" href="province/index.html">
+        <span class="scale-name">Province (combined copy)</span>
+        <span class="scale-what">Copied from the province scale. Not yet linked to the lower scales.</span>
+      </a>
+      <a class="scale" href="unit/index.html">
+        <span class="scale-name">Unit (combined copy)</span>
+        <span class="scale-what">Copied from the unit scale. Not yet linked to the higher scales.</span>
+      </a>
+    </nav>
+  </main>
+
+  <button id="gear" class="gear" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <section id="settings-panel" class="settings" hidden>
+    <div class="settings-head"><strong>Settings</strong><button id="settings-close" type="button">Close</button></div>
+  </section>
+
+  <script src="../shared/config.js"></script>
+  <script src="../shared/notes.js"></script>
+  <script>
+    (function () {
+      var gear = document.getElementById('gear'), panel = document.getElementById('settings-panel');
+      function open(on) { panel.hidden = !on; gear.setAttribute('aria-expanded', String(on)); }
+      gear.addEventListener('click', function () { open(panel.hidden); });
+      document.getElementById('settings-close').addEventListener('click', function () { open(false); });
+      XWNotes.attach({ panel: panel, page: 'Combined', context: function () { return 'Combined: work in progress'; } });
+    })();
+  </script>
+</body>
+</html>

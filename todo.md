@@ -197,3 +197,10 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **V4 replays to the family database.** Each finished battle is saved on the device, then pushed to table `xw_replays` once signed in (`V4/js/replays.js`, migration `supabase/003_xw_replays.sql`). The rollback test passed. The migration is NOT in the Family project: the apply call timed out waiting for a server-side confirmation, and a later check found no `xw_replays` table. Re-run `supabase/003_xw_replays.sql` in the Family project, then check a sign-in push. V4 sign-in is in the ⚙️ panel.
 - [ ] **V4: confirm the morale reads** ("taking pause" as standing still, "or die" as an enemy dying nearby, 0.5 a second recovery).
 - [ ] **V4: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V4/schematic.md`.
+
+## Combined scale (in progress)
+
+- [x] **Combined folder.** `combined/` holds copies of the country, province and unit scales, with their own saved-data keys, so the originals are untouched (see `combined/schematic.md`).
+- [ ] **Zoom chain.** Zoom from country to province to unit, with actions at each level changing the whole game.
+- [ ] **Time dilation.** Each level runs at its own speed. Values to be set by play and balance.
+- [ ] **Family database.** Decide whether combined needs its own `xw_maps` and `xw_replays` tables (copies still write to the shared ones).

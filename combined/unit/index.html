@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — Unit scale</title>
+  <link rel="stylesheet" href="../../shared/notes.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="back" href="../index.html">← All scales</a>
+    <h1>Unit scale</h1>
+    <span class="note">Move units across a map and fight.</span>
+  </header>
+
+  <!-- Setup. Each panel folds: tap its heading to open or close it. -->
+  <section id="screen-setup" class="screen">
+    <p class="intro">Build a custom battle, as in Total War. Choose the armies and the ground. Then arrange your units, plan their routes, and start. Pause at any time to plan or give orders.</p>
+
+    <details class="card panel" open>
+      <summary><h2>The fight</h2></summary>
+      <div class="panel-body">
+        <label>Seed <input type="number" id="sc-seed" min="1" placeholder="random"></label>
+        <label>You are <select id="sc-you"></select></label>
+        <label>Scale <select id="sc-scale"></select></label>
+        <label>Settlement <select id="sc-settle"></select></label>
+        <p class="muted small">The same seed and the same orders give the same battle. The seed is shown during the battle.</p>
+      </div>
+    </details>
+
+    <details class="card panel" open>
+      <summary><h2>Armies</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale. Tap a number, then scroll to change it. The computer plans every team that is not yours.</p>
+        <div class="team-head">
+          <span></span><span></span>
+          <span class="col-a">Attacker</span><span class="col-d">Defender</span><span class="col-t" hidden>Third</span>
+        </div>
+        <div id="sc-types"></div>
+        <div class="row">
+          <button id="sc-balance" class="ghost" type="button">🎲 Random balanced teams</button>
+          <span id="sc-balance-note" class="muted small" aria-live="polite"></span>
+        </div>
+        <div class="grid2">
+          <label>Your strategy <select id="sc-strat-a"></select></label>
+          <label>Your formation <select id="sc-form-a"></select></label>
+        </div>
+        <p class="muted small">Your units are arranged by role when the battle is set up: the front line, the archers behind, the cavalry on the flanks.</p>
+      </div>
+    </details>
+
+    <details class="card panel" open>
+      <summary><h2>Third team and allies</h2></summary>
+      <div class="panel-body">
+        <label class="check"><input type="checkbox" id="sc-third"> A third team comes in from the north</label>
+        <label>Third team's allegiance <select id="sc-third-ally"></select></label>
+        <p class="muted small">Allies share what they see and win or lose together. A team is out when it has no units left, or when it is down to a twentieth of its enemies' strength.</p>
+      </div>
+    </details>
+
+    <details class="card panel" open>
+      <summary><h2>Battlefield generator</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Ground, roads and rules for this battle. The same choices are saved with the replay.</p>
+        <h3 class="sub">Ground</h3>
+        <div class="grid2">
+          <label>Field <select id="sc-size"></select></label>
+          <label>Geography seed <input type="number" id="sc-geo" min="1" placeholder="random"></label>
+        </div>
+        <div class="row">
+          <button id="sc-geo-new" class="ghost" type="button">🗺️ New geography</button>
+          <span class="muted small">Makes new ground. Your armies and orders stay the same.</span>
+        </div>
+        <h3 class="sub">Sites</h3>
+        <p class="muted small">Leave out any of these to clear them from the ground.</p>
+        <div class="toggles">
+          <label class="check"><input type="checkbox" id="sc-woods" checked> Woods</label>
+          <label class="check"><input type="checkbox" id="sc-grass" checked> Tall grass</label>
+          <label class="check"><input type="checkbox" id="sc-roads" checked> Roads</label>
+          <label class="check"><input type="checkbox" id="sc-walls" checked> Settlement walls</label>
+        </div>
+        <div class="grid2">
+          <label>River <select id="sc-river"></select></label>
+          <label>Settlement openings <select id="sc-gates"></select></label>
+        </div>
+        <h3 class="sub">Rules</h3>
+        <div class="grid2">
+          <label>Hidden units <select id="sc-ambush"></select></label>
+          <label>Default approach <select id="sc-approach"></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="sc-facing" checked> Fronts and flanks (battalions and squads)</label>
+        <label class="check"><input type="checkbox" id="sc-fatigue" checked> Fatigue (long marches and long fights tire units)</label>
+      </div>
+    </details>
+
+    <button id="sc-start" class="big">▶ Set up the field</button>
+  </section>
+
+  <!-- Battle -->
+  <section id="screen-battle" class="screen" hidden>
+    <div class="bar">
+      <span id="bf-time">0:00</span>
+      <span id="bf-seed" class="seed"></span>
+      <span id="bf-score"></span>
+      <button id="bf-begin" class="big-inline" hidden>▶ Begin battle</button>
+      <button id="bf-toggle">❚❚ Pause</button>
+      <button id="bf-surrender" class="ghost">Surrender</button>
+      <span id="bf-replay-bar" class="replay-bar" hidden>
+        <label>Replay speed <select id="bf-speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select></label>
+        <button id="bf-replay-stop" class="ghost">■ Stop replay</button>
+      </span>
+    </div>
+
+    <div class="row">
+      <label>Marches <select id="bf-paths">
+        <option value="mine">Show mine</option>
+        <option value="selected">Show the selected one</option>
+        <option value="none">Hide them</option>
+      </select></label>
+      <label>Click ground to <select id="bf-click-mode">
+        <option value="move">attack move</option>
+        <option value="rush">rush move</option>
+      </select></label>
+    </div>
+
+    <div class="field-wrap">
+      <svg id="bf-svg" role="img" aria-label="Battlefield"></svg>
+      <svg id="bf-mini" class="mini" role="img" aria-label="Mini map: tap to look at a place" hidden></svg>
+      <div id="bf-pops" class="pops"></div>
+      <div id="bf-count" class="count" hidden></div>
+      <div class="cam-pad" aria-label="Move the view">
+        <button id="cam-u" type="button" aria-label="Look up">▲</button>
+        <button id="cam-l" type="button" aria-label="Look left">◀</button>
+        <button id="cam-r" type="button" aria-label="Look right">▶</button>
+        <button id="cam-d" type="button" aria-label="Look down">▼</button>
+      </div>
+    </div>
+
+    <p id="bf-deploy-note" class="deploy-note" hidden>Deployment. Place your units inside the blue strip, then begin.</p>
+    <p id="bf-hint" class="hint"></p>
+
+    <details id="bf-formations" class="card panel" open>
+      <summary><h2>Formations</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Up to two formations. Give one command to a formation, and every unit keeps its place in it.</p>
+        <div id="bf-groups"></div>
+      </div>
+    </details>
+
+    <details id="bf-unit" class="card panel" open hidden>
+      <summary><h2 id="bf-unit-name"></h2></summary>
+      <div class="panel-body">
+        <p id="bf-unit-info" class="muted small"></p>
+        <p id="bf-route-info" class="muted small"></p>
+        <div class="row">
+          <label>Formation <select id="bf-unit-group"></select></label>
+          <label>Strategy <select id="bf-unit-strategy"></select></label>
+          <label>Shape <select id="bf-unit-formation"></select></label>
+        </div>
+        <div class="row">
+          <button id="bf-remove-point" class="ghost" type="button">Remove last point</button>
+          <button id="bf-stop" class="ghost" type="button">Stop here</button>
+          <button id="bf-hold" class="ghost" type="button">Hold</button>
+          <button id="bf-proceed" class="ghost" type="button">Proceed with original plan</button>
+          <button id="bf-done" class="ghost" type="button">Done</button>
+        </div>
+      </div>
+    </details>
+
+    <div id="bf-result" class="card result" hidden>
+      <h2 id="bf-result-title"></h2>
+      <p id="bf-result-body"></p>
+      <p id="bf-save-status" class="muted small" aria-live="polite"></p>
+      <textarea id="bf-result-json" rows="8" readonly></textarea>
+      <div class="row">
+        <button id="bf-watch" hidden>▶ Watch the replay</button>
+        <button id="bf-copy" class="ghost">Copy replay</button>
+        <button id="bf-again">New battle</button>
+      </div>
+    </div>
+
+    <button id="bf-back-setup" class="link">← Back to setup</button>
+  </section>
+
+  <!-- Settings (⚙️, lower right): notes for the family database, and the family sign-in. On every screen. -->
+  <button id="gear" class="gear" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <div id="settings-panel" class="settings" hidden>
+    <div class="settings-head"><strong>Settings</strong><button id="settings-close" class="ghost" type="button">Close</button></div>
+  </div>
+
+  <script src="../../shared/config.js"></script>
+  <script src="../../shared/notes.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/field.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/insignia.js"></script>
+  <script src="js/contract.js"></script>
+  <script src="js/replays.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/view.js"></script>
+</body>
+</html>
