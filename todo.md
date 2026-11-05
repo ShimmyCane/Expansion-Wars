@@ -131,6 +131,15 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **Open:** the "100%" in the magic rate, fortress food upkeep, magic decay, and army size tied to population (convo v0.16 questions 1 to 3).
 - [ ] **Open:** check the army size over full games (about 10,000 soldiers near the end).
 
+## Round 12 (country 2.19): science, research, food (convo v0.17)
+
+- [x] **Science** from cities (2), towns (1), villages (0.5) and fortresses (1.5). No cap.
+- [x] **Research tracks:** Agriculture (+8% food a level), Civics (+5% population a level), Arms (+60 army cap a level). Costs rise each level.
+- [x] **Army hard cap** from Arms. Recruiting stops at the cap.
+- [x] **People eat** 0.5 food a turn each. Population has no cap.
+- [x] **Food top-up:** gold and stone become food below 5. A Buy 10 food button for the player.
+- [ ] **Open:** Growth still has a food surplus (convo v0.17 question 1). Science curve and Arms cost (question 2). Auto or manual top-up (question 3).
+
 ## V4 round 4 (version 4.2): battlefield generator
 
 - [x] **Battlefield generator** on the setup screen: field size, settlement openings, river, hidden units, default approach, roads, tall grass, fronts and flanks, fatigue. Saved in the request.
