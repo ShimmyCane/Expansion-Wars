@@ -37,6 +37,28 @@
   function allied(st, a, b) { return a === b || !!st.allied[a][b]; }
   function isPlayer(st, u) { return st.you !== null && u.side === st.you; }
 
+  // Inside a walled settlement (the interior box), and the nearest passable spot outside it.
+  function insideWalls(st, x, y) {
+    var I = st.field.interior;
+    return !!I && x > I.x0 && x < I.x1 && y > I.y0 && y < I.y1;
+  }
+  function nearestOutside(st, x, y) {
+    var best = null, bd = Infinity;
+    for (var r = 1; r <= 8; r++) {
+      for (var dy = -r; dy <= r; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          var px = Math.floor(x) + dx + 0.5, py = Math.floor(y) + dy + 0.5;
+          if (insideWalls(st, px, py) || !passableAt(st, px, py)) continue;
+          var d = dist(x, y, px, py);
+          if (d < bd) { bd = d; best = { x: px, y: py }; }
+        }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
   // People in one dot at a scale. Cavalry are half a grain, catapults a crew of up to four.
   function peopleFor(scale, type) {
     var g = C.GRAIN[scale];
@@ -79,7 +101,10 @@
 
   // ---- Vision ----------------------------------------------------------------
 
-  function sightOf(u) { return C.SIGHT[u.type] + (u.side === 1 ? C.DEFENDER_SIGHT_BONUS : 0); }
+  function sightOf(st, u) {
+    var base = C.SIGHT[u.type] + (u.side === 1 ? C.DEFENDER_SIGHT_BONUS : 0);
+    return insideWalls(st, u.x, u.y) ? base + C.WALL.sight : base;
+  }
 
   // Each team sees what any of its units, or any ally's unit, can see. A unit in woods or tall grass is seen only from
   // close by, until it fires or strikes (then it is revealed for a few seconds).
@@ -92,7 +117,9 @@
       if (v.state !== 'active') return;
       st.units.forEach(function (e) {
         if (allied(st, e.side, v.side) || (e.state !== 'active' && e.state !== 'routing')) return;
-        var range = e.hidden ? C.HIDE.range : sightOf(v);
+        var range = e.hidden ? C.HIDE.range : sightOf(st, v);
+        // A unit inside the walls can be seen from outside only up close.
+        if (insideWalls(st, e.x, e.y) && !insideWalls(st, v.x, v.y)) range = Math.min(range, C.WALL.hide);
         if (dist(v.x, v.y, e.x, e.y) <= range) {
           for (var t = 0; t < st.teams; t++) if (allied(st, t, v.side)) st.seen[t][e.id] = true;
         }
@@ -386,6 +413,38 @@
     if ((tx === 0 && u.x <= 0.05) || (tx > 0 && u.x >= st.cols - 0.05)) u.state = 'gone';
   }
 
+  // Units take room. Units of one side inside a walled settlement beyond its capacity step out, and any two units
+  // closer than their footprint are pushed apart (onto passable ground only). Runs in a fixed order, so it is deterministic.
+  function separate(st) {
+    var act = st.units.filter(function (u) { return u.state === 'active'; });
+    act.sort(function (a, b) { return a.id - b.id; });
+    var R2 = 2 * C.FOOTPRINT;
+    for (var i = 0; i < act.length; i++) {
+      for (var j = i + 1; j < act.length; j++) {
+        var a = act[i], b = act[j];
+        var d = dist(a.x, a.y, b.x, b.y);
+        if (d >= R2) continue;
+        // Units on exactly the same spot are pushed apart along x, by their order.
+        var ux = d < 1e-6 ? 1 : (a.x - b.x) / d, uy = d < 1e-6 ? 0 : (a.y - b.y) / d;
+        var push = (R2 - d) / 2;
+        var ax = a.x + ux * push, ay = a.y + uy * push, bx = b.x - ux * push, by = b.y - uy * push;
+        if (passableAt(st, ax, ay)) { a.x = ax; a.y = ay; }
+        if (passableAt(st, bx, by)) { b.x = bx; b.y = by; }
+      }
+    }
+    // Last: a settlement holds only its capacity, so any extra that the pushing put back inside steps out.
+    if (st.field.interior) {
+      var inside = act.filter(function (u) { return insideWalls(st, u.x, u.y); });
+      var cap = st.field.interior.cap;
+      if (inside.length > cap) {
+        inside.slice(cap).forEach(function (u) {
+          var o = nearestOutside(st, u.x, u.y);
+          if (o) { u.x = o.x; u.y = o.y; }
+        });
+      }
+    }
+  }
+
   // ---- Damage, morale and routing -------------------------------------------
 
   // Which part of the target a hit comes from: 0 front, 1 side, 2 rear. With facing off, only front and side.
@@ -448,6 +507,7 @@
       taken /= U.melee ? (Fb.melee * Tb.def) : Tb.def;
       if (!U.melee) taken *= Fb.area;
       if (b.ambushT > 0) taken *= C.AMBUSH.dmgMul;
+      if (!U.melee && insideWalls(st, b.x, b.y) && !insideWalls(st, a.x, a.y)) taken *= C.WALL.arrow;
 
       var morale = clamp(a.morale / 100, C.MORALE.floor, 1);
       pending.push({ b: b, a: a, dmg: a.people * base * mul * charge * morale * C.DAMAGE_K * taken });
@@ -926,6 +986,7 @@
     });
     st.units.forEach(function (u) { u.still = u.moved ? 0 : u.still + TICK; });
     applyHits(st, hits);
+    separate(st);
     updateFatigue(st);
     updateObjectives(st, TICK);
     updateMorale(st);

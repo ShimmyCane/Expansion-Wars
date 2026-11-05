@@ -1,0 +1,19 @@
+/* The home screen: three scales and the archive. Colours follow the game's cream and ink. */
+:root { --ink: #2b2a26; --paper: #fbf6e9; --card: #fff; --line: #d8cfbb; --muted: #6d6758; --accent: #4a7bd0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; min-height: 100vh; }
+.hub { max-width: 560px; margin: 0 auto; padding: 32px 16px 96px; text-align: center; }
+.logo { font-size: 64px; }
+h1 { margin: 4px 0 2px; font-size: 34px; }
+.tag { color: var(--muted); margin: 0 0 24px; }
+.scales { display: grid; gap: 14px; }
+.scale { display: block; text-decoration: none; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 18px 20px; text-align: left; box-shadow: 0 3px 0 var(--line); }
+.scale:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+.scale-name { display: block; font-size: 22px; font-weight: 700; }
+.scale-what { display: block; color: var(--muted); margin-top: 4px; font-size: 15px; }
+.archive { display: inline-block; margin-top: 28px; color: var(--muted); text-decoration: none; }
+.gear { position: fixed; right: 14px; bottom: 14px; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 22px; cursor: pointer; }
+.settings { position: fixed; right: 14px; bottom: 72px; width: min(340px, calc(100vw - 28px)); max-height: 70vh; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+.settings[hidden] { display: none; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; }
+.settings-head button { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); font: inherit; }

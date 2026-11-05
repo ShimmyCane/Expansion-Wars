@@ -1,0 +1,7 @@
+/* The notes and family sign-in panel, used on every screen. Works with each page's own colours. */
+.xw-notes { margin-top: 10px; }
+.xw-notes h3 { margin: 12px 0 4px; font-size: 15px; }
+.xw-notes textarea, .xw-notes input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0; padding: 8px; font: inherit; border-radius: 8px; border: 1px solid #bbb; }
+.xw-notes button { margin-top: 4px; padding: 8px 14px; font: inherit; border-radius: 8px; border: 1px solid #888; background: #fff; cursor: pointer; }
+.xw-notes [hidden] { display: none; }
+.xw-notes p { margin: 4px 0; }

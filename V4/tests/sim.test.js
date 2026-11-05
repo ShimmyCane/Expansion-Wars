@@ -492,5 +492,75 @@ test('the balancer deals dots across three teams', () => {
   assert.ok(Math.max(...t.power) - Math.min(...t.power) <= Math.max(...Object.values(C.POWER)), 'strength within one dot');
 });
 
+// ---- Round 6: units take room, settlements hold a set number, walls shelter, two of a type -----
+
+test('two units cannot stay on the same spot: they are pushed apart', () => {
+  const st = blank(V4.sampleRequest({ seed: 30, settlement: 'none' }));
+  const a = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 10.5, 10.5, 20);
+  const b = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 10.5, 10.5, 20);
+  a.order = { kind: 'hold' }; b.order = { kind: 'hold' };
+  V4.step(st);
+  const d = Math.hypot(a.x - b.x, a.y - b.y);
+  assert.ok(d >= 2 * C.FOOTPRINT - 1e-6, 'they were pushed apart: ' + d.toFixed(3));
+});
+
+test('a village holds only its capacity: the rest stand outside the walls', () => {
+  const st = blank(V4.sampleRequest({ seed: 31, settlement: 'village', gen: { size: 'large' } }));
+  const I = st.field.interior;
+  assert.ok(I, 'a walled village has an interior');
+  const cap = C.CAPACITY.village;
+  for (let i = 0; i < cap + 5; i++) {
+    const u = S.newUnit(st, 1, 'pikemen', 'engage', 'line', I.x0 + 1 + (i % 3), I.y0 + 1 + Math.floor(i / 3), 20);
+    u.order = { kind: 'hold' };
+  }
+  V4.step(st);
+  const inside = st.units.filter(u => u.side === 1 && u.x > I.x0 && u.x < I.x1 && u.y > I.y0 && u.y < I.y1).length;
+  assert.ok(inside <= cap, 'at most ' + cap + ' inside, found ' + inside);
+});
+
+test('walls shelter the inside from arrows fired from outside', () => {
+  const loss = (walls) => {
+    const st = blank(V4.sampleRequest({ seed: 32, settlement: 'village', gen: { size: 'large' }, attackerUnits: [], defenderUnits: [] }));
+    if (!walls) st.field.interior = null;
+    // Just inside the wall: close enough for the archer outside to see it.
+    const target = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 61.9, 32.5, 20);
+    target.order = { kind: 'hold' };
+    const archer = S.newUnit(st, 0, 'archers', 'engage', 'line', 59.5, 32.5, 20);
+    archer.order = { kind: 'hold' };
+    const before = target.people;
+    V4.step(st);
+    return before - target.people;
+  };
+  const open = loss(false), walled = loss(true);
+  assert.ok(open > 0 && walled > 0, 'both are hit');
+  assert.ok(walled < open * 0.7, 'the walls cut the damage: ' + walled.toFixed(3) + ' vs ' + open.toFixed(3));
+});
+
+test('walls hide the inside from outside beyond a short range', () => {
+  const st = blank(V4.sampleRequest({ seed: 33, settlement: 'village', gen: { size: 'large' }, attackerUnits: [], defenderUnits: [] }));
+  const outside = S.newUnit(st, 0, 'pikemen', 'engage', 'line', 56.5, 32.5, 20);
+  outside.order = { kind: 'hold' };
+  const inside = S.newUnit(st, 1, 'pikemen', 'engage', 'line', 63.5, 32.5, 20);
+  inside.order = { kind: 'hold' };
+  V4.step(st);
+  assert.ok(!st.seen[0][inside.id], 'the attacker cannot see inside the walls from 7 tiles');
+});
+
+test('no more than two of one type on a side', () => {
+  const req = V4.sampleRequest({ seed: 34, attackerUnits: [{ type: 'pikemen', count: 3 }], defenderUnits: [{ type: 'pikemen', count: 2 }] });
+  assert.ok(V4.validateRequest(req).some(p => p.includes('at most 2')), 'three pikemen are refused');
+  req.attacker.units = [{ type: 'pikemen', count: 2 }, { type: 'swordsmen', count: 2 }];
+  req.defender.units = [{ type: 'pikemen', count: 2 }];
+  assert.strictEqual(V4.validateRequest(req).length, 0, 'two of each type is fine');
+});
+
+test('the randomiser never gives a side more than two of one type', () => {
+  const rng = V4.rng(9);
+  for (let k = 0; k < 10; k++) {
+    const t = V4.balanceTeams(30, rng, 3);
+    t.sides.forEach(side => Object.values(side).forEach(n => assert.ok(n <= C.MAX_PER_TYPE, 'at most two of a type: ' + n)));
+  }
+});
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

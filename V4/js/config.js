@@ -176,6 +176,14 @@
       ambush: ['prompt', 'auto'],
       approach: ['flank', 'centre', 'base', 'mixed', 'none']
     },
+    // Units. Each side has at most this many of one type. A unit takes room: it keeps this radius (in tiles) clear of others.
+    MAX_PER_TYPE: 2,
+    FOOTPRINT: 0.45,
+    // Inside a walled settlement: how many units fit, by settlement. Units beyond that stand outside.
+    CAPACITY: { village: 4, town: 8, city: 8, fortress: 12 },
+    // Inside the walls, a unit is sheltered from arrows fired from outside, sees further, and is hidden from outside beyond HIDE.wall.
+    WALL: { arrow: 0.5, sight: 3, hide: 2.5 },
+
     // Formations. Each side can arrange up to two groups. A unit's role sets where it stands when the army is arranged.
     GROUPS: 2,
     GROUP_NAME: { 1: 'Line', 2: 'Horse' },
