@@ -616,23 +616,33 @@
     }
   }
 
-  // A country battle runs in three waves. The chosen share of the attacker's soldiers is split across them.
-  // Each wave is a fight: the defenders have an advantage, so casualties split by strength, not all or nothing.
-  // The defence is the province the attack reaches (its defence value). Overpowered (twice the defence) means surrender:
-  // the attacker takes one province for each whole point of power over the defence.
-  function battle(x) {
-    var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
-    if (!rel(i, j).war || !a.alive || !b.alive) return;
-    var R = route(i, j);
-    if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach ' + b.name + '.'); return; }
-    var sent0 = Math.floor(a.soldiers * (x.pct || SEND * 100) / 100);
-    if (sent0 < 1) return;
+  // Allies that are at war with the same target, and can reach it, join the attack and fight as one army. They never fight
+  // each other (allies are not at war). Each joiner sends the lead's share and pays its own march and magic. A joint army
+  // is a little weaker for separate command: 5% less strength for each nation beyond the first, at most 20% less.
+  var COORD = 0.05, COORD_MIN = 0.8;
+  function joiners(i, j) {
+    var out = [];
+    st.n.forEach(function (k) {
+      if (k.id === i || k.id === j || !k.alive || !rel(i, k.id).ally) return;
+      if (!rel(k.id, j).war) return;
+      var R = route(k.id, j);
+      if (R && R.dist <= MAX_DIST) out.push(k.id);
+    });
+    return out;
+  }
+  function coordFactor(count) { return Math.max(COORD_MIN, 1 - COORD * (count - 1)); }
+
+  // One nation's part of an attack: its share leaves home, is worn on the way, pays the march, and spends magic.
+  // Returns the soldiers that march and their strength, or null when none arrive.
+  function sendPart(i, j, R, pct) {
+    var a = st.n[i], sent0 = Math.floor(a.soldiers * pct / 100);
+    if (sent0 < 1) return null;
     // Unrest costs one soldier in every 20 unrest before the march. Hostile land, terrain and distance wear the army down.
     var flat = Math.min(sent0 - 1, Math.ceil(a.unrest / 20));
     var F = attackFactors(i, R);
     var sent = Math.floor((sent0 - flat) * (1 - F.chip));
     a.soldiers -= sent0;
-    if (sent < 1) { addLog(a.name + "'s army is worn away on the way to " + b.name + '.'); return; }
+    if (sent < 1) { addLog(a.name + "'s army is worn away on the way to " + st.n[j].name + '.'); return null; }
     // The march is paid in food and gold, as far as the stock goes.
     var march = { food: Math.ceil(sent * MARCH.food), gold: MARCH.gold + R.hops };
     a.food = Math.max(0, a.food - march.food);
@@ -642,34 +652,67 @@
     var spent = Math.min(a.magic, sent * MAGIC_PER_SOLDIER);
     a.magic -= spent;
     var bonus = (1 + spent / sent) / (1 + a.unrest / 200) * (1 - F.far) * F.tail;
+    return { id: i, sent: sent, strength: sent * quality(a) * bonus };
+  }
+
+  // An attack runs in three waves. The chosen share of each attacking nation's soldiers is split across them, and the
+  // allies who joined fight as one army (see joiners). Each wave is a fight: the defenders have an advantage, so casualties
+  // split by strength, not all or nothing. The defence is the province the attack reaches (its defence value). Overpowered
+  // (twice the defence) means surrender: the attacker takes one province for each whole point of power over the defence.
+  // The lead nation takes any province; survivors go home to the nation that sent them, in proportion to what each sent.
+  function battle(x) {
+    var i = x.from, j = x.to, a = st.n[i], b = st.n[j];
+    if (!rel(i, j).war || !a.alive || !b.alive) return;
+    var R = route(i, j);
+    if (!R || R.dist > MAX_DIST) { addLog(a.name + ' could not reach ' + b.name + '.'); return; }
+    // Each nation commits its army once a turn: one joint attack, not two orders from the same allies.
+    if (st.used[i]) { addLog(a.name + ' is already attacking this turn.'); return; }
+    var pct = x.pct || SEND * 100;
+    var parts = [i].concat(joiners(i, j).filter(function (id) { return !st.used[id]; })).map(function (id) {
+      var RR = route(id, j);
+      return RR && RR.dist <= MAX_DIST ? sendPart(id, j, RR, pct) : null;
+    }).filter(Boolean);
+    if (!parts.length) return;
+    parts.forEach(function (p) { st.used[p.id] = true; });
+    var sent = parts.reduce(function (s, p) { return s + p.sent; }, 0);
+    var coord = coordFactor(parts.length);
+    var strength = parts.reduce(function (s, p) { return s + p.strength; }, 0) * coord;
+    var qa = strength / sent;                  // the army's strength per soldier marching
     var entry = st.provs[R.entry];
     var front = featureDef(entry) / 2;
-    var power = sent * quality(a) * bonus;
     var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
     var grade = weakestGrade(b);
     var pool = sent, d = b.soldiers;
     for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
       var w = pool / (WAVES - k);                     // this wave's share of the attackers still standing
-      var A = w * quality(a) * bonus;
+      var A = w * qa;
       var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
       pool -= w * D / (A + D);                        // attackers lost, in proportion to the defence
       d -= d * A / (A + D);                           // defenders lost, in proportion to the attack
     }
-    var ratio = power / defence;
+    // Survivors go home to the nations that sent them, in proportion to the soldiers each sent.
+    function home(total) {
+      parts.forEach(function (p) { st.n[p.id].soldiers += total * p.sent / sent; });
+    }
+    if (parts.length > 1) {
+      var names = parts.map(function (p) { return st.n[p.id].name; });
+      addLog(names.join(' and ') + ' attack ' + b.name + ' together, ' + Math.round((1 - coord) * 100) + '% less strength for separate command.');
+    }
+    var ratio = strength / defence;
     var taken = [];
     if (ratio >= SURRENDER) {
       taken = captureMany(b, a, R.entry, Math.min(provs(b), Math.floor(ratio)));
-      a.soldiers += pool + Math.max(0, d);            // the defenders who are left surrender to you
+      home(pool + Math.max(0, d));                     // the defenders who are left surrender to you
       b.soldiers = 0;
       addLog(b.name + ' surrenders to ' + a.name + (taken.length ? ', giving up ' + taken.length + ' province' + (taken.length === 1 ? '' : 's') + ' (' + taken.join(', ') + ').' : '.'));
-    } else if (pool * quality(a) * bonus > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front && pool > 0) {
+    } else if (pool * qa > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front && pool > 0) {
       taken = captureMany(b, a, R.entry, 1);
       b.soldiers = Math.max(0, d);
-      a.soldiers += pool;                              // survivors come home
+      home(pool);                                      // survivors come home
       addLog(a.name + ' wins against ' + b.name + (taken.length ? ' and takes a ' + taken[0] + '.' : '.'));
     } else {
       b.soldiers = Math.max(0, d);
-      a.soldiers += Math.max(0, pool);
+      home(Math.max(0, pool));
       addLog(b.name + ' holds against ' + a.name + '.');
     }
     if (taken.length) {
@@ -910,6 +953,7 @@
     var q = st.queue;
     st.queue = [];
     q.filter(function (x) { return x.type !== 'attack' && x.type !== 'claim'; }).forEach(applyDiplomacy);
+    st.used = {};
     q.filter(function (x) { return x.type === 'attack'; })
       .sort(function () { return Math.random() - 0.5; })
       .forEach(battle);
@@ -1002,7 +1046,7 @@
     }
     // The nations' regions are fixed. The provinces inside them are the population centres.
     var regions = voronoi(seeds);
-    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [], target: null, seed: seed };
+    st = { turn: 1, clock: TURN, rel: {}, n: [], queue: [], used: {}, log: [], over: null, scale: 1, focus: null, provs: [], pick: null, rivers: [], target: null, seed: seed };
     seeds.forEach(function (sp, i) { st.n.push(makeNation(i, sp, regions[i])); });
     // Computer nations pick a direction at random. Yours starts on Growth.
     st.n.forEach(function (n) { if (n.id > 0) n.aim = AIM_KEYS[Math.floor(Math.random() * AIM_KEYS.length)]; });
@@ -1375,6 +1419,9 @@
       if (RT.dist > MAX_DIST) rtext += ' Too far away to attack (the limit is ' + MAX_DIST + ' steps).';
       else rtext += ' The march costs ' + (MARCH.gold + RT.hops) + ' gold and some food for the rations.';
     }
+    // Allies at war with the same target join the attack as one army (each pays its own march).
+    var J = RT ? joiners(0, selected) : [];
+    if (J.length) rtext += ' Allies join the attack: ' + J.map(function (id) { return st.n[id].name; }).join(', ') + ' (' + Math.round((1 - coordFactor(J.length + 1)) * 100) + '% less strength for separate command).';
     els.card.appendChild(el('p', 'muted small', rtext));
     // The send slider: the share of your army an attack will use. The last value is remembered.
     var pick = el('div', 'send-pick');
