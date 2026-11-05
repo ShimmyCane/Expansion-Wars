@@ -19,6 +19,7 @@
   var SIDE_COL = ['a', 'd', 't'];
 
   var st = null, sel = null, selGroup = null, phase = 'setup', paused = false, countT = 0, lastTs = null, acc = 0;
+  var replay = null;   // while a replay is watched: the live battle, the replay state, its orders and speed
   var svg, layers = {}, unitEls = {}, objEls = [], fxList = [], lastSelected;
   var cam = { x: 0, y: 0 }, mini = null, popKey = '', drag = null, skipClick = false, groupKey = '';
   var $ = function (id) { return document.getElementById(id); };
@@ -597,7 +598,7 @@
 
   // Taps on the map: pick a unit, add a point to a route (planning), move or attack (real time), or march a formation.
   function onMapClick(evt) {
-    if (!st || phase === 'over' || phase === 'setup') return;
+    if (!st || phase === 'over' || phase === 'setup' || phase === 'replay') return;
     if (skipClick) { skipClick = false; return; }
     var t = evt.target;
     if (t && t.getAttribute && t.getAttribute('data-h') !== null) return;   // a handle: dragging, not a tap
@@ -676,11 +677,14 @@
   function startBattle(req) {
     st = V4.createBattle(req, { animate: true });
     st.req = req;
+    replay = null;
+    $('bf-replay-bar').hidden = true;
     deselectAll(); paused = false; acc = 0; popKey = ''; drag = null; skipClick = false;
     phase = 'deploy'; lastTs = null;
     $('screen-setup').hidden = true;
     $('screen-battle').hidden = false;
     $('bf-result').hidden = true;
+    $('bf-watch').hidden = true;
     $('bf-unit').hidden = true;
     $('bf-count').hidden = true;
     $('bf-pops').innerHTML = '';
@@ -725,10 +729,58 @@
       (r.captured ? ' The settlement is held by the attacker.' : '') + (r.levies ? ' Levies raised: ' + r.levies + '.' : '') +
       ' Seed ' + r.seed + '.';
     $('bf-result-json').value = JSON.stringify(r, null, 2);
+    $('bf-watch').hidden = !youWin;   // upon victory, the battle can be watched again at a chosen speed
     $('bf-result').hidden = false;
     $('bf-save-status').textContent = 'Saving the replay…';
     // Each finished battle is saved on this device, then to the family database if signed in.
     V4.replays.save(st.req, st.commands, r).then(function (msg) { $('bf-save-status').textContent = msg; });
+  }
+
+  // Upon victory: the same battle again, drawn step by step at the chosen speed. The orders are the ones given in play,
+  // each on its tick, so the replay is the same battle. Orders are blocked while it plays.
+  function startReplay() {
+    if (!st || !st.req || !st.done) return;
+    var live = st;
+    var rs = V4.createBattle(st.req, { animate: true });
+    rs.req = st.req;
+    replay = {
+      live: live, st: rs, i: 0, acc: 0, speed: Number($('bf-speed').value) || 1,
+      cmds: (live.commands || []).slice().sort(function (a, b) { return a.tick - b.tick; })
+    };
+    st = rs; phase = 'replay'; paused = false; acc = 0; popKey = '';
+    deselectAll();
+    $('bf-result').hidden = true;
+    $('bf-replay-bar').hidden = false;
+    buildMap();
+    buildGroups();
+    renderObjectives();
+    renderUnits();
+    hud();
+  }
+  // One frame of a replay: the fixed steps at the chosen speed, with each order put back on its tick.
+  function stepReplay(real) {
+    var R = replay, rs = R.st;
+    if (paused) return;
+    R.acc += real * R.speed;
+    var n = 0;
+    while (R.acc >= C.TICK && n < MAX_STEPS && !rs.done) {
+      while (R.i < R.cmds.length && R.cmds[R.i].tick === rs.tick) { V4.issue(rs, R.cmds[R.i].cmd); R.i++; }
+      V4.step(rs); R.acc -= C.TICK; n++;
+    }
+    if (n === MAX_STEPS) R.acc = 0;
+    if (rs.done) endReplay();
+  }
+  function endReplay() {
+    if (!replay) return;
+    st = replay.live; replay = null;
+    phase = 'over'; paused = false;
+    $('bf-replay-bar').hidden = true;
+    $('bf-result').hidden = false;
+    buildMap();
+    buildGroups();
+    renderObjectives();
+    renderUnits();
+    hud();
   }
 
   // The replay is the request plus every order given, with the tick it was given on.
@@ -766,7 +818,8 @@
         while (acc >= C.TICK && n < MAX_STEPS && !st.done) { V4.step(st); acc -= C.TICK; n++; }
         if (n === MAX_STEPS) acc = 0;
       }
-      if (st.done && phase !== 'over') { phase = 'over'; showResult(); }
+      if (phase === 'replay') stepReplay(real);
+      else if (st.done && phase !== 'over') { phase = 'over'; showResult(); }
       drainEvents();
       renderUnits();
       renderObjectives();
@@ -804,7 +857,10 @@
       });
     });
     $('bf-begin').addEventListener('click', beginBattle);
-    $('bf-toggle').addEventListener('click', function () { if (phase === 'battle' && st && !st.done) paused = !paused; });
+    $('bf-toggle').addEventListener('click', function () { if ((phase === 'battle' || phase === 'replay') && st && !st.done) paused = !paused; });
+    $('bf-watch').addEventListener('click', startReplay);
+    $('bf-speed').addEventListener('change', function (e) { if (replay) replay.speed = Number(e.target.value) || 1; });
+    $('bf-replay-stop').addEventListener('click', endReplay);
     $('bf-surrender').addEventListener('click', function () { if (st && phase === 'battle' && !st.done) V4.issue(st, { kind: 'surrender', side: st.you }); });
     $('bf-hold').addEventListener('click', function () { if (sel !== null && phase === 'battle') { V4.issue(st, { kind: 'hold', unit: sel }); sel = null; lastSelected = undefined; } });
     $('bf-stop').addEventListener('click', function () { if (sel !== null && phase !== 'over') { V4.issue(st, { kind: 'hold', unit: sel }); } });

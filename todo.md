@@ -122,6 +122,15 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **Open:** the penalty size, who joins (at peace, or pulled in by a declaration), and how a joint capture is split (convo v0.15, questions 1 to 3).
 - [ ] **Open:** the War plan counts the lead nation alone when choosing an attack, not its allies.
 
+## Round 11 (country 2.18, V4 4.3): magic, food, replay speed (convo v0.16)
+
+- [x] **Replay after a victory, with speed** (V4 4.3). Watch the replay at 0.5×, 1×, 2× or 4×, with Pause and Stop. Orders are blocked during the replay.
+- [x] **Fortresses make magic:** 25 a turn each. Only fortresses; villages, towns and cities no longer make magic.
+- [x] **Magic spent on attack or defence:** up to one per four soldiers, adding one soldier's worth of strength each. The stock holds a quarter of the army.
+- [x] **Food from cities:** village 2, town 4, city 6, fortress 3 a turn. Soldiers eat 0.05 each. Thin food slows recruiting.
+- [ ] **Open:** the "100%" in the magic rate, fortress food upkeep, magic decay, and army size tied to population (convo v0.16 questions 1 to 3).
+- [ ] **Open:** check the army size over full games (about 10,000 soldiers near the end).
+
 ## V4 round 4 (version 4.2): battlefield generator
 
 - [x] **Battlefield generator** on the setup screen: field size, settlement openings, river, hidden units, default approach, roads, tall grass, fronts and flanks, fatigue. Saved in the request.

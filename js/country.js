@@ -19,9 +19,15 @@
   // Neutral land: a survey or capture costs gold and food on top of the troops, per step of the route.
   var CLAIM = { gold: 3, food: 2 };
   // An attack: food for the rations (per soldier sent) and gold for the road (per step, plus one).
-  // Magic is the main fuel: up to MAGIC_PER_SOLDIER is spent for each soldier sent, and each point adds strength.
   var MARCH = { food: 0.05, gold: 1 };
-  var MAGIC_PER_SOLDIER = 0.5;
+  // Magic is made by fortresses only: MAGIC_PER_FORT a turn each. A stock holds up to MAGIC_CAP of the army (a quarter).
+  // An attack or a defence spends up to one magic for every four soldiers (MAGIC_PER_SOLDIER), and each point adds one
+  // soldier's worth of strength: 100 soldiers with 25 magic fight as 125.
+  var MAGIC_PER_SOLDIER = 0.25, MAGIC_PER_FORT = 25, MAGIC_CAP = 0.25;
+  // Food: cities and towns feed the army most. Each soldier eats UPKEEP food a turn, so food limits how big an army can be.
+  var FOOD = { v: 2, t: 4, c: 6, f: 3 }, UPKEEP = 0.05;
+  // Recruiting needs food in store: a nation recruits at full pace only while its food is at least RATION a soldier.
+  var RATION = 0.5;
   // Population is made by cities: a village 1, a town 2, a city 3. A fortress holds the ground but adds no more people than a city.
   var POP = { v: 1, t: 2, c: 3, f: 3 };
   // Training: the War direction spends food and gold to raise the army's skill a little each turn.
@@ -680,13 +686,18 @@
     var qa = strength / sent;                  // the army's strength per soldier marching
     var entry = st.provs[R.entry];
     var front = featureDef(entry) / 2;
-    var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
+    // The defenders spend magic too, on the same rule (up to a quarter of their soldiers).
+    var dSpent = Math.min(b.magic, b.soldiers * MAGIC_PER_SOLDIER);
+    b.magic -= dSpent;
+    var defBonus = 1 + (b.soldiers > 0 ? dSpent / b.soldiers : 0);
+    if (dSpent >= 1) addLog(b.name + ' spends ' + Math.floor(dSpent) + ' magic on the defence.');
+    var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus;
     var grade = weakestGrade(b);
     var pool = sent, d = b.soldiers;
     for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
       var w = pool / (WAVES - k);                     // this wave's share of the attackers still standing
       var A = w * qa;
-      var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
+      var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus;
       pool -= w * D / (A + D);                        // attackers lost, in proportion to the defence
       d -= d * A / (A + D);                           // defenders lost, in proportion to the attack
     }
@@ -705,7 +716,7 @@
       home(pool + Math.max(0, d));                     // the defenders who are left surrender to you
       b.soldiers = 0;
       addLog(b.name + ' surrenders to ' + a.name + (taken.length ? ', giving up ' + taken.length + ' province' + (taken.length === 1 ? '' : 's') + ' (' + taken.join(', ') + ').' : '.'));
-    } else if (pool * qa > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front && pool > 0) {
+    } else if (pool * qa > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus && pool > 0) {
       taken = captureMany(b, a, R.entry, 1);
       b.soldiers = Math.max(0, d);
       home(pool);                                      // survivors come home
@@ -903,8 +914,8 @@
     var pf = prodFactor(n);
     var farm = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'farm'; }).length;
     var tradeP = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'trade'; }).length;
-    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf + 0.5 * farm;
-    var upkeep = n.soldiers * 0.02;
+    var produced = (FOOD.v * n.v + FOOD.t * n.t + FOOD.c * n.c + FOOD.f * n.f) * (1.5 - n.guns) * pf + 0.5 * farm;
+    var upkeep = n.soldiers * UPKEEP;
     var foodNet = produced - upkeep;
     n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
@@ -913,10 +924,10 @@
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
     n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn, plus the technology trickle.
-    var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
-    n.magic += magicIn;
+    n.magic = Math.min(n.magic + MAGIC_PER_FORT * n.f, MAGIC_CAP * n.soldiers);
     // Culture draws in soldiers: up to +50% at 100 culture.
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf;
+    var cover = Math.min(1, n.food / Math.max(1, n.soldiers * RATION));   // thin food slows recruiting
+    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf * cover;
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
