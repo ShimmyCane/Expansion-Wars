@@ -38,7 +38,6 @@
   var TRACK_COST = { base: 10, growth: 1.15 };   // cost of the next level: base x growth^level
   var ARMY_BASE = 60;                             // the army cap before any Arms research
   // Other resources are turned into food when food runs low, so an army can always march or declare war.
-  var FOOD_FLOOR = 5, GOLD_PER_FOOD = 2, STONE_PER_FOOD = 3;
   // People eat too: each point of population needs this much food a turn. Population grows without limit, so food binds it.
   var POP_EAT = 0.5;
   // Recruiting needs food in store: a nation recruits at full pace only while its food is at least RATION a soldier.
@@ -295,7 +294,9 @@
   function civMult(n) { return 1 + TRACK.civic.per * n.research.civic; }
   function population(n) { return popRaw(n) * civMult(n); }
   function agriMult(n) { return 1 + TRACK.agri.per * n.research.agri; }
-  function armyCap(n) { return ARMY_BASE + TRACK.arms.per * n.research.arms; }
+  // The army is limited by the land (a map of a given size feeds only so many soldiers) and by the Arms track.
+  var LAND_SOLDIERS = 14;   // soldiers the land of one province can feed
+  function armyCap(n) { return Math.min(ARMY_BASE + TRACK.arms.per * n.research.arms, LAND_SOLDIERS * provs(n)); }
   function trackCost(n, k) { return Math.ceil(TRACK_COST.base * Math.pow(TRACK_COST.growth, n.research[k])); }
   // Spend science on the next level of a track. Returns a message when it cannot.
   function investAt(n, k) {
@@ -305,15 +306,14 @@
     n.research[k]++;
     return null;
   }
-  // Keep food above the floor by buying it with gold, then stone.
-  function topUpFood(n) {
-    if (!n.alive || n.food >= FOOD_FLOOR) return;
-    var need = FOOD_FLOOR - n.food;
-    var goldFood = Math.min(need, Math.floor(n.gold / GOLD_PER_FOOD));
-    n.gold -= goldFood * GOLD_PER_FOOD; n.food += goldFood; need -= goldFood;
-    var stoneFood = Math.min(need, Math.floor(n.stone / STONE_PER_FOOD));
-    n.stone -= stoneFood * STONE_PER_FOOD; n.food += stoneFood;
-    if (n.id === 0 && goldFood + stoneFood > 0) addLog('Food was low, so ' + (goldFood + stoneFood) + ' food was bought (' + goldFood * GOLD_PER_FOOD + ' gold, ' + stoneFood * STONE_PER_FOOD + ' stone).');
+  // Buy food by hand: 10 food for 20 gold, or 10 food for 30 stone. Returns a message when it cannot.
+  var BUY = { food: 10, gold: 20, stone: 30 };
+  function buyFood(n, pay) {
+    var c = pay === 'stone' ? BUY.stone : BUY.gold;
+    if (n[pay] < c) return 'Not enough ' + pay + ' (' + c + ').';
+    n[pay] -= c;
+    n.food += BUY.food;
+    return null;
   }
   // Power = population density (per spot) x quality x soldiers.
   function power(n) {
@@ -865,6 +865,11 @@
       if (mine) addLog(AIM[aim].name + ' plan: research ' + TRACK[k].name + ' to level ' + n.research[k] + '.');
       return true;
     });
+    // Computer nations buy food themselves when it runs low (you buy by hand): gold first, then stone.
+    if (!mine && n.food < 5) {
+      if (n.gold >= BUY.gold) buyFood(n, 'gold');
+      else if (n.stone >= BUY.stone) buyFood(n, 'stone');
+    }
     // Training comes from a surplus only, after the builds and upgrades above have had their turn.
     if (aim === 'war' && n.food - TRAIN.food >= keep.food + 20 && n.gold - TRAIN.gold >= keep.gold + 20) {
       spend(n, { food: TRAIN.food, gold: TRAIN.gold });
@@ -961,10 +966,11 @@
     var farm = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'farm'; }).length;
     var tradeP = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'trade'; }).length;
     var produced = (FOOD.v * n.v + FOOD.t * n.t + FOOD.c * n.c + FOOD.f * n.f) * (1.5 - n.guns) * pf * agriMult(n) + 0.5 * farm;
-    var upkeep = n.soldiers * UPKEEP + population(n) * POP_EAT;
-    var foodNet = produced - upkeep;
-    n.food += foodNet;
+    // Food goes first to the army (the top line), then to the people. An army the land cannot feed starves.
+    n.food += produced - n.soldiers * UPKEEP;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
+    n.food -= population(n) * POP_EAT;
+    if (n.food < 0) { n.food = 0; n.unrest = Math.min(100, n.unrest + 2); }   // hungry people riot
     // Gold is taxed from the people: each village 1, town 2, city 3 (the population weights). Fortresses pay no tax.
     n.gold += (POP.v * n.v + POP.t * n.t + POP.c * n.c) * civMult(n) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
     // Science: cities mainly, and fortresses.
@@ -975,7 +981,7 @@
     n.magic = Math.min(n.magic + MAGIC_PER_FORT * n.f, MAGIC_CAP * n.soldiers);
     // Culture draws in soldiers: up to +50% at 100 culture.
     var cover = Math.min(1, n.food / Math.max(1, n.soldiers * RATION));   // thin food slows recruiting
-    n.soldiers = Math.min(armyCap(n), n.soldiers + (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf * cover);   // the Arms track is a hard cap
+    n.soldiers = Math.max(n.soldiers, Math.min(armyCap(n), n.soldiers + (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf * cover));   // the cap is hard for new recruits
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -1007,7 +1013,6 @@
 
   function resolveTurn() {
     if (!st || st.over) return;
-    alive().forEach(topUpFood);
     alive().forEach(autopilot);   // every nation spends towards its direction; yours plans a claim or attack if you have none queued
     planAI();
     var q = st.queue;
@@ -1445,10 +1450,12 @@
         rb.addEventListener('click', function () { var err = investAt(n, k); addLog(err || 'Research: ' + TRACK[k].name + ' is now level ' + n.research[k] + '.'); render(); });
         rs.appendChild(rb);
       });
-      var bf = el('button', 'big', 'Buy 10 food (20 gold)');
-      bf.disabled = n.gold < 20;
-      bf.addEventListener('click', function () { if (n.gold >= 20) { n.gold -= 20; n.food += 10; addLog('You bought 10 food for 20 gold.'); } else addLog('Not enough gold (20).'); render(); });
-      rs.appendChild(bf);
+      [['gold', 'Buy 10 food (20 gold)'], ['stone', 'Buy 10 food (30 stone)']].forEach(function (pair) {
+        var bf = el('button', 'big', pair[1]);
+        bf.disabled = n[pair[0]] < BUY[pair[0]];
+        bf.addEventListener('click', function () { var err = buyFood(n, pair[0]); addLog(err || 'You bought 10 food with ' + pair[0] + '.'); render(); });
+        rs.appendChild(bf);
+      });
       els.card.appendChild(rs);
       var vill = el('div', 'card-buttons');
       var vc = villageCost(n);
