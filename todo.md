@@ -137,7 +137,9 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [x] **Research tracks:** Agriculture (+8% food a level), Civics (+5% population a level), Arms (+60 army cap a level). Costs rise each level.
 - [x] **Army hard cap** from Arms. Recruiting stops at the cap.
 - [x] **People eat** 0.5 food a turn each. Population has no cap.
-- [x] **Food top-up:** gold and stone become food below 5. A Buy 10 food button for the player.
+- [x] **Food top-up is manual** (version 2.20): Buy 10 food with gold or stone. Computer nations buy food themselves when short.
+- [x] **Soldiers eat first** (the top line), then people. Hunger raises unrest.
+- [x] **The land caps the army:** 14 soldiers a province, and the Arms track can lift the cap only as far as the land allows.
 - [ ] **Open:** Growth still has a food surplus (convo v0.17 question 1). Science curve and Arms cost (question 2). Auto or manual top-up (question 3).
 
 ## V4 round 4 (version 4.2): battlefield generator

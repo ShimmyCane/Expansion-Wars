@@ -10,9 +10,10 @@
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
-  var VERSION = '2.19';
+  var VERSION = '2.20';
   // One version for each change merged since the country layer began (2.0). Newest first.
   var LOG = [
+    ['2.20', 'Food top-up by hand (10 food for 20 gold or 30 stone); soldiers eat first, then people (hunger raises unrest); the land caps the army at 14 soldiers a province (convo v0.18)'],
     ['2.19', 'Science from cities and fortresses, spent on Agriculture, Civics and Arms (Arms is the hard army cap); people eat food; food tops up from gold and stone so armies can always move (convo v0.17)'],
     ['2.18', 'Fortresses make magic (25 a turn each), spent on an attack or a defence at one point per four soldiers (up to a quarter of the army); the stock holds a quarter of the army. Food: cities feed the army most, soldiers eat more, and thin food slows recruiting (convo v0.15)'],
     ['2.17', 'Allies attack together: every ally at war with the target joins one army, each paying its own march, with 5% less strength for each extra nation (convo v0.15)'],
