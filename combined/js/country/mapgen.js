@@ -8,7 +8,7 @@
   function makeNation(i, p, poly) {
     return {
       id: i, name: K().NAMES[i], x: p.x, y: p.y, alive: true, neutral: i >= K().NEUTRAL_FROM, area: G.polyArea(poly), nb: [],
-      soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5, food: 20, gold: 30, stone: 10,
+      soldiers: 160, tech: 10, morale: 50, happy: 50, guns: 0.5, food: 20, gold: 30, stone: 10,
       magic: 0, culture: 0, unrest: 0, warTurns: 0, aim: 'growth', science: 0, research: { agri: 0, civic: 0, arms: 0 }
     };
   }
@@ -16,7 +16,7 @@
   function provinceNode(rnd, owner, c, tier) {
     return {
       id: 0, kind: 'province', owner: owner, home: owner, x: c.x, y: c.y, tier: tier, origTier: tier,
-      def: 1 + Math.floor(rnd() * 3), gar: owner < 0 ? 2 + Math.floor(rnd() * 3) : W.CONFIG.START_GAR,
+      def: 1 + Math.floor(rnd() * 3), gar: owner < 0 ? 8 + Math.floor(rnd() * 12) : W.CONFIG.START_GAR,
       occ: 0, lostTurn: -99, lostFrom: -1, cell: null, adj: [], adjRiver: [], mount: false, river: false
     };
   }

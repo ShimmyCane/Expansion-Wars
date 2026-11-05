@@ -24,18 +24,19 @@
     UPKEEP: 0.05,            // food a soldier eats a turn: field army and garrisons alike
     WAR_UPKEEP: 1.5,         // the War direction eats this much more
     GAR_KEEP: 2,             // a garrison this small stays put when it moves towards the border
-    AUTO_MOVE: 0.5,          // share of the spare garrison a border-bound province sends each turn
+    AUTO_MOVE: 0.25,         // share of the spare garrison a border-bound province sends each step
+    MIGRATE_EVERY: 3,        // world seconds between garrison migrations: garrisons drift to the border all the time, peace or war
     TOWER_COST: { gold: 30, stone: 20 },   // upgrading a fortress tower (its range doubles)
     SCIENCE: { v: 0.5, t: 1, c: 2, f: 1.5 },
     TRACK: {
       agri: { name: 'Agriculture', icon: '🌾', per: 0.08, text: '+8% food a level' },
       civic: { name: 'Civics', icon: '🏛️', per: 0.05, text: '+5% population a level (gold follows it)' },
-      arms: { name: 'Arms', icon: '🛡️', per: 60, text: '+60 to the army cap a level' }
+      arms: { name: 'Arms', icon: '🛡️', per: 240, text: '+240 to the army cap a level' }
     },
     TRACK_KEYS: ['agri', 'civic', 'arms'],
     TRACK_COST: { base: 10, growth: 1.15 },
-    ARMY_BASE: 60,                   // the army cap before any Arms research
-    LAND_SOLDIERS: 14,               // soldiers one province can feed
+    ARMY_BASE: 240,                  // the army cap before any Arms research (4x the first version)
+    LAND_SOLDIERS: 56,               // soldiers one province can feed (4x)
     POP_EAT: 0.5,                    // food a point of population eats a turn
     RATION: 0.5,                     // recruiting runs at full pace with this much food per soldier in store
     POP: { v: 1, t: 2, c: 3, f: 3 },
@@ -79,7 +80,7 @@
     },
     RELEASE_CHUNK: 10, BUYOUT_GOLD: 2, DISBAND_GOLD: 0.5, RELEASE_MIN: 2,
     START_VILLAGES: 2, START_TOWNS: 1,
-    NEUTRAL_MAX: 6, NEUTRAL_GROW: 0.5,
+    NEUTRAL_MAX: 24, NEUTRAL_GROW: 2,   // neutral garrisons 4x
     FEATURE_NAME: { farm: 'farmland', trade: 'trade route', defence: 'defensive ground' },
     VALUE: { e: 0.5, v: 1, t: 2, c: 3, f: 4 }
   };

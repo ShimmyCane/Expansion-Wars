@@ -30,7 +30,7 @@
 
     // Soldiers stationed in a province (its garrison). A nation's field army is separate (nation.soldiers).
     // START_GAR: the garrison of each province a nation starts with.
-    START_GAR: 5,
+    START_GAR: 20,
 
     // A finished battle is kept in world.battles. The list is trimmed to this many.
     BATTLES_KEPT: 40,

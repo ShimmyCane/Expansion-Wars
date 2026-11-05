@@ -57,8 +57,8 @@
   function isBorder(w, n, p) {
     return p.adj.some(function (q) { var Q = w.provs[q]; return Q.kind === 'province' && Q.owner !== n.id; });
   }
-  // Garrisons move towards the border each turn, for every nation.
-  C.autoMoves = function (w) {
+  // Garrisons move towards the border, for every nation. silent: no log line (the migration runs often).
+  C.autoMoves = function (w, silent) {
     C.alive(w).forEach(function (n) {
       C.ownedBy(w, n).forEach(function (p) {
         if (!(p.gar > K().GAR_KEEP) || isBorder(w, n, p)) return;
@@ -75,9 +75,18 @@
         if (share < 1) return;
         p.gar -= share;
         best.q.gar = (best.q.gar || 0) + share;
-        if (n.id === w.you) W.log(w, 'Garrison moved towards the border.');
+        if (n.id === w.you && !silent) W.log(w, 'Garrison moved towards the border.');
       });
     });
+  };
+
+  // Garrisons drift towards the border all the time: every MIGRATE_EVERY world seconds, in peace and in war alike.
+  var migrateT = 0;
+  C.migrate = function (w, worldDt) {
+    migrateT += Math.max(0, worldDt);
+    if (migrateT < K().MIGRATE_EVERY) return;
+    migrateT = 0;
+    C.autoMoves(w, true);
   };
 
   // Upgrade a fortress tower: its range doubles. Paid in gold and stone.

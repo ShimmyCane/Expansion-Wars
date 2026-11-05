@@ -14,7 +14,6 @@
     q.filter(function (x) { return x.type !== 'attack' && x.type !== 'claim' && x.type !== 'move'; }).forEach(function (x) { C.applyDiplomacy(w, x); });
     // Garrison moves: the orders you queued, then the garrisons that move to the border on their own.
     C.resolveMoves(w, q);
-    C.autoMoves(w);
     w.used = {};
     q.filter(function (x) { return x.type === 'attack'; }).sort(function () { return Math.random() - 0.5; })
       .forEach(function (x) { C.battle(w, x); });

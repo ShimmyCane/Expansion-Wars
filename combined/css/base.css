@@ -37,6 +37,9 @@ button[aria-pressed="true"] { background: var(--ink); color: var(--paper); borde
 .ready { font-weight: 700; }
 .fast { min-height: 34px; padding: 4px 10px; box-shadow: none; }
 .fast[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* A fight: its ticker, and the join button under it */
+.fight-box { border: 2px solid var(--war); border-radius: 12px; padding: 8px 10px; display: grid; gap: 6px; background: #fff5f3; }
+.fight-box p { margin: 0; }
 /* A fight that wants joining: red, so it cannot be missed */
 button.join { background: var(--war); color: #fff; border-color: #9c2a3a; box-shadow: 0 2px 0 #9c2a3a; font-weight: 700; }
 button.join:active { box-shadow: 0 1px 0 #9c2a3a; }

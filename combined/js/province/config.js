@@ -6,8 +6,8 @@
     SPEED: 30,              // map units a real second for marching soldiers (the window shows about a fifth of the map)
     RIVER_SLOW: 0.5,        // crossing a river border marches at this share of the speed
     // Garrisons grow in real time, drawn from the owner's field army (nation.soldiers): soldiers a second, and the cap.
-    GROW: { e: 0.3, v: 1.0, t: 1.5, c: 2.0, f: 0.5 },
-    CAP: { e: 10, v: 20, t: 40, c: 60, f: 120 },
+    GROW: { e: 1.2, v: 4.0, t: 6.0, c: 8.0, f: 2.0 },   // 4x the first version
+    CAP: { e: 40, v: 80, t: 160, c: 240, f: 480 },
     // Fortress towers: an enemy march in range is slowed to SLOW of its speed and shot at DMG soldiers a second.
     // A tower upgraded to 2 (country card) has its range multiplied by UPGRADED_MUL.
     FORT: { range: 40, dmg: 2, slow: 0.5, upgradedMul: 2 },

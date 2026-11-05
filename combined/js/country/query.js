@@ -30,7 +30,8 @@
   C.population = function (w, n) { return C.popRaw(w, n) * C.civMult(n); };
   // The army is capped by the land (LAND_SOLDIERS a province) and by the Arms track.
   C.armyCap = function (w, n) {
-    return Math.min(K().ARMY_BASE + K().TRACK.arms.per * n.research.arms, K().LAND_SOLDIERS * C.provCount(w, n));
+    // Civics (population) multiplies both the base cap and the land that feeds it; Arms (research) raises the base.
+    return Math.min((K().ARMY_BASE + K().TRACK.arms.per * n.research.arms) * C.civMult(n), K().LAND_SOLDIERS * C.provCount(w, n) * C.civMult(n));
   };
   C.trackCost = function (n, k) { return Math.ceil(K().TRACK_COST.base * Math.pow(K().TRACK_COST.growth, n.research[k])); };
 
