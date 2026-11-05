@@ -217,12 +217,12 @@ Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160).
 - [ ] **Time.** Country turn half as fast (120 s). Province time half as fast. Fortress fights get double dilation. ×2 fast-forward at country and province.
 - [ ] **Province view.** Select provinces, not population centres. Click and drag to move troops.
 - [ ] **Country route orders.** Tap a source, then a target, through neighbours. Moves the chosen share.
-- [ ] **Muster once a turn.** The +10 from the field army button is limited (question 2).
+- [ ] **Muster once a turn.** The +10 from the field army button works once per province per turn.
 - [ ] **Food.** Garrisons and the field army eat. War uses much more food.
 - [ ] **One army cap.** Field army and garrisons count together.
-- [ ] **Garrisons to the border.** Move garrisons toward hostile borders first, then neutral (question 4).
+- [ ] **Garrisons to the border.** Garrisons move by command (then act as a field army), or automatically toward hostile then neutral borders in province and country views.
 - [ ] **Towers.** Slow attackers to 50% and keep shooting. Upgrade doubles the range.
 - [ ] **Walls from town up.** Villages get no settlement wall.
-- [ ] **Allies fold in.** Soldiers marching into an ally's province join its garrison instead of vanishing (bug).
-- [ ] **Province fights.** Risk-like dice, or unit battles for fights (question 1).
-- [ ] **Field army trips.** A set number of trips per turn (question 3).
+- [ ] **Allies fold in.** Soldiers marching into an ally's province join its garrison, as a donation, instead of vanishing (bug).
+- [ ] **Province fights.** Enemy entering a province shows a red Join battle button. If not joined, the fight resolves in risk-style dice rounds.
+- [ ] **Movement limit.** Each army moves up to 3 provinces per turn (starting value).

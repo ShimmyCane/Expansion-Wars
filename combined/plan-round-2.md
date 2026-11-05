@@ -60,22 +60,20 @@
 | "I wonder if I should be using risk rules … and using unit battles to really push" | Use the battle screen for fights | Question 1 below. |
 | "The field army is a set number of trips you can deploy per turn and can be used to fight" (you liked this) | Trips per turn | Question 3 below. |
 
-## Questions to answer before the code
+## Decisions (answered 2026-11-05)
 
-1. **Fights (section 7).** Which do you want?
-   - **(a)** Province fights become dice rounds, as in Risk: 3 attacking dice against 2 defending dice per round, the loser of each round loses one soldier. Unit battles stay for the big fights.
-   - **(b)** Keep the one-to-one province fight and send fortress fights to the unit screen.
-   - **(c)** Something else (describe it).
-2. **Muster once a turn.** Once per nation per turn, or once per province per turn?
-3. **Field army trips.** How many trips does a nation get per turn? Default 3.
-4. **Garrison move.** An order you give, or automatic each turn toward the border (as the computer does)?
-5. **Allies.** Marching into an ally's province adds the soldiers to that ally's garrison. Is that what you expect?
-6. **Status.** Answered: `done` is fine. The 14 notes are marked `done` now, as read.
+1. **Fights: risk-style, with a join button.** When an enemy enters one of your provinces, a red pop-up button appears: **Join battle** (opens the unit scale). If you don't join, the fight resolves in the background with risk-style dice rounds. There is enough time to join partway through. Dice rounds default to 3 attacking dice against 2 defending dice per round; the loser of each round loses one soldier. Joining at any point opens the unit battle from where the fight stands.
+2. **Muster: once per province per turn.**
+3. **Movement: distance, not trips.** Each army can move up to **3 provinces per turn**. Starting value; tune after play.
+4. **Garrisons.** A garrison can be moved by command and then acts as a field army. In the province and country views, garrisons move automatically toward the border provinces (hostile borders first, then neutral).
+5. **Allies: a donation.** Soldiers that march into an ally's province become part of that ally's garrison.
+6. **Status.** Mark each note `done` once it is built. No `read` status is added.
 
 ## Order of work (after you answer)
 
 1. Time (section 1) and the ×2 control. Small, and it changes how everything else feels.
 2. Walls, tower and army cap (sections 4 and 5). Rules only, with tests.
 3. Allies folding in (section 6). Fixes a real bug.
-4. Province drag and route orders (sections 2 and 3). Mostly UI.
-5. Fight rules and trips (section 7), after your answers.
+4. Movement limit of 3 provinces, once-a-turn muster, and garrison move (sections 3 and 4).
+5. Risk-style fights with the Join battle button (section 7).
+6. Province drag and route orders (sections 2 and 3). Mostly UI.
