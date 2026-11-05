@@ -1,6 +1,6 @@
 # Expansion Wars — V4 Schematic (battle view)
 
-**Status:** Custom battle built (V4). Round 2: vision, defender plan, attack and rush moves, rally, fixed-step replay. Round 4 (V4.2): battlefield generator, 2 × 2 field with mini map, walled settlements, roads and bridges, hiding and ambush strikes, fronts, fatigue. Not linked from V2: phase 5 is not started. Balance is a first pass.
+**Status:** Custom battle built (V4). Round 2: vision, defender plan, attack and rush moves, rally, fixed-step replay. Round 4 (V4.2): battlefield generator, 2 × 2 field with mini map, walled settlements, roads and bridges, hiding and ambush strikes, fronts, fatigue. Round 5 (V4.3): planned routes you edit, formations of up to two groups, a third team and allies, defending, geography seed, collapsible panels. Not linked from V2: phase 5 is not started. Balance is a first pass.
 **Owner:** Jimmy
 **Platform:** Same as V2: plain HTML/CSS/JS in `V4/`, no build step. Opens from `V4/index.html`.
 **Relationship:** Separate from V2 (root `index.html`, `js/country.js`). V2 keeps changing. V4 does not edit V2 files until the contract below is agreed.
@@ -371,3 +371,38 @@ Decisions from Jimmy, recorded here. Built in one pass; the choices where the re
 - The camera is pan by pad and tap only, with no drag or pinch.
 - The team randomizer deals counts; it does not pick a nation's garrison or a province's pool.
 - The strike pop-up is tested in a browser with a forced prompt. A real hidden-unit approach has not been played.
+
+
+## Round 5 (V4.3): routes, formations, third team and allies, defending
+
+Decisions from Jimmy, recorded here.
+
+- **Planned marches.** Each unit's march is a dashed line along the route it will really take (the same flow field the units use, so it goes round walls and over bridges). A unit that will stop (hold, station, ambush) has a dashed ring where it will stand. "Show" chooses mine (default), the selected unit or its formation, or none.
+- **Routes you adjust.** With a unit selected and the battle in planning (deployment, or paused), tap ground to add a point to its route. Drag a numbered point to move it. Tap a dashed line to insert a point there. "Remove last point" and "Stop here" are in the unit panel; "Done" deselects. The route is sent to the battle as a command at each change, so replays keep it. In real time a tap is a single move, as before.
+- **Arranging the army.** At set-up your army is placed by role across its spawn box: infantry in front, toward the enemy; archers in the middle; cavalry on the flanks. Units with a formation keep their places in it when it marches.
+- **Two formations.** Each unit is in group 1 (Line) or group 2 (Horse). Cavalry start in group 2 and everything else in group 1. A formation can be selected: tap ground and the whole group marches, each unit keeping its offset from the group's centre. Hold, strategy and shape also apply to a whole formation. The unit panel moves a unit to the other formation.
+- **Approach as a formation.** The default approach is one point per formation, with each unit keeping its place. A formation approaches the flank, the middle or the base as one.
+- **Third team and allies.** A third team comes in from the north edge. Its allegiance is hostile to both, allied with the attacker, or allied with the defender. Allies share what they see and win or lose together: a battle ends when only one alliance is left standing, or when one alliance holds every objective. A team gives up when it is down to a twentieth of its hostile teams' strength.
+- **Defending.** "You are" chooses the attacker, the defender or (with a third team) the third team. The computer plays every other team. The random-teams button chooses attacker or defender at random too.
+- **Random teams** sets the numbers for every team, and the third team's allegiance when there is one. Numbers can be changed afterwards: tap a number, then scroll the wheel to change it by one. The wheel only works once the number has been tapped, so the page still scrolls elsewhere.
+- **Geography.** The ground has its own seed (`geoSeed`), so 🗺️ New geography changes the map and keeps the armies and orders. The battle seed is kept separate.
+- **Site toggles.** Woods, tall grass, roads, settlement walls, the river (none, fords or bridges) and the openings each have a control in the generator. Turning walls off leaves the settlement as open ground.
+- **Panels fold.** Every panel on the setup and battle screens opens and closes from its heading.
+
+### Interpretations (to confirm)
+
+- **Route editing is for planning only**: during deployment or while paused. In real time a tap gives a single move or attack, as before.
+- **Formations take one point.** A formation's march is one point with offsets, not a multi-point route. Routes are per unit.
+- **The third team is run by the computer** and marches on the first objective. It has no formation or plan of its own.
+- **Result shape.** `winner` is `attacker`, `defender` or `third`. `winners` lists the whole winning alliance, so an allied win is visible to V2. `pool`, `losses` and `survivors` gain a `third` entry when there is a third team.
+
+### Tests and checks
+
+- `node V4/tests/sim.test.js`: 45 checks pass (15 new for this round, covering routes, groups, arrangement, allies, defending, geography and site toggles).
+- Headless Chromium: setup with the third team, the number wheel, random teams, geography button, a battle with routes (tap, drag, insert on a line), a formation march, the strike pop-up, and the camera. No page errors. Defending and an allied win were checked by unit test only, not played in the browser.
+
+### Still open
+
+- The balance is not tuned for the third team, the formations, or defending.
+- Formations march to one point; there are no multi-point formation routes.
+- The third team has no plan of its own.

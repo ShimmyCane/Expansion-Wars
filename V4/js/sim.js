@@ -1,10 +1,9 @@
 // Expansion Wars — V4 battle simulation. No DOM: runs in the browser and in Node.
-// Side 0 is the attacker (the player in a custom battle), side 1 the defender. Positions are in tiles.
-// The battle runs in fixed steps of C.TICK seconds, so the same seed and the same orders give the same battle.
+// Teams: 0 is the attacker, 1 the defender, 2 an optional third team. Allies share vision and win or lose together.
+// Positions are in tiles. The battle runs in fixed steps of C.TICK seconds, so the same seed and orders give the same battle.
 (function () {
   'use strict';
   var V4 = window.V4, C = V4.CONFIG;
-  var WORD = ['Attacker', 'Defender'];
   var EPS = 0.01;
   var TICK = C.TICK;
   var PI = Math.PI;
@@ -14,6 +13,7 @@
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
   function wrap(a) { while (a > PI) a -= 2 * PI; while (a < -PI) a += 2 * PI; return a; }
+  function name(t) { return C.TEAM_NAME[t]; }
 
   function tileCode(st, x, y) {
     var c = Math.floor(x), r = Math.floor(y);
@@ -32,6 +32,10 @@
   }
   function facingOn(st) { return !!st.gen.facing && st.scale !== 'village'; }
   function fatigueOn(st) { return !!st.gen.fatigue; }
+
+  // Teams that are allied with each other (a team is allied with itself).
+  function allied(st, a, b) { return a === b || !!st.allied[a][b]; }
+  function isPlayer(st, u) { return st.you !== null && u.side === st.you; }
 
   // People in one dot at a scale. Cavalry are half a grain, catapults a crew of up to four.
   function peopleFor(scale, type) {
@@ -59,9 +63,10 @@
   function newUnit(st, side, type, strategy, formation, x, y, people) {
     var u = {
       id: st.nextId++, side: side, type: type, people: people, start: people, morale: 100,
-      x: x, y: y, facing: side === 0 ? 1 : -1, dir: side === 0 ? 0 : PI,
+      x: x, y: y, facing: side === 0 ? 1 : -1, dir: side === 0 ? 0 : (side === 1 ? PI : PI / 2),
       formation: formation || 'line', strategy: strategy || 'engage',
       plan: { strategy: strategy || 'engage', formation: formation || 'line' },
+      group: C.DEFAULT_GROUP[type] || 1, offset: null,
       order: null, station: null, approach: null, state: 'active',
       ambushT: 0, ambushSeen: false, sprung: false, hidden: false,
       strikePrompt: false, strikeOrdered: false, revealT: 0,
@@ -76,19 +81,21 @@
 
   function sightOf(u) { return C.SIGHT[u.type] + (u.side === 1 ? C.DEFENDER_SIGHT_BONUS : 0); }
 
-  // Each side sees what any of its units can see. A unit in woods or tall grass is seen only from close by,
-  // until it fires or strikes (then it is revealed for a few seconds).
+  // Each team sees what any of its units, or any ally's unit, can see. A unit in woods or tall grass is seen only from
+  // close by, until it fires or strikes (then it is revealed for a few seconds).
   function computeVision(st) {
-    st.seen = [{}, {}];
+    st.seen = st.allied.map(function () { return {}; });
     st.units.forEach(function (u) {
       u.hidden = u.state === 'active' && !!C.TERRAIN[tileCode(st, u.x, u.y) || 'g'].hides && u.revealT <= 0;
     });
     st.units.forEach(function (v) {
       if (v.state !== 'active') return;
       st.units.forEach(function (e) {
-        if (e.side === v.side || (e.state !== 'active' && e.state !== 'routing')) return;
+        if (allied(st, e.side, v.side) || (e.state !== 'active' && e.state !== 'routing')) return;
         var range = e.hidden ? C.HIDE.range : sightOf(v);
-        if (dist(v.x, v.y, e.x, e.y) <= range) st.seen[v.side][e.id] = true;
+        if (dist(v.x, v.y, e.x, e.y) <= range) {
+          for (var t = 0; t < st.teams; t++) if (allied(st, t, v.side)) st.seen[t][e.id] = true;
+        }
       });
     });
   }
@@ -96,7 +103,7 @@
   function visibleEnemy(st, u) {
     var best = null, bd = Infinity, seen = st.seen[u.side];
     st.units.forEach(function (v) {
-      if (v.side === u.side || v.state !== 'active' || !seen[v.id]) return;
+      if (allied(st, v.side, u.side) || v.state !== 'active' || !seen[v.id]) return;
       var d = dist(u.x, u.y, v.x, v.y);
       if (d < bd) { bd = d; best = v; }
     });
@@ -107,7 +114,7 @@
   function nearestAny(st, u) {
     var best = null, bd = Infinity;
     st.units.forEach(function (v) {
-      if (v.side === u.side || v.state !== 'active') return;
+      if (allied(st, v.side, u.side) || v.state !== 'active') return;
       var d = dist(u.x, u.y, v.x, v.y);
       if (d < bd) { bd = d; best = v; }
     });
@@ -117,7 +124,7 @@
   function seenWithin(st, u, range) {
     var seen = st.seen[u.side];
     return st.units.some(function (v) {
-      return v.side !== u.side && v.state === 'active' && seen[v.id] && dist(u.x, u.y, v.x, v.y) <= range;
+      return !allied(st, v.side, u.side) && v.state === 'active' && seen[v.id] && dist(u.x, u.y, v.x, v.y) <= range;
     });
   }
 
@@ -127,7 +134,7 @@
     st.units.forEach(function (v) {
       if (v === u || v.state !== 'active') return;
       if (dist(u.x, u.y, v.x, v.y) > r) return;
-      if (v.side === u.side) friends += v.people; else if (seen[v.id]) foes += v.people;
+      if (allied(st, v.side, u.side)) friends += v.people; else if (seen[v.id]) foes += v.people;
     });
     return { friends: friends, foes: foes };
   }
@@ -177,13 +184,12 @@
     }
   }
 
-  // Walks toward a point by the flow field, so units go round walls and through gates and bridges.
-  function goTo(st, u, tx, ty, mul, dt) {
+  // The next tile on the way to a target: the neighbour with the smallest walking distance, or null if there is none.
+  function nextStep(st, x, y, tx, ty) {
     var f = flowField(st, tx, ty);
-    var c = clamp(Math.floor(u.x), 0, st.cols - 1), r = clamp(Math.floor(u.y), 0, st.rows - 1);
+    var c = clamp(Math.floor(x), 0, st.cols - 1), r = clamp(Math.floor(y), 0, st.rows - 1);
     var cur = f[r * st.cols + c];
-    if (cur < 0) return moveUnit(st, u, tx, ty, mul, dt);   // cannot find a way: go straight at it
-    if (cur === 0) return moveUnit(st, u, tx, ty, mul, dt);  // in the target tile: close in
+    if (cur <= 0) return null;
     var best = null, bestD = cur;
     DIRS.forEach(function (o) {
       var nc = c + o[0], nr = r + o[1];
@@ -191,7 +197,34 @@
       var nd = f[nr * st.cols + nc];
       if (nd >= 0 && nd < bestD) { bestD = nd; best = { x: nc + 0.5, y: nr + 0.5 }; }
     });
-    if (best) moveUnit(st, u, best.x, best.y, mul, dt);
+    return best;
+  }
+
+  // Walks toward a point by the flow field, so units go round walls and through gates and bridges.
+  function goTo(st, u, tx, ty, mul, dt) {
+    var f = flowField(st, tx, ty);
+    var c = clamp(Math.floor(u.x), 0, st.cols - 1), r = clamp(Math.floor(u.y), 0, st.rows - 1);
+    var cur = f[r * st.cols + c];
+    if (cur <= 0) return moveUnit(st, u, tx, ty, mul, dt);   // no way found, or in the target tile: go straight at it
+    var n = nextStep(st, u.x, u.y, tx, ty);
+    if (n) moveUnit(st, u, n.x, n.y, mul, dt);
+  }
+
+  // The route a unit will take to a point, as points on the tile grid (for drawing the planned march).
+  function pathTo(st, x0, y0, x1, y1) {
+    var pts = [{ x: x0, y: y0 }], x = x0, y = y0, guard = 0;
+    var f = flowField(st, x1, y1);
+    if (f[clamp(Math.floor(y), 0, st.rows - 1) * st.cols + clamp(Math.floor(x), 0, st.cols - 1)] < 0) {
+      pts.push({ x: x1, y: y1 });
+      return pts;
+    }
+    while (guard++ < 2000) {
+      var n = nextStep(st, x, y, x1, y1);
+      if (!n) break;
+      pts.push(n); x = n.x; y = n.y;
+    }
+    pts.push({ x: x1, y: y1 });
+    return pts;
   }
 
   function face(st, u, e) { if (facingOn(st)) u.dir = Math.atan2(e.y - u.y, e.x - u.x); }
@@ -213,7 +246,7 @@
     }
   }
 
-  // Fight or close in on a target the unit can see. Returns true if the unit acted.
+  // Fight or close in on a target the unit can see.
   function engage(st, u, en, dt, hits, mul) {
     var U = C.UNIT[u.type];
     if (en.d <= U.range && en.d >= U.minRange) { fire(st, u, en.e, en.d, hits); return true; }
@@ -236,11 +269,24 @@
     u.revealT = C.HIDE.reveal;
     var hit = 0;
     st.units.forEach(function (v) {
-      if (v.side === u.side || v.state !== 'active') return;
+      if (allied(st, v.side, u.side) || v.state !== 'active') return;
       var d = dist(u.x, u.y, v.x, v.y);
       if (d <= C.STRIKE.range) { hits.push({ a: u, b: v, d: d, burst: true }); hit++; }
     });
-    log(st, WORD[u.side] + ' ' + C.UNIT[u.type].label.toLowerCase() + ' strike from cover' + (hit ? '.' : ' at nothing.'));
+    log(st, name(u.side) + ' ' + C.UNIT[u.type].label.toLowerCase() + ' strike from cover' + (hit ? '.' : ' at nothing.'));
+  }
+
+  // Walks a route: each point in turn. Fights what it meets on the way unless it is a rush.
+  function followRoute(st, u, o, en, dt, hits) {
+    var target = o.points[o.i];
+    if (o.mode === 'move' && en) { engage(st, u, en, dt, hits, 1); return true; }
+    if (dist(u.x, u.y, target.x, target.y) > 0.3) {
+      goTo(st, u, target.x, target.y, o.mode === 'rush' ? C.RUSH_MOVE : 1, dt);
+      return true;
+    }
+    o.i++;
+    if (o.i >= o.points.length) u.order = null;
+    return true;
   }
 
   function decide(st, u, dt, hits) {
@@ -256,21 +302,15 @@
     if (en && !u.ambushSeen && u.formation === 'column' && en.d <= C.AMBUSH.range && tileCode(st, en.e.x, en.e.y) === 'w') {
       u.ambushSeen = true;
       u.ambushT = C.AMBUSH.duration * (u.strategy === 'slow' ? C.STRATEGY.slow.ambushMul : 1);
-      log(st, WORD[u.side] + ' column is caught in an ambush.');
+      log(st, name(u.side) + ' column is caught in an ambush.');
     }
 
     // Orders come first.
     var o = u.order;
     if (o) {
-      if (o.kind === 'rush') {
-        // Rush move: runs to the point and ignores enemies on the way.
-        if (dist(u.x, u.y, o.x, o.y) > 0.3) { goTo(st, u, o.x, o.y, C.RUSH_MOVE, dt); return; }
-        u.order = null;
-      } else if (o.kind === 'attackMove') {
-        // Attack move: fights anything it can see on the way, otherwise keeps going.
-        if (en) { engage(st, u, en, dt, hits, 1); return; }
-        if (dist(u.x, u.y, o.x, o.y) > 0.3) { goTo(st, u, o.x, o.y, 1, dt); return; }
-        u.order = null;
+      if (o.kind === 'route') {
+        followRoute(st, u, o, en, dt, hits);
+        return;
       } else if (o.kind === 'hold') {
         if (en && en.d <= U.range && en.d >= U.minRange) fire(st, u, en.e, en.d, hits);
         return;
@@ -291,7 +331,7 @@
       }
     }
 
-    // A stationed unit (the defender's line) fights within its leash and otherwise stays put.
+    // A stationed unit (a defender's line) fights within its leash and otherwise stays put.
     if (u.station) {
       var nearStation = en && dist(en.e.x, en.e.y, u.station.x, u.station.y) <= C.AI.leash;
       if (!nearStation) {
@@ -313,7 +353,7 @@
     if (u.strategy === 'ambush' && !u.sprung) {
       var near = nearestAny(st, u);
       if (!near || near.d > C.STRATEGY.ambush.trigger) { u.strikePrompt = false; return; }
-      if (u.side === 1 || st.gen.ambush === 'auto' || u.strikeOrdered) { strike(st, u, hits); return; }
+      if (!isPlayer(st, u) || st.gen.ambush === 'auto' || u.strikeOrdered) { strike(st, u, hits); return; }
       u.strikePrompt = true;
       return;
     }
@@ -338,12 +378,12 @@
 
   function retreat(st, u, dt) {
     // A routing unit runs for its own edge until it rallies.
-    var tx = u.side === 0 ? 0 : st.cols;
+    var tx = u.side === 1 ? st.cols : 0;
     var T = terrainAt(st, u.x, u.y);
     var step = C.MORALE.routSpeed * T.speed * dt;
     var nx = u.x + (tx > u.x ? step : -step);
     if (passableAt(st, nx, u.y)) u.x = nx;
-    if ((u.side === 0 && u.x <= 0.05) || (u.side === 1 && u.x >= st.cols - 0.05)) u.state = 'gone';
+    if ((tx === 0 && u.x <= 0.05) || (tx > 0 && u.x >= st.cols - 0.05)) u.state = 'gone';
   }
 
   // ---- Damage, morale and routing -------------------------------------------
@@ -357,9 +397,12 @@
     return rel <= 0.75 * PI ? 1 : 2;
   }
 
-  function boostNear(st, side, x, y, range, amount) {
+  // Lifts or lowers the morale of units near a point: friends (allied teams) or foes.
+  function boostNear(st, side, x, y, range, amount, foes) {
     st.units.forEach(function (u) {
-      if (u.side !== side || (u.state !== 'active' && u.state !== 'routing')) return;
+      var friend = allied(st, u.side, side);
+      if (foes ? friend : !friend) return;
+      if (u.state !== 'active' && u.state !== 'routing') return;
       if (dist(u.x, u.y, x, y) <= range) u.morale = Math.min(100, u.morale + amount);
     });
   }
@@ -367,14 +410,14 @@
   function rout(st, u) {
     u.state = 'routing';
     u.order = null;
-    log(st, WORD[u.side] + ' ' + C.UNIT[u.type].label.toLowerCase() + ' break and run.');
+    log(st, name(u.side) + ' ' + C.UNIT[u.type].label.toLowerCase() + ' break and run.');
     st.units.forEach(function (v) {
       if (v.side === u.side && v.state === 'active' && dist(v.x, v.y, u.x, u.y) <= C.MORALE.neighbourRange) {
         v.morale -= C.MORALE.neighbourHit;
       }
     });
     // Enemies who see a unit break are encouraged.
-    boostNear(st, 1 - u.side, u.x, u.y, C.MORALE.enemyFleeRange, C.MORALE.enemyFlee);
+    boostNear(st, u.side, u.x, u.y, C.MORALE.enemyFleeRange, C.MORALE.enemyFlee, true);
   }
 
   // Damage is worked out for every hit first, then applied together, so the order of hits does not favour a side.
@@ -432,8 +475,8 @@
       if (u.people <= EPS) {
         u.people = 0;
         u.state = 'dead';
-        log(st, WORD[u.side] + ' ' + C.UNIT[u.type].label.toLowerCase() + ' is destroyed.');
-        boostNear(st, 1 - u.side, u.x, u.y, C.MORALE.enemyFleeRange, C.MORALE.death);
+        log(st, name(u.side) + ' ' + C.UNIT[u.type].label.toLowerCase() + ' is destroyed.');
+        boostNear(st, u.side, u.x, u.y, C.MORALE.enemyFleeRange, C.MORALE.death, true);
       }
     });
     st.units.forEach(function (u) {
@@ -465,7 +508,7 @@
         if (u.still > C.MORALE.pauseAfter) u.morale += C.MORALE.pause * TICK;
       }
       var steady = st.units.some(function (v) {
-        return v !== u && v.side === u.side && v.state === 'active' && v.morale >= C.MORALE.allyMorale &&
+        return v !== u && allied(st, v.side, u.side) && v.state === 'active' && v.morale >= C.MORALE.allyMorale &&
           dist(u.x, u.y, v.x, v.y) <= C.MORALE.allyRange;
       });
       if (steady) u.morale += C.MORALE.allies * TICK;
@@ -474,31 +517,40 @@
       if (u.state === 'routing' && u.morale >= C.MORALE.rallyAt && !seenWithin(st, u, C.MORALE.threatRange)) {
         u.state = 'active';
         u.order = null;
-        log(st, WORD[u.side] + ' ' + C.UNIT[u.type].label.toLowerCase() + ' rally.');
+        log(st, name(u.side) + ' ' + C.UNIT[u.type].label.toLowerCase() + ' rally.');
       }
     });
   }
 
   // ---- Objectives, bell and reinforcements ----------------------------------
 
+  // The team that holds a point is the one team present there, or the team with most units when allies share it.
+  // A point is contested (and no one gains) while two hostile teams stand on it.
   function updateObjectives(st, dt) {
     st.field.objectives.forEach(function (o) {
-      var n = [0, 0];
+      var n = [];
+      for (var t = 0; t < st.teams; t++) n[t] = 0;
       st.units.forEach(function (u) {
         if (u.state === 'active' && dist(u.x, u.y, o.x, o.y) <= o.r) n[u.side]++;
       });
-      var s = null;
-      if (n[0] > 0 && n[1] === 0) s = 0;
-      else if (n[1] > 0 && n[0] === 0) s = 1;
+      var present = [], s = null;
+      for (var k = 0; k < st.teams; k++) if (n[k] > 0) present.push(k);
+      var groupOf = present.length ? present[0] : null;
+      var single = present.every(function (k) { return allied(st, k, groupOf); });
+      if (present.length && single) {
+        s = present[0];
+        present.forEach(function (k) { if (n[k] > n[s]) s = k; });
+      }
       if (s === null) return;
-      var other = 1 - s;
-      o.prog[s] = Math.min(C.HOLD, o.prog[s] + dt);
-      o.prog[other] = Math.max(0, o.prog[other] - dt);
+      for (var j = 0; j < st.teams; j++) {
+        if (j === s) o.prog[j] = Math.min(C.HOLD, o.prog[j] + dt);
+        else if (!allied(st, j, s)) o.prog[j] = Math.max(0, o.prog[j] - dt);
+      }
       if (o.prog[s] >= C.HOLD && o.owner !== s) {
         o.owner = s;
         st.captures++;
-        boostNear(st, s, o.x, o.y, o.r * 2, C.MORALE.capture);
-        log(st, WORD[s] + ' takes ' + o.name + '.');
+        boostNear(st, s, o.x, o.y, o.r * 2, C.MORALE.capture, false);
+        log(st, name(s) + ' takes ' + o.name + '.');
       }
     });
   }
@@ -537,6 +589,14 @@
     return null;   // 'none': units stay where they are until ordered
   }
 
+  // A computer-run team marches on the first objective.
+  function marchOn(st, team) {
+    var o = st.field.objectives[0];
+    st.units.forEach(function (u) {
+      if (u.side === team && !u.levy && u.state === 'active') u.order = { kind: 'route', points: [{ x: o.x, y: o.y }], i: 0, mode: 'move' };
+    });
+  }
+
   function updateReinforce(st, dt) {
     st.reinforceT -= dt;
     if (st.reinforceT > 0) return;
@@ -552,18 +612,19 @@
       var edge = st.field.edge[0];
       var p = edge.length ? edge[Math.floor(st.rng() * edge.length)] : { x: 0.5, y: st.rows / 2 };
       var u = newUnit(st, 0, d.type, d.strategy, d.formation, p.x, p.y, need);
-      u.approach = approachFor(st, st.gen.approach);
+      if (isPlayer(st, u)) u.approach = approachFor(st, st.gen.approach);
+      else u.order = { kind: 'route', points: [{ x: st.field.objectives[0].x, y: st.field.objectives[0].y }], i: 0, mode: 'move' };
       log(st, 'Reinforcements arrive: ' + C.UNIT[d.type].label.toLowerCase() + '.');
       break;
     }
   }
 
-  // People a side can still bring: those on the field, plus what is on its way.
-  function strength(st, side) {
+  // People a team can still bring: those on the field, plus what is on its way.
+  function strength(st, team) {
     var n = 0;
-    st.units.forEach(function (u) { if (u.side === side && u.state === 'active') n += u.people; });
-    if (side === 0) st.reserve.forEach(function (d) { n += peopleFor(st.scale, d.type); });
-    if (side === 1 && st.bell && !st.bell.done) {
+    st.units.forEach(function (u) { if (u.side === team && u.state === 'active') n += u.people; });
+    if (team === 0) st.reserve.forEach(function (d) { n += peopleFor(st.scale, d.type); });
+    if (team === 1 && st.bell && !st.bell.done) {
       n += Math.min(Math.floor(st.bell.population / C.BELL.popPerLevy), Math.floor(st.pool[1] / levyPeople(st))) * levyPeople(st);
     }
     return n;
@@ -571,52 +632,89 @@
 
   // ---- End of battle ---------------------------------------------------------
 
+  // The teams allied with t, in order.
+  function alliance(st, t) {
+    var out = [];
+    for (var k = 0; k < st.teams; k++) if (allied(st, k, t)) out.push(k);
+    return out;
+  }
+
   function finish(st, winner, how) {
-    st.done = { winner: winner, how: how, t: Math.round(st.t * 10) / 10 };
-    log(st, WORD[winner] + ' wins (' + how + ').');
+    var members = alliance(st, winner);
+    st.done = { winner: winner, how: how, t: Math.round(st.t * 10) / 10, winners: members };
+    log(st, name(winner) + (members.length > 1 ? ' and allies' : '') + ' win (' + how + ').');
+  }
+
+  // The team to credit when team t gives up: the strongest team hostile to it.
+  function opponentOf(st, t, alive) {
+    var best = null, bs = -1;
+    alive.forEach(function (k) {
+      if (allied(st, k, t)) return;
+      var s = strength(st, k);
+      if (s > bs) { bs = s; best = k; }
+    });
+    return best === null ? (t === 0 ? 1 : 0) : best;
   }
 
   function checkEnd(st) {
     if (st.done) return;
-    var act = [0, 0], routed = [0, 0];
-    st.units.forEach(function (u) {
-      if (u.state === 'active') act[u.side]++;
-      else if (u.state === 'routing') routed[u.side]++;
+    var act = [], routed = [], pend = [], t, u;
+    for (t = 0; t < st.teams; t++) { act[t] = 0; routed[t] = 0; pend[t] = 0; }
+    st.units.forEach(function (x) {
+      if (x.state === 'active') act[x.side]++;
+      else if (x.state === 'routing') routed[x.side]++;
     });
-    var pending = [st.reserve.length, st.bell && !st.bell.done ? 1 : 0];
+    pend[0] = st.reserve.length;
+    if (st.bell && !st.bell.done) pend[1] = 1;
+    var alive = [];
+    for (t = 0; t < st.teams; t++) if (act[t] + pend[t] > 0) alive.push(t);
 
-    if (st.manual !== null) return finish(st, 1 - st.manual, 'surrender');
+    if (st.manual !== null) return finish(st, opponentOf(st, st.manual, alive.length ? alive : [0, 1]), 'surrender');
 
-    // Objective victories count only after a capture, so the defender holding its settlement at the start does not end the battle.
+    // Objectives: all of them held by one alliance, after a capture (so a defender holding its settlement at the start does not end it).
     var obj = st.field.objectives;
-    if (st.captures > 0 && obj.length && obj.every(function (o) { return o.owner === 0; })) return finish(st, 0, 'objectives');
-    if (st.captures > 0 && obj.length && obj.every(function (o) { return o.owner === 1; })) return finish(st, 1, 'objectives');
-
-    for (var s = 0; s < 2; s++) {
-      if (act[s] === 0 && pending[s] === 0) {
-        // Every unit routed is a surrender. No units at all is a rout.
-        return finish(st, 1 - s, routed[s] > 0 ? 'surrender' : 'rout');
-      }
+    if (st.captures > 0 && obj.length && obj[0].owner !== null) {
+      var holders = alliance(st, obj[0].owner);
+      if (obj.every(function (o) { return o.owner !== null && holders.indexOf(o.owner) >= 0; })) return finish(st, obj[0].owner, 'objectives');
     }
-    var s0 = strength(st, 0), s1 = strength(st, 1);
-    if (s0 * C.SURRENDER_RATIO <= s1) return finish(st, 1, 'surrender');
-    if (s1 * C.SURRENDER_RATIO <= s0) return finish(st, 0, 'surrender');
+
+    if (alive.length === 0) return finish(st, 1, 'rout');   // no units at all: a rout
+    // Teams that are still in play, grouped by alliance. One group left means the battle is over.
+    var groups = [];
+    alive.forEach(function (k) {
+      var g = alliance(st, k);
+      if (!groups.some(function (h) { return h.indexOf(k) >= 0; })) groups.push(g);
+    });
+    if (groups.length === 1) {
+      var anyRouted = [];
+      for (t = 0; t < st.teams; t++) if (alive.indexOf(t) < 0 && routed[t] > 0) anyRouted.push(t);
+      return finish(st, alive[0], anyRouted.length ? 'surrender' : 'rout');
+    }
+
+    // A team that is down to a twentieth of its enemies' strength gives up.
+    var str = [];
+    for (t = 0; t < st.teams; t++) str[t] = strength(st, t);
+    for (var i = 0; i < alive.length; i++) {
+      var a = alive[i], foes = 0;
+      alive.forEach(function (k) { if (!allied(st, k, a)) foes += str[k]; });
+      if (foes > 0 && str[a] * C.SURRENDER_RATIO <= foes) return finish(st, opponentOf(st, a, alive), 'surrender');
+    }
 
     if (st.tick * TICK >= st.cap) {
-      var attackerHolds = st.captures > 0 && obj.length && obj.every(function (o) { return o.owner === 0; });
+      var attackerHolds = st.captures > 0 && obj.length && obj.every(function (o) { return o.owner !== null && allied(st, o.owner, 0); });
       return attackerHolds ? finish(st, 0, 'objectives') : finish(st, 1, 'time');
     }
   }
 
   // ---- Computer plans --------------------------------------------------------
 
-  // The defender: a share of the infantry ambushes in the woods nearest the attack, the rest hold a station by the objective.
+  // The defender (computer): a share of the infantry ambushes in the woods nearest the attack, the rest hold a station by the objective.
   function planDefender(st) {
     var units = st.units.filter(function (u) { return u.side === 1 && !u.levy; });
     var c = st.field.objectives[0];
     var woods = st.field.woodTiles.filter(function (p) { return p.x >= c.x - 2 && p.x <= c.x + 20; });   // woods on the defender's side of the objective
     var want = woods.length ? Math.floor(units.length * C.AI.ambushShare) : 0;
-    var ambushers = 0, stations = 0;   // the defence centres on the first objective
+    var ambushers = 0, stations = 0;
     units.forEach(function (u) {
       if (ambushers < want && u.type !== 'cavalry' && u.type !== 'catapults') {
         var w = woods[ambushers % woods.length];
@@ -633,21 +731,46 @@
     });
   }
 
-  // The attacker when the computer plays both sides: every unit attack-moves on the first objective.
-  function planAttacker(st) {
+  // ---- Arranging the army -------------------------------------------------------
+
+  // Where each role stands in a team's spawn box: front line toward the enemy, archers in the middle, cavalry on the flanks.
+  function arrangeArmy(st, team, dots) {
+    var bb = st.field.bbox[team], zone = st.field.spawn[team];
+    var cx = 0, cy = 0;
+    zone.forEach(function (p) { cx += p.x; cy += p.y; });
+    cx /= zone.length; cy /= zone.length;
     var o = st.field.objectives[0];
-    st.units.forEach(function (u) {
-      if (u.side === 0 && !u.levy) u.order = { kind: 'attackMove', x: o.x, y: o.y };
-    });
+    var ox = o.x - cx, oy = o.y - cy;
+    var depthX = Math.abs(ox) >= Math.abs(oy);   // the army faces along the longer side of the way to the objective
+    var front = depthX ? (ox > 0 ? bb.x1 - 1.5 : bb.x0 + 1.5) : (oy > 0 ? bb.y1 - 1.5 : bb.y0 + 1.5);
+    var sgn = depthX ? (ox > 0 ? -1 : 1) : (oy > 0 ? -1 : 1);
+    var lo = depthX ? bb.y0 + 1 : bb.x0 + 1, hi = depthX ? bb.y1 - 1 : bb.x1 - 1, mid = (lo + hi) / 2;
+    var roles = { front: [], centre: [], flank: [] };
+    dots.forEach(function (d) { roles[C.ROLE[d.type] || 'front'].push(d); });
+    function place(list, depth, lateral) {
+      list.forEach(function (d, i) {
+        var lat = list.length === 1 ? lateral(0.5) : lateral(i / (list.length - 1));
+        var x = depthX ? front + sgn * depth : lat, y = depthX ? lat : front + sgn * depth;
+        var u = d.unit;
+        var px = clamp(x, 0.5, st.cols - 0.5), py = clamp(y, 0.5, st.rows - 0.5);
+        if (!passableAt(st, px, py)) { px = cx; py = cy; }
+        u.x = px; u.y = py;
+      });
+    }
+    // Each entry carries its unit so the placement can be set after the unit exists.
+    var lateralSpan = function (a, b) { return function (f) { return a + (b - a) * f; }; };
+    place(roles.front.map(function (d) { return { unit: d.unit }; }), 1.5, lateralSpan(lo, hi));
+    place(roles.centre.map(function (d) { return { unit: d.unit }; }), 4, lateralSpan(mid - 3, mid + 3));
+    place(roles.flank.map(function (d) { return { unit: d.unit }; }), 1.5, function (f) { return f < 0.5 ? lo + 0.5 : hi - 0.5; });
   }
 
-  // ---- Public API ------------------------------------------------------------
-
-  function placeArmy(st, side, specs) {
+  // Players' units placed in deployment: by role when the army is arranged, otherwise spread along the zone.
+  function placeArmy(st, side, specs, arranged) {
     var dots = [];
     specs.forEach(function (s) { expand(s).forEach(function (d) { dots.push(d); }); });
     var zone = st.field.spawn[side], n = dots.length;
-    if (!zone.length) return;
+    if (!zone || !zone.length) return;
+    var created = [];
     for (var i = 0; i < n; i++) {
       var d = dots[i], need = peopleFor(st.scale, d.type);
       if (st.pool[side] < need) break;
@@ -655,27 +778,95 @@
       var p = zone[Math.floor((i + 0.5) * zone.length / n)];
       var x = p.x + (st.rng() - 0.5) * 0.6, y = p.y + (st.rng() - 0.5) * 0.6;
       if (!passableAt(st, x, y)) { x = p.x; y = p.y; }
-      newUnit(st, side, d.type, d.strategy, d.formation, x, y, need);
+      created.push({ type: d.type, strategy: d.strategy, formation: d.formation, need: need, x: x, y: y });
     }
+    if (arranged && created.length) {
+      var units = created.map(function (c) { return { type: c.type, unit: null, c: c }; });
+      // Make the units first, at their spread positions, then move them into their arranged places.
+      created.forEach(function (c) { c.unit = newUnit(st, side, c.type, c.strategy, c.formation, c.x, c.y, c.need); });
+      arrangeArmy(st, side, created.map(function (c) { return { type: c.type, unit: c.unit }; }));
+      return;
+    }
+    created.forEach(function (c) { newUnit(st, side, c.type, c.strategy, c.formation, c.x, c.y, c.need); });
   }
+
+  // Groups: each player unit is in group 1 or 2. Each group's offsets from its centre are kept, so a group moves as one.
+  function setGroupOffsets(st, team) {
+    var groups = {};
+    st.units.forEach(function (u) {
+      if (u.side !== team || u.state !== 'active') return;
+      (groups[u.group] = groups[u.group] || []).push(u);
+    });
+    Object.keys(groups).forEach(function (g) {
+      var list = groups[g], cx = 0, cy = 0;
+      list.forEach(function (u) { cx += u.x; cy += u.y; });
+      cx /= list.length; cy /= list.length;
+      list.forEach(function (u) { u.offset = { x: u.x - cx, y: u.y - cy }; });
+    });
+  }
+
+  // A group's approach: one point for the group, with every member keeping its place in the formation.
+  function setGroupApproach(st, team, mode) {
+    var groups = {};
+    st.units.forEach(function (u) {
+      if (u.side !== team || u.state !== 'active') return;
+      (groups[u.group] = groups[u.group] || []).push(u);
+    });
+    Object.keys(groups).forEach(function (g) {
+      var anchor = approachFor(st, mode);
+      groups[g].forEach(function (u) {
+        if (!anchor) { u.approach = null; return; }
+        u.approach = { x: clamp(anchor.x + (u.offset ? u.offset.x : 0), 0.5, st.cols - 0.5), y: clamp(anchor.y + (u.offset ? u.offset.y : 0), 0.5, st.rows - 0.5) };
+      });
+    });
+  }
+
+  // The planned march of a unit, as points (for drawing). A stopped unit has no march: its future spot is its station or current spot.
+  V4.plannedPath = function (st, u) {
+    if (!u || u.state !== 'active') return null;
+    var o = u.order;
+    if (o && o.kind === 'route') {
+      var pts = [{ x: u.x, y: u.y }], px = u.x, py = u.y;
+      for (var i = o.i; i < o.points.length; i++) {
+        var seg = pathTo(st, px, py, o.points[i].x, o.points[i].y);
+        pts = pts.concat(seg.slice(1));
+        px = o.points[i].x; py = o.points[i].y;
+      }
+      return { kind: 'march', points: pts, stop: null };
+    }
+    if (o && o.kind === 'hold') return { kind: 'stop', points: [], stop: { x: u.x, y: u.y } };
+    if (u.station) return { kind: 'stop', points: [], stop: { x: u.station.x, y: u.station.y } };
+    if (u.strategy === 'ambush' && !u.sprung) return { kind: 'stop', points: [], stop: { x: u.x, y: u.y } };
+    if (u.approach && dist(u.x, u.y, u.approach.x, u.approach.y) > 0.5) {
+      return { kind: 'march', points: pathTo(st, u.x, u.y, u.approach.x, u.approach.y), stop: null };
+    }
+    return null;
+  };
+
+  // ---- Public API ------------------------------------------------------------
 
   V4.createBattle = function (req, opts) {
     opts = opts || {};
     var scale = req.scale || 'fortress';
-    var rng = V4.rng(req.seed || 1);
     var gen = V4.genOf(req);
-    var field = V4.buildField(req, rng);
+    var field = V4.buildField(req);
+    var teams = req.third ? 3 : 2;
+    var allied = [];
+    for (var a = 0; a < 3; a++) { allied[a] = [false, false, false]; allied[a][a] = true; }
+    (req.alliances || []).forEach(function (pair) { allied[pair[0]][pair[1]] = true; allied[pair[1]][pair[0]] = true; });
+    var you = req.mode === 'auto' ? null : (req.you === undefined ? 0 : req.you);
+    var rng = V4.rng(req.seed || 1);
     var st = {
-      seed: req.seed || 1, mode: req.mode || 'play', gen: gen,
+      seed: req.seed || 1, mode: req.mode || 'play', gen: gen, you: you, teams: teams, allied: allied,
       t: 0, tick: 0, scale: scale, grain: C.GRAIN[scale], cap: C.CAP[scale],
       cols: field.cols, rows: field.rows, deployX: field.deployX,
       field: field, rng: rng, units: [], nextId: 1, flows: {},
       animate: !!opts.animate, events: [], log: [], commands: [],
-      pool: [req.attacker.pool || 0, req.defender.pool || 0],
-      losses: [zeroTypes(), zeroTypes()], levies: 0,
+      pool: [req.attacker.pool || 0, req.defender.pool || 0, req.third ? (req.third.pool || 0) : 0],
+      losses: [zeroTypes(), zeroTypes(), zeroTypes()], levies: 0,
       done: null, manual: null, captures: 0,
       reserve: [], bell: null, reinforceT: C.REINFORCE_EVERY,
-      seen: [{}, {}]
+      seen: []
     };
     var attackerDots = [];
     (req.attacker.reserve || []).forEach(function (s) { expand(s).forEach(function (d) { attackerDots.push(d); }); });
@@ -686,14 +877,19 @@
       st.bell = { done: false, population: req.defender.population };
     }
 
-    placeArmy(st, 0, req.attacker.units || []);
-    placeArmy(st, 1, req.defender.units || []);
-    if (req.defender.ai !== false) planDefender(st);
-    if (req.mode === 'auto') planAttacker(st);
-    else if (gen.approach !== 'none') {
-      st.units.forEach(function (u) {
-        if (u.side === 0 && !u.levy) u.approach = approachFor(st, gen.approach);
-      });
+    var specs = [req.attacker.units || [], req.defender.units || [], req.third ? (req.third.units || []) : []];
+    for (var t = 0; t < teams; t++) placeArmy(st, t, specs[t], t === you);
+
+    // Groups: the player's army is in up to two groups, with a place in the formation.
+    if (you !== null) {
+      setGroupOffsets(st, you);
+      if (gen.approach !== 'none') setGroupApproach(st, you, gen.approach);
+    }
+    // The computer plays every team that is not the player's.
+    for (t = 0; t < teams; t++) {
+      if (t === you) continue;
+      if (t === 1) { if (req.defender.ai !== false) planDefender(st); else marchOn(st, 1); }
+      else marchOn(st, t);
     }
     computeVision(st);
     checkEnd(st);
@@ -732,12 +928,15 @@
   };
 
   // Player commands. Each accepted command is recorded with the tick it was given on, so a replay can apply it at the same moment.
-  //   place      (before the battle starts) move one of your units within your deployment zone
-  //   move       attack move to a point (the default click)
+  //   place      (before the battle) move one of your units within your deployment box
+  //   move       attack move to a point (a route of one point)
   //   rush       rush move to a point, ignoring enemies on the way
+  //   route      a route through several points: { points, mode: 'move' | 'rush' }
   //   attack     attack a named enemy unit
   //   strike     a hidden unit strikes now (only when it has offered the strike)
   //   hold, strategy, formation, proceed, surrender
+  //   assign     put one of your units in group 1 or 2
+  //   group      give one order to a whole group: { group, action: move | rush | hold | strategy | formation, x, y or value }
   V4.issue = function (st, cmd) {
     if (st.done) return false;
     var ok = apply(st, cmd);
@@ -745,24 +944,37 @@
     return ok;
   };
 
+  function validPoint(p) { return p && isFinite(p.x) && isFinite(p.y); }
+
   function apply(st, cmd) {
-    if (cmd.kind === 'surrender') { st.manual = cmd.side; checkEnd(st); return true; }
+    if (cmd.kind === 'surrender') {
+      if (cmd.side === undefined || cmd.side === null || cmd.side < 0 || cmd.side >= st.teams) return false;
+      st.manual = cmd.side; checkEnd(st); return true;
+    }
+    if (cmd.kind === 'group') return applyGroup(st, cmd);
     var u = findUnit(st, cmd.unit);
-    if (!u || u.state !== 'active') return false;
+    if (!u || u.state !== 'active' || !isPlayer(st, u)) return false;   // you only give orders to your own units
     switch (cmd.kind) {
       case 'place':
-        if (st.tick !== 0 || u.side !== 0 || cmd.x > st.deployX || cmd.x < 0.5 || !passableAt(st, cmd.x, cmd.y)) return false;
+        if (st.tick !== 0 || !inBox(st, u.side, cmd.x, cmd.y) || !passableAt(st, cmd.x, cmd.y)) return false;
         u.x = cmd.x; u.y = cmd.y; return true;
-      case 'move': u.order = { kind: 'attackMove', x: cmd.x, y: cmd.y }; return true;
-      case 'rush': u.order = { kind: 'rush', x: cmd.x, y: cmd.y }; return true;
+      case 'move': u.order = { kind: 'route', points: [{ x: cmd.x, y: cmd.y }], i: 0, mode: 'move' }; return true;
+      case 'rush': u.order = { kind: 'route', points: [{ x: cmd.x, y: cmd.y }], i: 0, mode: 'rush' }; return true;
+      case 'route':
+        if (!Array.isArray(cmd.points) || !cmd.points.length || !cmd.points.every(validPoint)) return false;
+        u.order = { kind: 'route', points: cmd.points.map(function (p) { return { x: p.x, y: p.y }; }), i: 0, mode: cmd.mode === 'rush' ? 'rush' : 'move' };
+        return true;
       case 'attack':
         var t = findUnit(st, cmd.target);
-        if (!t || t.side === u.side) return false;
+        if (!t || allied(st, t.side, u.side)) return false;
         u.order = { kind: 'attack', target: t.id }; return true;
       case 'hold': u.order = { kind: 'hold' }; return true;
       case 'strike':
-        if (u.side !== 0 || !u.strikePrompt) return false;
+        if (!u.strikePrompt) return false;
         u.strikeOrdered = true; return true;
+      case 'assign':
+        if (cmd.group !== 1 && cmd.group !== 2) return false;
+        u.group = cmd.group; return true;
       case 'strategy':
         if (!C.STRATEGY[cmd.value]) return false;
         u.strategy = cmd.value; u.order = null; u.sprung = false; u.strikePrompt = false; return true;
@@ -776,33 +988,78 @@
     return false;
   }
 
+  // A group command gives every member of a group the same order. A move keeps each member's place in the group.
+  function applyGroup(st, cmd) {
+    if (st.you === null || (cmd.group !== 1 && cmd.group !== 2)) return false;
+    var members = st.units.filter(function (u) { return u.side === st.you && u.group === cmd.group && u.state === 'active'; });
+    if (!members.length) return false;
+    var cx = 0, cy = 0;
+    members.forEach(function (u) { cx += u.x; cy += u.y; });
+    cx /= members.length; cy /= members.length;
+    switch (cmd.action) {
+      case 'move':
+      case 'rush':
+        if (!validPoint(cmd)) return false;
+        members.forEach(function (u) {
+          var px = clamp(cmd.x + (u.x - cx), 0.5, st.cols - 0.5), py = clamp(cmd.y + (u.y - cy), 0.5, st.rows - 0.5);
+          u.order = { kind: 'route', points: [{ x: px, y: py }], i: 0, mode: cmd.action === 'rush' ? 'rush' : 'move' };
+        });
+        return true;
+      case 'hold':
+        members.forEach(function (u) { u.order = { kind: 'hold' }; });
+        return true;
+      case 'strategy':
+        if (!C.STRATEGY[cmd.value]) return false;
+        members.forEach(function (u) { u.strategy = cmd.value; u.order = null; u.sprung = false; u.strikePrompt = false; });
+        return true;
+      case 'formation':
+        if (!C.FORMATION[cmd.value]) return false;
+        members.forEach(function (u) { u.formation = cmd.value; });
+        return true;
+    }
+    return false;
+  }
+
+  function inBox(st, team, x, y) {
+    var b = st.field.bbox[team];
+    return !!b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+  }
+
   // The result that goes back to V2. Pool is what each side has at home after the battle.
   V4.result = function (st) {
-    var d = st.done || { winner: null, how: 'running', t: st.t };
-    var survivors = [zeroTypes(), zeroTypes()], surv = [0, 0];
+    var d = st.done || { winner: null, how: 'running', t: st.t, winners: [] };
+    var survivors = [], surv = [], t;
+    for (t = 0; t < st.teams; t++) { survivors[t] = zeroTypes(); surv[t] = 0; }
     st.units.forEach(function (u) {
       if (u.state === 'dead') return;
       survivors[u.side][u.type] += u.people;
       surv[u.side] += u.people;
     });
-    var captured = st.field.objectives.some(function (o) { return o.settlement && o.owner === 0; });
+    var captured = st.field.objectives.some(function (o) { return o.settlement && o.owner !== null && allied(st, o.owner, 0); });
     function round(obj) {
       var out = {};
       Object.keys(obj).forEach(function (k) { out[k] = Math.round(obj[k]); });
       return out;
     }
+    var losses = {}, sv = {}, pool = {};
+    for (t = 0; t < st.teams; t++) {
+      losses[name(t)] = round(st.losses[t]);
+      sv[name(t)] = round(survivors[t]);
+      pool[name(t)] = Math.round(st.pool[t] + surv[t]);
+    }
     return {
       seed: st.seed,
-      winner: d.winner === null ? null : (d.winner === 0 ? 'attacker' : 'defender'),
+      winner: d.winner === null ? null : name(d.winner),
+      winners: (d.winners || []).map(name),
       how: d.how,
-      captured: captured && d.winner === 0,
-      losses: { attacker: round(st.losses[0]), defender: round(st.losses[1]) },
-      survivors: { attacker: round(survivors[0]), defender: round(survivors[1]) },
-      pool: { attacker: Math.round(st.pool[0] + surv[0]), defender: Math.round(st.pool[1] + surv[1]) },
+      captured: captured && d.winner !== null && allied(st, d.winner, 0),
+      losses: { attacker: losses.attacker, defender: losses.defender, third: losses.third || {} },
+      survivors: { attacker: sv.attacker, defender: sv.defender, third: sv.third || {} },
+      pool: { attacker: pool.attacker, defender: pool.defender, third: pool.third || 0 },
       levies: st.levies,
       seconds: Math.round(st.t)
     };
   };
 
-  V4.sim = { newUnit: newUnit, peopleFor: peopleFor, findUnit: findUnit, visibleEnemy: visibleEnemy, zeroTypes: zeroTypes, localCount: localCount };
+  V4.sim = { newUnit: newUnit, peopleFor: peopleFor, findUnit: findUnit, visibleEnemy: visibleEnemy, zeroTypes: zeroTypes, localCount: localCount, allied: allied };
 })();

@@ -15,53 +15,85 @@
     <span class="note">Sandbox to test the battlefield. Not linked from V2.</span>
   </header>
 
-  <!-- Setup -->
+  <!-- Setup. Each panel folds: tap its heading to open or close it. -->
   <section id="screen-setup" class="screen">
-    <p class="intro">Build a custom battle, as in Total War. Choose the armies and the ground. Then place your units, and the battle runs in real time. Pause at any time to give orders.</p>
+    <p class="intro">Build a custom battle, as in Total War. Choose the armies and the ground. Then arrange your units, plan their routes, and start. Pause at any time to plan or give orders.</p>
 
-    <div class="card">
-      <h2>The fight</h2>
-      <label>Seed <input type="number" id="sc-seed" min="1" placeholder="random"></label>
-      <label>Scale <select id="sc-scale"></select></label>
-      <label>Settlement <select id="sc-settle"></select></label>
-      <label class="check"><input type="checkbox" id="sc-woods" checked> Woods on both sides</label>
-      <p class="muted small">The same seed and the same orders give the same battle. The seed is shown during the battle.</p>
-    </div>
-
-    <div class="card">
-      <h2>Armies</h2>
-      <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale. The defender is planned by the computer.</p>
-      <div id="sc-types"></div>
-      <div class="row">
-        <button id="sc-balance" class="ghost" type="button">🎲 Random balanced teams</button>
-        <span id="sc-balance-note" class="muted small" aria-live="polite"></span>
+    <details class="card panel" open>
+      <summary><h2>The fight</h2></summary>
+      <div class="panel-body">
+        <label>Seed <input type="number" id="sc-seed" min="1" placeholder="random"></label>
+        <label>You are <select id="sc-you"></select></label>
+        <label>Scale <select id="sc-scale"></select></label>
+        <label>Settlement <select id="sc-settle"></select></label>
+        <p class="muted small">The same seed and the same orders give the same battle. The seed is shown during the battle.</p>
       </div>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Battlefield generator</h2>
-      <p class="muted small">Ground, roads and rules for this battle. The same choices are saved with the replay.</p>
-      <div class="grid2">
-        <label>Field <select id="sc-size"></select></label>
-        <label>Settlement openings <select id="sc-gates"></select></label>
-        <label>River <select id="sc-river"></select></label>
-        <label>Hidden units <select id="sc-ambush"></select></label>
-        <label>Default approach <select id="sc-approach"></select></label>
+    <details class="card panel" open>
+      <summary><h2>Armies</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Numbers are dots. Each dot is one unit of people, sized by the scale. Tap a number, then scroll to change it. The computer plans every team that is not yours.</p>
+        <div class="team-head">
+          <span></span><span></span>
+          <span class="col-a">Attacker</span><span class="col-d">Defender</span><span class="col-t" hidden>Third</span>
+        </div>
+        <div id="sc-types"></div>
+        <div class="row">
+          <button id="sc-balance" class="ghost" type="button">🎲 Random balanced teams</button>
+          <span id="sc-balance-note" class="muted small" aria-live="polite"></span>
+        </div>
+        <div class="grid2">
+          <label>Your strategy <select id="sc-strat-a"></select></label>
+          <label>Your formation <select id="sc-form-a"></select></label>
+        </div>
+        <p class="muted small">Your units are arranged by role when the battle is set up: the front line, the archers behind, the cavalry on the flanks.</p>
       </div>
-      <label class="check"><input type="checkbox" id="sc-roads"> Roads (faster travel)</label>
-      <label class="check"><input type="checkbox" id="sc-grass"> Tall grass (hides units)</label>
-      <label class="check"><input type="checkbox" id="sc-facing"> Fronts and flanks (battalions and squads)</label>
-      <label class="check"><input type="checkbox" id="sc-fatigue"> Fatigue (long marches and long fights tire units)</label>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Your opening plan</h2>
-      <p class="muted small">Applies to your units when the battle starts. You can change any unit during the battle.</p>
-      <div class="grid2">
-        <label>Strategy <select id="sc-strat-a"></select></label>
-        <label>Formation <select id="sc-form-a"></select></label>
+    <details class="card panel" open>
+      <summary><h2>Third team and allies</h2></summary>
+      <div class="panel-body">
+        <label class="check"><input type="checkbox" id="sc-third"> A third team comes in from the north</label>
+        <label>Third team's allegiance <select id="sc-third-ally"></select></label>
+        <p class="muted small">Allies share what they see and win or lose together. A team is out when it has no units left, or when it is down to a twentieth of its enemies' strength.</p>
       </div>
-    </div>
+    </details>
+
+    <details class="card panel" open>
+      <summary><h2>Battlefield generator</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Ground, roads and rules for this battle. The same choices are saved with the replay.</p>
+        <h3 class="sub">Ground</h3>
+        <div class="grid2">
+          <label>Field <select id="sc-size"></select></label>
+          <label>Geography seed <input type="number" id="sc-geo" min="1" placeholder="random"></label>
+        </div>
+        <div class="row">
+          <button id="sc-geo-new" class="ghost" type="button">🗺️ New geography</button>
+          <span class="muted small">Makes new ground. Your armies and orders stay the same.</span>
+        </div>
+        <h3 class="sub">Sites</h3>
+        <p class="muted small">Leave out any of these to clear them from the ground.</p>
+        <div class="toggles">
+          <label class="check"><input type="checkbox" id="sc-woods" checked> Woods</label>
+          <label class="check"><input type="checkbox" id="sc-grass" checked> Tall grass</label>
+          <label class="check"><input type="checkbox" id="sc-roads" checked> Roads</label>
+          <label class="check"><input type="checkbox" id="sc-walls" checked> Settlement walls</label>
+        </div>
+        <div class="grid2">
+          <label>River <select id="sc-river"></select></label>
+          <label>Settlement openings <select id="sc-gates"></select></label>
+        </div>
+        <h3 class="sub">Rules</h3>
+        <div class="grid2">
+          <label>Hidden units <select id="sc-ambush"></select></label>
+          <label>Default approach <select id="sc-approach"></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="sc-facing" checked> Fronts and flanks (battalions and squads)</label>
+        <label class="check"><input type="checkbox" id="sc-fatigue" checked> Fatigue (long marches and long fights tire units)</label>
+      </div>
+    </details>
 
     <button id="sc-start" class="big">▶ Set up the field</button>
   </section>
@@ -78,6 +110,11 @@
     </div>
 
     <div class="row">
+      <label>Marches <select id="bf-paths">
+        <option value="mine">Show mine</option>
+        <option value="selected">Show the selected one</option>
+        <option value="none">Hide them</option>
+      </select></label>
       <label>Click ground to <select id="bf-click-mode">
         <option value="move">attack move</option>
         <option value="rush">rush move</option>
@@ -100,20 +137,33 @@
     <p id="bf-deploy-note" class="deploy-note" hidden>Deployment. Place your units inside the blue strip, then begin.</p>
     <p id="bf-hint" class="hint"></p>
 
-    <div id="bf-unit" class="card unit-panel" hidden>
-      <div class="unit-head">
-        <strong id="bf-unit-name"></strong>
-        <span id="bf-unit-info" class="muted small"></span>
+    <details id="bf-formations" class="card panel" open>
+      <summary><h2>Formations</h2></summary>
+      <div class="panel-body">
+        <p class="muted small">Up to two formations. Give one command to a formation, and every unit keeps its place in it.</p>
+        <div id="bf-groups"></div>
       </div>
-      <div class="row">
-        <label>Strategy <select id="bf-unit-strategy"></select></label>
-        <label>Formation <select id="bf-unit-formation"></select></label>
+    </details>
+
+    <details id="bf-unit" class="card panel" open hidden>
+      <summary><h2 id="bf-unit-name"></h2></summary>
+      <div class="panel-body">
+        <p id="bf-unit-info" class="muted small"></p>
+        <p id="bf-route-info" class="muted small"></p>
+        <div class="row">
+          <label>Formation <select id="bf-unit-group"></select></label>
+          <label>Strategy <select id="bf-unit-strategy"></select></label>
+          <label>Shape <select id="bf-unit-formation"></select></label>
+        </div>
+        <div class="row">
+          <button id="bf-remove-point" class="ghost" type="button">Remove last point</button>
+          <button id="bf-stop" class="ghost" type="button">Stop here</button>
+          <button id="bf-hold" class="ghost" type="button">Hold</button>
+          <button id="bf-proceed" class="ghost" type="button">Proceed with original plan</button>
+          <button id="bf-done" class="ghost" type="button">Done</button>
+        </div>
       </div>
-      <div class="row">
-        <button id="bf-hold" class="ghost">Hold</button>
-        <button id="bf-proceed" class="ghost">Proceed with original plan</button>
-      </div>
-    </div>
+    </details>
 
     <div id="bf-result" class="card result" hidden>
       <h2 id="bf-result-title"></h2>
