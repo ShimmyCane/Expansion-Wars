@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — High scores</title>
+  <link rel="stylesheet" href="../shared/hub.css">
+  <style>
+    table { width: 100%; border-collapse: collapse; background: var(--card); border: 2px solid var(--line); border-radius: 16px; overflow: hidden; text-align: left; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 16px; }
+    th { font-size: 14px; color: var(--muted); font-weight: 700; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="hub">
+    <a class="archive" href="../index.html" style="margin:0 0 16px;display:block;">← Expansion Wars</a>
+    <h1>High scores</h1>
+    <p class="tag">The best ten wins saved on this device.</p>
+    <table id="scores" hidden>
+      <thead><tr><th>#</th><th class="num">Score</th><th>Level</th><th class="num">Time</th><th>When</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="none" class="empty" hidden>No wins yet. Win a level in the Province game and your score appears here.</p>
+  </main>
+  <script>
+    (function () {
+      'use strict';
+      // The province game keeps its best wins under this key (province/js/store.js, SCORES_KEY).
+      var list = [];
+      try { list = JSON.parse(localStorage.getItem('xw_scores_v1') || '[]'); } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      list = list.filter(function (s) { return s && typeof s.score === 'number'; })
+        .sort(function (a, b) { return b.score - a.score; }).slice(0, 10);
+      document.getElementById('none').hidden = list.length > 0;
+      if (!list.length) return;
+      document.getElementById('scores').hidden = false;
+      var body = document.querySelector('#scores tbody');
+      list.forEach(function (s, i) {
+        var tr = document.createElement('tr');
+        var secs = Math.round(Number(s.seconds) || 0);
+        var when = new Date(s.at);
+        [
+          String(i + 1),
+          String(s.score),
+          s.level ? 'Level ' + s.level : '',
+          Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'),
+          isNaN(when) ? '' : when.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+        ].forEach(function (text, k) {
+          var td = document.createElement('td');
+          if (k === 1 || k === 3) td.className = 'num';
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+    })();
+  </script>
+</body>
+</html>

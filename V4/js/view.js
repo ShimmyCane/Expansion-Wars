@@ -882,6 +882,10 @@
     $('bf-copy').addEventListener('click', copyReplay);
     $('bf-again').addEventListener('click', backToSetup);
     $('bf-back-setup').addEventListener('click', backToSetup);
+    // A saved battle chosen on the Map creator page: start it again from its request (same seed and settings).
+    var launch = null;
+    try { launch = JSON.parse(sessionStorage.getItem('xw-launch') || 'null'); sessionStorage.removeItem('xw-launch'); } catch (e) { launch = null; }
+    if (launch && launch.request) startBattle(launch.request);
     requestAnimationFrame(frame);
   }
 
