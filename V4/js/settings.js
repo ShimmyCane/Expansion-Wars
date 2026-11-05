@@ -3,8 +3,9 @@
 (function () {
   'use strict';
   var V4 = window.V4;
-  var VERSION = '4.3';
+  var VERSION = '4.4';
   var LOG = [
+    ['4.4', 'Kills by unit type in the result and the replay report; archers nerfed (damage 0.5 to 0.35)'],
     ['4.3', 'Planned marches with editable routes (tap, drag, insert); two formations that arrange by role and take one command; a third team with allies that win together; defending; geography seed and site toggles; collapsible panels; random teams for everyone; numbers scroll to adjust'],
     ['4.2', 'Battlefield generator: 2 × 2 field with mini map, walled settlements with 2 to 4 openings, roads, rivers with bridges, tall grass hiding, fronts and flanks, fatigue, default approaches, random balanced teams, hidden units strike on your word, outnumbered units fall back'],
     ['4.1', 'Version number in settings; family sign-in in a ⚙️ panel; replays saved to the family database'],
