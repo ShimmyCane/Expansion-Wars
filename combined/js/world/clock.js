@@ -9,6 +9,18 @@
   function cfg() { return W.CONFIG; }
   function turnEnd(w) { return w.time.turn * cfg().TURN; }
 
+  // How many world seconds pass per real second on a scale, now. The ×2 fast-forward (country and province only) doubles
+  // it. A fortress in the province window slows province time, so there is time to react.
+  W.rateFor = function (w, scale) {
+    var rate = cfg().RATE[scale] !== undefined ? cfg().RATE[scale] : 1;
+    if ((scale === 'country' || scale === 'province') && w.view.fast) rate *= cfg().FAST;
+    if (scale === 'province') {
+      var p = w.provs[w.view.prov];
+      if (p && p.kind === 'province' && p.tier === 'f') rate *= cfg().FORT_DILATION;
+    }
+    return rate;
+  };
+
   // World seconds left in this turn.
   W.turnLeft = function (w) { return Math.max(0, turnEnd(w) - w.time.t); };
 
@@ -18,13 +30,12 @@
   // Moves the world clock on by `real` real seconds at `scale`. A long pause (a tab asleep) ends one turn at most.
   W.advance = function (w, real, scale) {
     if (w.over) return;
-    var rate = cfg().RATE[scale] !== undefined ? cfg().RATE[scale] : 1;
-    w.time.t = Math.min(w.time.t + Math.max(0, real) * rate, turnEnd(w));
+    w.time.t = Math.min(w.time.t + Math.max(0, real) * W.rateFor(w, scale), turnEnd(w));
   };
 
   // Ends the turn now (the Ready button): the clock jumps to the end of the turn.
   W.skipToTurnEnd = function (w) { w.time.t = Math.max(w.time.t, turnEnd(w)); };
 
-  // How long a whole turn takes in real seconds at a scale (for the screen).
+  // How long a whole turn takes in real seconds at a scale (for the screen), without the ×2.
   W.realTurn = function (scale) { return cfg().TURN / (cfg().RATE[scale] || 1); };
 })();

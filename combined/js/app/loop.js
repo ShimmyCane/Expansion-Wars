@@ -21,8 +21,10 @@
     var dt = last === null ? 0 : Math.min(0.25, (now - last) / 1000);
     last = now;
     if (w) {
-      var scale = w.view.scale;
+      var scale = w.view.scale, rate = W.rateFor(w, scale);
       W.advance(w, dt, scale);
+      // Fights on the provinces run in world time, so one resolves whether or not you are looking at it.
+      XW.province.fights(w, dt * rate);
       var turned = false;
       while (W.turnDue(w)) { C.endTurn(w); turned = true; }
       if (turned) { bus.emit('world:turn', w); W.changed('turn'); A.saveNow('turn'); }
@@ -47,6 +49,11 @@
       A.views[w.view.scale].render(w);
       A.glance.render(w);
     });
+  });
+
+  // A new fight on a province you hold or attack: say so, with the join button on the country and province screens.
+  bus.on('fight:new', function (e) {
+    if (e && e.you) A.toast('A fight has started on one of your provinces. Join it from the red button.');
   });
 
   // Leaving the page or hiding the tab saves the world first.

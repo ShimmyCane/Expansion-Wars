@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var XW = window.XW, C = XW.country, W = XW.world, A = XW.app, D = XW.core;
-  var ui = { prov: null, nation: null };
+  var ui = { prov: null, nation: null, moveFrom: null };
   var svgEl, card, logEl, bound = false;
 
   function done(msg) {
@@ -11,10 +11,23 @@
     W.changed('country');
   }
 
+  // A fight on one of your provinces, or one you started: a red button joins it as a battle at unit scale.
+  function joinButtons(w) {
+    w.provs.forEach(function (p) {
+      if (!p.fight || (p.owner !== w.you && p.fight.owner !== w.you)) return;
+      card.appendChild(D.button('⚔️ Join the fight at ' + W.aLabel(p.tier) + ' (' + Math.floor(p.fight.count) + ' attacking)', function () {
+        var err = XW.unit.startFight(w, p);
+        if (err) { done(err); return; }
+        A.scales.go('unit');
+      }, { cls: 'join' }));
+    });
+  }
+
   function render(w) {
     if (ui.nation === null) ui.nation = w.you;
     C.view.drawMap(svgEl, w, ui);
     D.clear(card);
+    joinButtons(w);
     var p = W.prov(w, ui.prov);
     if (p && p.kind === 'province') {
       C.view.provinceCard(card, w, p, ui, done);
@@ -37,6 +50,12 @@
     svgEl.addEventListener('click', function (e) {
       var w = W.get(), id = provAt(e);
       if (id === null || w.provs[id].kind !== 'province') return;
+      if (ui.moveFrom !== null && w.provs[id].owner === w.you && id !== ui.moveFrom) {
+        var err = C.queueMove(w, ui.moveFrom, id, w.view.sendPct);
+        ui.moveFrom = null;
+        done(err);
+        return;
+      }
       ui.prov = id;
       ui.nation = w.provs[id].owner >= 0 ? w.provs[id].owner : ui.nation;
       render(w);

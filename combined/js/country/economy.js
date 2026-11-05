@@ -26,8 +26,9 @@
     var trades = C.tradeCount(w, n.id);
     // Gun or butter: recruiting runs at 0.5 + guns, food at 1.5 - guns.
     var produced = (k.FOOD.v * t.v + k.FOOD.t * t.t + k.FOOD.c * t.c + k.FOOD.f * t.f) * (1.5 - n.guns) * pf * C.agriMult(n) + 0.5 * farm;
-    // Food goes first to the army, then to the people. An army the land cannot feed starves.
-    n.food += produced - n.soldiers * k.UPKEEP;
+    // Food goes first to the army (field army and garrisons), then to the people. An army the land cannot feed starves.
+    var eat = (n.soldiers + C.garrisons(w, n)) * k.UPKEEP * (n.aim === 'war' ? k.WAR_UPKEEP : 1);
+    n.food += produced - eat;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     n.food -= C.population(w, n) * k.POP_EAT;
     if (n.food < 0) { n.food = 0; n.unrest = Math.min(100, n.unrest + 2); }
@@ -39,7 +40,9 @@
     // Recruiting: culture and morale draw soldiers in; thin food slows it; the army cap is hard for new recruits.
     var cover = Math.min(1, n.food / Math.max(1, n.soldiers * k.RATION));
     var recruits = (t.v + 1.5 * t.t + 2 * t.c + 2.5 * t.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf * cover;
-    n.soldiers = Math.max(n.soldiers, Math.min(C.armyCap(w, n), n.soldiers + recruits));
+    // The army cap counts the field army and the garrisons together.
+    var roomForRecruits = C.armyCap(w, n) - C.garrisons(w, n);
+    n.soldiers = Math.max(n.soldiers, Math.min(roomForRecruits, n.soldiers + recruits));
     if (C.atWar(w, n.id)) n.morale = Math.max(0, n.morale - 0.5);
     else { n.happy = Math.min(100, n.happy + 1); n.morale = Math.min(100, n.morale + 0.5); }
     // Unrest: long or many wars, little food, no trade and allies at war push it up. Peace with food brings it down.

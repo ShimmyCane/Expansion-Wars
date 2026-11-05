@@ -1,10 +1,12 @@
 // Expansion Wars (combined) — province scale rules: real-time garrisons and marches on the world's provinces.
-// Garrisons (p.gar) grow from the owner's field army, soldiers march along roads (world.marches), fight on arrival, and
-// a capture goes through the shared rule (world/rules.js capture), so the country map changes at once.
-// Province time runs only for the window you are looking at; the rest of the world moves on country turns.
+// Garrisons (p.gar) grow from the owner's field army, and soldiers march along roads (world.marches). Marches are
+// slowed and shot at by enemy fortress towers. An army that reaches an enemy province starts a fight (p.fight): it is
+// fought in risk-style dice rounds (world seconds, see P.fights). You can join that fight at any time as a battle at
+// unit scale (unit/bridge.js startFight). A capture goes through the shared rule (world/rules.js capture).
+// Soldiers that reach an ally are a donation to that ally's garrison.
 (function () {
   'use strict';
-  var XW = window.XW, P = XW.province, W = XW.world;
+  var XW = window.XW, P = XW.province, W = XW.world, bus = XW.core.bus;
   function K() { return P.CONFIG; }
 
   function marchLen(w, m) {
@@ -23,7 +25,7 @@
     return m;
   }
 
-  // Send pct % of a province's garrison to another province, along roads through your own provinces.
+  // Send pct % of a province's garrison to another province, along roads through your own provinces, at most MOVE_HOPS.
   // Returns a message when it cannot, or null when the soldiers are on their way.
   P.send = function (w, win, owner, from, to, pct) {
     var a = w.provs[from], b = w.provs[to];
@@ -32,6 +34,7 @@
     if (why) return why;
     var path = P.routeTo(w, win, from, to, owner);
     if (!path) return 'No road there through your own provinces.';
+    if (path.length > W.CONFIG.MOVE_HOPS) return 'Too far: an army moves up to ' + W.CONFIG.MOVE_HOPS + ' provinces a turn.';
     var have = Math.floor(a.gar || 0);
     var count = Math.min(have, Math.max(2, Math.floor(have * pct / 100)));
     if (count < 1) return 'No soldiers in that province. Muster some from the field army first.';
@@ -40,14 +43,16 @@
     return null;
   };
 
-  // Move soldiers between the field army (nation.soldiers) and one of your garrisons. amount > 0 musters, < 0 releases.
+  // Move soldiers between the field army (nation.soldiers) and one of your garrisons. amount > 0 musters (once per
+  // province per turn), < 0 releases.
   P.muster = function (w, owner, id, amount) {
     var p = w.provs[id], n = w.nations[owner];
     if (!p || p.owner !== owner) return 'Pick one of your own provinces.';
     if (amount > 0) {
+      if (p.musterTurn === w.time.turn) return 'You can muster into this province once a turn.';
       var take = Math.min(amount, Math.floor(n.soldiers));
       if (take < 1) return 'The field army is empty.';
-      n.soldiers -= take; p.gar = (p.gar || 0) + take;
+      n.soldiers -= take; p.gar = (p.gar || 0) + take; p.musterTurn = w.time.turn;
     } else {
       var back = Math.min(-amount, Math.floor(p.gar || 0));
       if (back < 1) return 'No soldiers in that province.';
@@ -56,26 +61,95 @@
     return null;
   };
 
-  // Soldiers arrive. Through your own province on a longer march: keep going. Your own: join the garrison.
-  // Hostile: fight, and take the province if they outnumber the garrison. No longer hostile (a ceasefire): go home.
+  // Soldiers arrive. Own land or an ally's: join the garrison (on, if the march has further to go). Enemy or neutral land:
+  // they start a fight. Land you may no longer enter (a ceasefire): they go home.
   function arrive(w, m) {
     var p = w.provs[m.to];
     m.done = true;
-    if (p.owner === m.owner) {
+    var friendly = p.owner === m.owner || (p.owner >= 0 && W.rel(w, m.owner, p.owner).ally);
+    if (friendly) {
       if (m.route.length) { spawn(w, m.owner, p.id, m.route[0], m.count, m.route.slice(1)); return; }
       p.gar = (p.gar || 0) + m.count;
+      if (p.owner !== m.owner) W.log(w, 'Soldiers of ' + W.ownerName(w, m.owner) + ' join the garrison of ' + W.ownerName(w, p.owner) + ' (a gift to an ally).');
       return;
     }
     if (!W.mayEnter(w, m.owner, p)) { w.nations[m.owner].soldiers += m.count; return; }
-    p.gar = (p.gar || 0) - m.count;
-    if (p.gar < 0) {
-      var before = p.owner;
-      W.capture(w, p, m.owner, -p.gar);
-      W.log(w, w.nations[m.owner].name + ' takes ' + W.aLabel(p.tier) + ' from ' + W.ownerName(w, before) + ' at province scale.');
-      XW.country.checkFallen(w);
-      XW.country.updateNeighbours(w);
-      m.captured = true;
+    startFight(w, p, m);
+  }
+
+  // Attackers reach a province: they join a fight already there, or start one. Fights resolve in rounds (P.fights).
+  function startFight(w, p, m) {
+    if (p.fight) {
+      p.fight.count += m.count;
+      W.log(w, m.count + ' more soldiers of ' + W.ownerName(w, m.owner) + ' join the fight at ' + W.aLabel(p.tier) + '.');
+      return;
     }
+    p.fight = { owner: m.owner, count: m.count, from: m.from, t: 0, rounds: 0 };
+    W.log(w, W.ownerName(w, m.owner) + ' attacks ' + W.aLabel(p.tier) + ' of ' + W.ownerName(w, p.owner) + ' with ' + Math.floor(m.count) + ' soldiers.');
+    bus.emit('fight:new', { prov: p.id, you: p.owner === w.you || m.owner === w.you });
+  }
+
+  // ---- risk-style fights --------------------------------------------------------------------------------------------
+  // Each round: attackers roll up to 3 dice, defenders up to 2. The dice are paired from the highest down; a pair the
+  // attacker wins costs the defender one soldier, and a pair the defender wins (ties too) costs the attacker one.
+  function roll(n) {
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(1 + Math.floor(Math.random() * 6));
+    return out.sort(function (a, b) { return b - a; });
+  }
+  function round(w, p) {
+    var f = p.fight, A = f.count, D = p.gar || 0;
+    var na = Math.min(3, Math.floor(A)), nd = Math.min(2, Math.floor(D));
+    if (nd === 0) return takeFight(w, p);
+    var ra = roll(na), rd = roll(nd);
+    for (var i = 0; i < Math.min(na, nd); i++) {
+      if (ra[i] > rd[i]) D -= 1; else A -= 1;
+    }
+    f.count = Math.max(0, A);
+    p.gar = Math.max(0, D);
+    f.rounds = (f.rounds || 0) + 1;
+    if (f.count < 1) {
+      p.fight = null;
+      W.log(w, W.ownerName(w, p.owner) + ' holds ' + W.aLabel(p.tier) + ' against ' + W.ownerName(w, f.owner) + '.');
+      return;
+    }
+    if (p.gar < 1) takeFight(w, p);
+  }
+  // The attackers take the province with what is left of them.
+  function takeFight(w, p) {
+    var f = p.fight, before = p.owner;
+    p.fight = null;
+    W.capture(w, p, f.owner, f.count);
+    W.log(w, W.ownerName(w, f.owner) + ' takes ' + W.aLabel(p.tier) + ' from ' + W.ownerName(w, before) + '.');
+    XW.country.checkFallen(w);
+    XW.country.updateNeighbours(w);
+  }
+
+  // Runs the fights for `dt` world seconds (the caller passes real time times the scale's rate). Runs in every scale, so a
+  // fight resolves whether or not you are looking at it.
+  P.fights = function (w, dt) {
+    if (!(dt > 0)) return;
+    w.provs.forEach(function (p) {
+      if (!p.fight) return;
+      p.fight.t = (p.fight.t || 0) + dt;
+      while (p.fight && p.fight.t >= W.CONFIG.FIGHT_ROUND) {
+        p.fight.t -= W.CONFIG.FIGHT_ROUND;
+        round(w, p);
+      }
+    });
+  };
+
+  // Enemy fortress towers in range slow a march to SLOW of its speed and shoot it. Returns the speed factor.
+  function towers(w, m, dt) {
+    var at = P.marchAt(w, m), dmg = 0, slowed = false;
+    w.provs.forEach(function (f) {
+      if (f.kind !== 'province' || f.tier !== 'f' || f.owner < 0 || f.owner === m.owner || !W.rel(w, f.owner, m.owner).war) return;
+      var range = K().FORT.range * (f.tower === 2 ? K().FORT.upgradedMul : 1);
+      if (Math.hypot(f.x - at.x, f.y - at.y) <= range) { slowed = true; dmg += K().FORT.dmg; }
+    });
+    if (dmg) m.count -= dmg * dt;
+    if (m.count <= 0) m.done = true;
+    return slowed ? K().FORT.slow : 1;
   }
 
   // Two marches facing each other on the same road fight when they meet; the larger keeps the difference.
@@ -94,20 +168,6 @@
     }
   }
 
-  // Enemy soldiers within a fortress's range stop and lose soldiers. True when the march is held this step.
-  function underFire(w, win, m, dt) {
-    var at = P.marchAt(w, m), dmg = 0;
-    win.ids.forEach(function (id) {
-      var f = w.provs[id];
-      if (f.tier !== 'f' || f.owner < 0 || f.owner === m.owner || !W.rel(w, f.owner, m.owner).war) return;
-      if (Math.hypot(f.x - at.x, f.y - at.y) <= K().FORT.range) dmg += K().FORT.dmg;
-    });
-    if (!dmg) return false;
-    m.count -= dmg * dt;
-    if (m.count <= 0) m.done = true;
-    return true;
-  }
-
   // Garrisons grow from the field army, up to the tier's cap. Neutral land does not grow at province scale.
   function grow(w, win, dt) {
     win.ids.forEach(function (id) {
@@ -121,14 +181,15 @@
     });
   }
 
-  // One step of province time (dt real seconds). opts.grow false: marches only (used when settling).
+  // One step of province time (dt real seconds) inside the window. opts.grow false: marches only (used when settling).
   P.step = function (w, win, dt, opts) {
     if (!win) return;
     if (!opts || opts.grow !== false) grow(w, win, dt);
     w.marches.forEach(function (m) {
       if (m.done) return;
-      if (underFire(w, win, m, dt)) return;
-      var speed = K().SPEED * (P.riverBetween(w, m.from, m.to) ? K().RIVER_SLOW : 1);
+      var slow = towers(w, m, dt);
+      if (m.done) return;
+      var speed = K().SPEED * slow * (P.riverBetween(w, m.from, m.to) ? K().RIVER_SLOW : 1);
       m.p += speed * dt / marchLen(w, m);
     });
     clashOnRoads(w);
