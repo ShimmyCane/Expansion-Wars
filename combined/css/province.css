@@ -1,0 +1,17 @@
+/* Expansion Wars (combined) — the province close-up. Sizes are in map units of the zoomed view. */
+#province-map .cell { stroke: rgba(61, 52, 52, 0.4); stroke-width: 0.8; cursor: pointer; }
+#province-map .cell.outside { opacity: 0.35; }
+#province-map .border { stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
+#province-map .river { fill: none; stroke: var(--river); stroke-width: 3; stroke-linecap: round; pointer-events: none; }
+#province-map .road { stroke: #b9a98f; stroke-width: 1.6; stroke-dasharray: 3 3; pointer-events: none; }
+#province-map .road.lit { stroke: var(--ink); stroke-width: 2.4; stroke-dasharray: none; }
+#province-map .spot { stroke: var(--ink); stroke-width: 1.2; cursor: pointer; }
+#province-map .spot.focus { stroke-width: 2.6; }
+#province-map .spot.sel { stroke: var(--ally); stroke-width: 3; }
+#province-map .spot.target { stroke: var(--war); stroke-width: 3; }
+#province-map .spot-icon { pointer-events: none; }
+#province-map .spot-count { font-weight: 800; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
+#province-map .range { fill: rgba(209, 73, 91, 0.08); stroke: var(--war); stroke-width: 0.6; stroke-dasharray: 2 2; pointer-events: none; }
+#province-map .march circle { stroke: var(--ink); stroke-width: 0.8; }
+#province-map .march text { font-weight: 800; fill: var(--ink); pointer-events: none; }
+#province-map .terrain-icon { pointer-events: none; opacity: 0.8; }

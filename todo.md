@@ -197,3 +197,15 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **V4 replays to the family database.** Each finished battle is saved on the device, then pushed to table `xw_replays` once signed in (`V4/js/replays.js`, migration `supabase/003_xw_replays.sql`). The rollback test passed. The migration is NOT in the Family project: the apply call timed out waiting for a server-side confirmation, and a later check found no `xw_replays` table. Re-run `supabase/003_xw_replays.sql` in the Family project, then check a sign-in push. V4 sign-in is in the ⚙️ panel.
 - [ ] **V4: confirm the morale reads** ("taking pause" as standing still, "or die" as an enemy dying nearby, 0.5 a second recovery).
 - [ ] **V4: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V4/schematic.md`.
+
+## Combined scale (in progress)
+
+- [x] **Combined folder.** `combined/` is its own game, rebuilt as small files (largest under 200 lines). The original scales are untouched. File map: `combined/README.md`; design: `combined/schematic.md`.
+- [x] **One world.** A single JSON world holds nations, provinces with garrisons, marches, the battle being fought, and the clock. Every scale reads and writes it; a reload comes back to the same scale and battle.
+- [x] **Zoom chain.** Country → province (the button on a province's card, or wheel or pinch in) → battle (⚔️ between two neighbouring provinces), and back up by the crumbs, the minimap, or wheel or pinch out. Each transition hands its state back to the world.
+- [x] **Time dilation.** One world clock: ×1 on the country map, ×0.2 in a province, ×0.05 in a battle. Set in `combined/js/world/config.js`.
+- [x] **Battle engine split** into 12 files. It gives the same results as `V4/` on 160 test battles; its 51 tests pass.
+- [x] **Saving.** On this device after every turn, scale change and battle; to the family database as one row per world (`xw_worlds`).
+- [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Until then ⚙️ says the world is saved on this device only.
+- [ ] **Decide** the open questions in `combined/schematic.md`: dilation values, where soldiers live, country attacks as battles, growth outside the window, battle size.
+- [ ] **Rebalance** after real games on the iPad.

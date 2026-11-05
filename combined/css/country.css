@@ -1,0 +1,16 @@
+/* Expansion Wars (combined) — the country map. */
+#country-map .cell { stroke: rgba(61, 52, 52, 0.35); stroke-width: 1.5; stroke-linejoin: round; cursor: pointer; }
+#country-map .cell.sel { stroke: var(--ink); stroke-width: 5; }
+#country-map .border { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; pointer-events: none; }
+#country-map .river { fill: none; stroke: var(--river); stroke-width: 7; stroke-linecap: round; pointer-events: none; }
+#country-map .rel { stroke-width: 4; pointer-events: none; }
+#country-map .rel.war { stroke: var(--war); stroke-dasharray: 12 8; }
+#country-map .rel.trade { stroke: var(--trade); stroke-dasharray: 4 8; }
+#country-map .rel.ally { stroke: var(--ally); stroke-width: 6; }
+#country-map .icon { font-size: 16px; pointer-events: none; }
+#country-map .gar { font-size: 10px; font-weight: 700; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+#country-map .terrain-icon { font-size: 18px; pointer-events: none; opacity: 0.8; }
+#country-map .label { font-size: 20px; font-weight: 800; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 4px; }
+#country-map .label tspan.info { font-size: 14px; font-weight: 600; }
+#country-map .queued { fill: none; stroke: var(--ink); stroke-width: 3; stroke-dasharray: 5 5; pointer-events: none; }
+.direction-seg { display: flex; gap: 6px; flex-wrap: wrap; }

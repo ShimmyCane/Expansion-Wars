@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#fbf6e9">
+  <title>Expansion Wars — Combined</title>
+  <link rel="stylesheet" href="../shared/notes.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/country.css">
+  <link rel="stylesheet" href="css/province.css">
+  <link rel="stylesheet" href="css/unit.css">
+</head>
+<body>
+  <!-- The top bar is the same at every scale: where you are, the world clock, and your nation at a glance. -->
+  <header class="bar">
+    <a class="back" href="../index.html">← All scales</a>
+    <nav id="crumbs" class="crumbs" aria-label="Where you are"></nav>
+    <span id="clock" class="clock"></span>
+    <button id="ready" type="button" class="ready">Ready</button>
+  </header>
+  <div id="glance" class="glance" aria-label="Your nation"></div>
+
+  <main>
+    <!-- Country scale: the whole map, turns and diplomacy (js/country/view). -->
+    <section id="scale-country" class="scale-view">
+      <div class="map-wrap"><svg id="country-map" class="map" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet"></svg></div>
+      <aside id="country-card" class="card"></aside>
+      <ol id="country-log" class="log"></ol>
+    </section>
+
+    <!-- Province scale: a close-up of the map in real time (js/province). -->
+    <section id="scale-province" class="scale-view" hidden>
+      <div class="map-wrap">
+        <svg id="province-map" class="map"></svg>
+        <svg id="province-mini" class="mini" viewBox="0 0 1000 640" aria-label="The whole country"></svg>
+      </div>
+      <div id="province-bar" class="actions"></div>
+      <aside id="province-card" class="card"></aside>
+    </section>
+
+    <!-- Unit scale: one battle, with orders to your units (js/unit). -->
+    <section id="scale-unit" class="scale-view" hidden>
+      <div class="map-wrap">
+        <svg id="unit-map" class="map"></svg>
+        <svg id="unit-mini" class="mini" viewBox="0 0 1000 640" aria-label="The whole country"></svg>
+      </div>
+      <div id="unit-bar" class="actions"></div>
+      <aside id="unit-card" class="card"></aside>
+    </section>
+  </main>
+
+  <button id="gear" class="gear" type="button" aria-label="Settings" aria-expanded="false">⚙️</button>
+  <section id="settings-panel" class="settings" hidden>
+    <div class="settings-head"><strong>Settings</strong><button id="settings-close" type="button">Close</button></div>
+    <div id="settings-body"></div>
+  </section>
+
+  <!-- Load order: core, the world, each scale's rules, the battle engine, the views, then the app. tests/load.js lists the
+       same rule files in the same order. -->
+  <script src="../shared/config.js"></script>
+  <script src="../shared/notes.js"></script>
+
+  <script src="js/core/ns.js"></script>
+  <script src="js/core/rng.js"></script>
+  <script src="js/core/geom.js"></script>
+  <script src="js/core/bus.js"></script>
+  <script src="js/core/dom.js"></script>
+
+  <script src="js/world/config.js"></script>
+  <script src="js/world/state.js"></script>
+  <script src="js/world/rules.js"></script>
+  <script src="js/world/clock.js"></script>
+  <script src="js/world/save.js"></script>
+  <script src="js/world/cloud.js"></script>
+
+  <script src="js/country/config.js"></script>
+  <script src="js/country/query.js"></script>
+  <script src="js/country/route.js"></script>
+  <script src="js/country/build.js"></script>
+  <script src="js/country/diplomacy.js"></script>
+  <script src="js/country/war.js"></script>
+  <script src="js/country/economy.js"></script>
+  <script src="js/country/ai.js"></script>
+  <script src="js/country/turn.js"></script>
+  <script src="js/country/mapgen.js"></script>
+
+  <script src="js/province/config.js"></script>
+  <script src="js/province/scene.js"></script>
+  <script src="js/province/rules.js"></script>
+  <script src="js/province/ai.js"></script>
+
+  <script src="js/unit/engine/config.js"></script>
+  <script src="js/unit/engine/field.js"></script>
+  <script src="js/unit/engine/sim/base.js"></script>
+  <script src="js/unit/engine/sim/vision.js"></script>
+  <script src="js/unit/engine/sim/move.js"></script>
+  <script src="js/unit/engine/sim/combat.js"></script>
+  <script src="js/unit/engine/sim/decide.js"></script>
+  <script src="js/unit/engine/sim/damage.js"></script>
+  <script src="js/unit/engine/sim/objectives.js"></script>
+  <script src="js/unit/engine/sim/end.js"></script>
+  <script src="js/unit/engine/sim/plan.js"></script>
+  <script src="js/unit/engine/sim/api.js"></script>
+  <script src="js/unit/engine/sim/commands.js"></script>
+  <script src="js/unit/engine/sim/result.js"></script>
+  <script src="js/unit/engine/insignia.js"></script>
+  <script src="js/unit/engine/contract.js"></script>
+  <script src="js/unit/bridge.js"></script>
+
+  <script src="js/app/glance.js"></script>
+  <script src="js/app/mini.js"></script>
+  <script src="js/country/view/map.js"></script>
+  <script src="js/country/view/card.js"></script>
+  <script src="js/country/view/view.js"></script>
+  <script src="js/province/view/map.js"></script>
+  <script src="js/province/view/bar.js"></script>
+  <script src="js/province/view/view.js"></script>
+  <script src="js/unit/view/map.js"></script>
+  <script src="js/unit/view/bar.js"></script>
+  <script src="js/unit/view/view.js"></script>
+  <script src="js/app/scales.js"></script>
+  <script src="js/app/settings.js"></script>
+  <script src="js/app/loop.js"></script>
+  <script src="js/app/main.js"></script>
+</body>
+</html>

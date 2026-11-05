@@ -1,0 +1,12 @@
+/* Expansion Wars (combined) — the battle. The field is drawn in tiles of 20 map units. */
+#unit-map { background: #cfe8b8; }
+#unit-map .unit { cursor: pointer; }
+#unit-map .unit .ring { stroke-width: 3; }
+#unit-map .unit.sel .ring { stroke: var(--ink); stroke-width: 6; }
+#unit-map .unit.routing { opacity: 0.55; }
+#unit-map .unit text { pointer-events: none; }
+#unit-map .unit .people { font-size: 12px; font-weight: 800; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+#unit-map .objective { fill: none; stroke: var(--ink); stroke-width: 3; stroke-dasharray: 6 4; pointer-events: none; }
+#unit-map .order { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 6 6; fill: none; pointer-events: none; }
+#unit-map .fx { pointer-events: none; }
+.result { font-size: 18px; font-weight: 700; }
