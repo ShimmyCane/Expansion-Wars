@@ -8,8 +8,9 @@
     // Garrisons grow in real time, drawn from the owner's field army (nation.soldiers): soldiers a second, and the cap.
     GROW: { e: 0.3, v: 1.0, t: 1.5, c: 2.0, f: 0.5 },
     CAP: { e: 10, v: 20, t: 40, c: 60, f: 120 },
-    // Fortresses shoot enemy soldiers marching within RANGE map units: DMG soldiers a second.
-    FORT: { range: 40, dmg: 2 },
+    // Fortress towers: an enemy march in range is slowed to SLOW of its speed and shot at DMG soldiers a second.
+    // A tower upgraded to 2 (country card) has its range multiplied by UPGRADED_MUL.
+    FORT: { range: 40, dmg: 2, slow: 0.5, upgradedMul: 2 },
     SEND_STEPS: [10, 25, 50, 100],   // % of a province's garrison sent by one order
     MUSTER: 10,             // soldiers moved between the field army and a garrison with one tap
     // Computer players in the window: how often they think, the share they send, the least garrison that moves,

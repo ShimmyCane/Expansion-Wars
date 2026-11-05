@@ -35,12 +35,34 @@
     redraw();
   }
 
+  // Drag: press on one of your provinces and let go on another (in this window). The garrison moves there, at the share
+  // chosen on the bar, along your roads. A drag is not a tap.
+  var drag = null, dragged = false;
+  function idAt(e) { var t = e.target.closest ? e.target.closest('[data-id]') : null; return t ? Number(t.getAttribute('data-id')) : null; }
   function bind() {
     if (bound) return;
     bound = true;
+    svgEl.addEventListener('pointerdown', function (e) {
+      var w = W.get(), id = idAt(e);
+      dragged = false;
+      drag = (id !== null && w.provs[id].owner === w.you && w.provs[id].gar >= 1) ? { from: id, x: e.clientX, y: e.clientY } : null;
+    });
+    svgEl.addEventListener('pointerup', function (e) {
+      if (!drag) return;
+      var from = drag.from, moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8;
+      drag = null;
+      if (!moved) return;
+      dragged = true;
+      var hit = document.elementFromPoint(e.clientX, e.clientY), to = hit && hit.getAttribute ? hit.getAttribute('data-id') : null;
+      if (to === null || Number(to) === from) return;
+      var w = W.get();
+      var err = P.send(w, win, w.you, from, Number(to), w.view.marchPct);
+      ui.sel = null; ui.target = null;
+      act.done(err);
+    });
     svgEl.addEventListener('click', function (e) {
-      var t = e.target.closest ? e.target.closest('[data-id]') : null;
-      tap(t ? Number(t.getAttribute('data-id')) : -1);
+      if (dragged) { dragged = false; return; }
+      tap(idAt(e) === null ? -1 : idAt(e));
     });
     svgEl.addEventListener('wheel', function (e) {
       e.preventDefault();

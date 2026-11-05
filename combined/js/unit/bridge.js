@@ -1,5 +1,7 @@
 // Expansion Wars (combined) — the bridge between the world and the unit battle engine (window.V4).
-// A fight between two provinces in the window becomes a battle request; the battle's result goes back into the world.
+// A fight between two provinces becomes a battle request; the battle's result goes back into the world. Two kinds:
+//   - an attack you start from the province window (U.start), and
+//   - a fight already on a province, joined from the red Join battle button (U.startFight).
 // world.battle holds the request and every order given, never the engine's live state, so the battle is plain JSON and
 // can be rebuilt after a reload by replaying the orders (V4 battles are deterministic for the same request and orders).
 (function () {
@@ -37,28 +39,32 @@
   // A small hash, so each battle in a world has its own seed.
   function seedFor(w, n) { return ((w.seed * 2654435761) ^ (n * 40503)) >>> 0 || 1; }
 
-  // The battle request for `count` soldiers from province `from` attacking province `to`.
-  U.requestFor = function (w, from, to, count) {
+  // The battle request for `count` soldiers from province `from` attacking province `to`. attOwner is who attacks (it is
+  // the owner of `from` unless a fight says otherwise); the defender is whoever holds `to` now, with its garrison.
+  U.requestFor = function (w, from, to, count, attOwner) {
     var a = w.provs[from], d = w.provs[to], def = Math.floor(d.gar || 0);
+    var att = attOwner === undefined ? a.owner : attOwner;
     var grain = U.grainFor(count, def);
-    var you = a.owner === w.you ? 0 : d.owner === w.you ? 1 : null;
+    var you = att === w.you ? 0 : d.owner === w.you ? 1 : null;
     var woods = d.adj.some(function (q) { return w.provs[q].terrain === 'forest'; });
+    var river = XW.province.riverBetween(w, from, to);
+    var walls = ['t', 'c', 'f'].indexOf(d.tier) >= 0;   // towns, cities and fortresses have walls; villages do not
     return {
       seed: seedFor(w, w.battles.length + 1), scale: 'fortress', grain: grain, mode: you === null ? 'auto' : 'play', you: you === null ? undefined : you,
-      attacker: { nation: W.ownerName(w, a.owner), provinces: [from], pool: count, units: army('attacker', count, grain, 'engage'), reserve: [] },
+      attacker: { nation: W.ownerName(w, att), provinces: [from], pool: count, units: army('attacker', count, grain, 'engage'), reserve: [] },
       defender: {
         nation: W.ownerName(w, d.owner), province: to, pool: def, population: 0,
         settlement: W.TIERS[d.tier].settlement, units: army('defender', def, grain, 'engage')
       },
-      border: { river: XW.province.riverBetween(w, from, to), road: true },
+      border: { river: river, road: true },
       gen: {
-        size: 'small', river: XW.province.riverBetween(w, from, to) ? 'fords' : 'none', roads: true, grass: true,
-        woods: woods, walls: d.tier !== 'e', fatigue: true, facing: true, ambush: 'auto', approach: 'mixed', gates: 3
+        size: 'small', river: river ? 'fords' : 'none', roads: true, grass: true,
+        woods: woods, walls: walls, fatigue: true, facing: true, ambush: 'auto', approach: 'mixed', gates: 3
       }
     };
   };
 
-  // Starts a battle: the attackers leave their province, and the fight waits in world.battle until it is played out.
+  // Starts a battle you order: your soldiers leave their province, and the fight waits in world.battle until it is played.
   // Returns a message when it cannot start, or null.
   U.start = function (w, win, from, to, pct) {
     if (w.battle) return 'A battle is already being fought.';
@@ -75,8 +81,28 @@
     if (bad.length) return 'The battle could not be set up: ' + bad[0];
     a.gar -= count;
     w.battle = { id: XW.core.uuid(), from: from, to: to, attacker: a.owner, defender: d.owner, count: count, defCount: Math.floor(d.gar || 0),
-      tier: d.tier, request: req, commands: [], tick: 0, started: w.time.t };
+      tier: d.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: false };
     W.log(w, 'Battle: ' + count + ' soldiers attack ' + W.aLabel(d.tier) + ' held by ' + W.ownerName(w, d.owner) + '.');
+    return null;
+  };
+
+  // Joins a fight already on province p (its attackers are waiting there). Either side may join. The garrison fights in
+  // the battle, so it leaves the province until the battle is over. Returns a message when it cannot start, or null.
+  U.startFight = function (w, p) {
+    var f = p && p.fight;
+    if (!f) return 'No fight here.';
+    if (w.battle) return 'A battle is already being fought.';
+    if (f.owner !== w.you && p.owner !== w.you) return 'You are not in this fight.';
+    if (f.from === undefined || f.from < 0 || w.provs[f.from].adj.indexOf(p.id) < 0) return 'The attackers are not next to this province.';
+    var count = Math.max(1, Math.floor(f.count)), def = Math.floor(p.gar || 0);
+    var req = U.requestFor(w, f.from, p.id, count, f.owner);
+    var bad = V4.validateRequest(req);
+    if (bad.length) return 'The battle could not be set up: ' + bad[0];
+    w.battle = { id: XW.core.uuid(), from: f.from, to: p.id, attacker: f.owner, defender: p.owner, count: count, defCount: def,
+      tier: p.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: true };
+    p.fight = null;
+    p.gar = 0;
+    W.log(w, 'Joined the fight at ' + W.aLabel(p.tier) + ': ' + count + ' attacking, ' + def + ' defending.');
     return null;
   };
 
@@ -108,8 +134,9 @@
     return V4.result(st);
   };
 
-  // The result goes back into the world: the winner holds the province with what it has left; the losing attackers that
-  // are left go back to the province they came from (or to the field army if it has been lost meanwhile).
+  // The result goes back into the world. A winning attacker takes the province with what it has left. Otherwise the
+  // defenders keep what is left, and the attackers that are left go home: to the province they came from (a battle you
+  // ordered), or to their nation's field army (a fight that was already on the province).
   U.apply = function (w, result) {
     var b = w.battle;
     if (!b) return null;
@@ -118,17 +145,17 @@
     var won = result.winner === 'attacker' && d.owner === b.defender;
     if (won) {
       W.capture(w, d, b.attacker, attLeft);
-      W.log(w, W.ownerName(w, b.attacker) + ' wins the battle and takes the ' + W.label(d.tier) + ' (' + attLeft + ' soldiers hold it).');
+      W.log(w, W.ownerName(w, b.attacker) + ' wins the battle and takes ' + W.aLabel(d.tier) + ' (' + attLeft + ' soldiers hold it).');
     } else {
       d.gar = defLeft;
-      if (a.owner === b.attacker) a.gar = (a.gar || 0) + attLeft;
+      if (!b.fight && a.owner === b.attacker) a.gar = (a.gar || 0) + attLeft;
       else w.nations[b.attacker].soldiers += attLeft;
-      W.log(w, W.ownerName(w, b.defender) + ' holds the ' + W.label(d.tier) + ' (' + defLeft + ' left). ' + attLeft + ' attackers fall back.');
+      W.log(w, W.ownerName(w, b.defender) + ' holds ' + W.aLabel(d.tier) + ' (' + defLeft + ' left). ' + attLeft + ' attackers fall back.');
     }
     w.battles.push({
       id: b.id, turn: w.time.turn, from: b.from, prov: b.to, attacker: b.attacker, defender: b.defender,
       count: b.count, defCount: b.defCount, winner: result.winner, how: result.how, seconds: result.seconds,
-      left: { attacker: attLeft, defender: defLeft }, seed: b.request.seed, orders: b.commands.length
+      left: { attacker: attLeft, defender: defLeft }, seed: b.request.seed, orders: b.commands.length, fight: !!b.fight
     });
     while (w.battles.length > W.CONFIG.BATTLES_KEPT) w.battles.shift();
     w.battle = null;

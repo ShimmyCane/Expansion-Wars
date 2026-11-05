@@ -19,7 +19,18 @@
     });
     if (!sel) { bar.appendChild(el('span', 'note', 'Tap one of your provinces to send its soldiers.')); return; }
     var n = share(w, sel.id), M = P.CONFIG.MUSTER;
-    bar.appendChild(button('+' + M + ' from the field army', function () { act.done(P.muster(w, w.you, sel.id, M)); }));
+    // A fight on a province in this window that you are part of: join it as a battle.
+    win.ids.forEach(function (id) {
+      var f = w.provs[id];
+      if (!f.fight || (f.owner !== w.you && f.fight.owner !== w.you)) return;
+      bar.appendChild(button('⚔️ Join the fight at ' + W.aLabel(f.tier) + ' (' + Math.floor(f.fight.count) + ' attacking)', function () {
+        var err = U.startFight(w, f);
+        if (err) { act.done(err); return; }
+        A.scales.go('unit');
+      }, { cls: 'join' }));
+    });
+    bar.appendChild(button('+' + M + ' from the field army', function () { act.done(P.muster(w, w.you, sel.id, M)); },
+      { disabled: sel.musterTurn === w.time.turn }));
     bar.appendChild(button('−' + M + ' to the field army', function () { act.done(P.muster(w, w.you, sel.id, -M)); }));
     if (!target) { bar.appendChild(el('span', 'note', 'Now tap a neighbour to send ' + n + '.')); return; }
     bar.appendChild(button('Send ' + n, function () {

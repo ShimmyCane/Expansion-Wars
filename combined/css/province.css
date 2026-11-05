@@ -15,3 +15,5 @@
 #province-map .march circle { stroke: var(--ink); stroke-width: 0.8; }
 #province-map .march text { font-weight: 800; fill: var(--ink); pointer-events: none; }
 #province-map .terrain-icon { pointer-events: none; opacity: 0.8; }
+#province-map .fight { fill: none; stroke: var(--war); stroke-width: 2.4; stroke-dasharray: 3 2; pointer-events: none; }
+#province-map { touch-action: none; }

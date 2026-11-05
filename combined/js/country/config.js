@@ -20,7 +20,12 @@
     MARCH: { food: 0.05, gold: 1 },  // an attack: food per soldier sent, gold per step plus one
     // Magic: made by fortresses only. An attack or defence spends up to one per four soldiers; each adds a soldier's strength.
     MAGIC_PER_SOLDIER: 0.25, MAGIC_PER_FORT: 25, MAGIC_CAP: 0.25,
-    FOOD: { v: 2, t: 4, c: 6, f: 3 }, UPKEEP: 0.05,
+    FOOD: { v: 2, t: 4, c: 6, f: 3 },
+    UPKEEP: 0.05,            // food a soldier eats a turn: field army and garrisons alike
+    WAR_UPKEEP: 1.5,         // the War direction eats this much more
+    GAR_KEEP: 2,             // a garrison this small stays put when it moves towards the border
+    AUTO_MOVE: 0.5,          // share of the spare garrison a border-bound province sends each turn
+    TOWER_COST: { gold: 30, stone: 20 },   // upgrading a fortress tower (its range doubles)
     SCIENCE: { v: 0.5, t: 1, c: 2, f: 1.5 },
     TRACK: {
       agri: { name: 'Agriculture', icon: '🌾', per: 0.08, text: '+8% food a level' },
