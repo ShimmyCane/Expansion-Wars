@@ -107,6 +107,15 @@
       <button id="bf-begin" class="big-inline" hidden>▶ Begin battle</button>
       <button id="bf-toggle">❚❚ Pause</button>
       <button id="bf-surrender" class="ghost">Surrender</button>
+      <span id="bf-replay-bar" class="replay-bar" hidden>
+        <label>Replay speed <select id="bf-speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select></label>
+        <button id="bf-replay-stop" class="ghost">■ Stop replay</button>
+      </span>
     </div>
 
     <div class="row">
@@ -171,6 +180,7 @@
       <p id="bf-save-status" class="muted small" aria-live="polite"></p>
       <textarea id="bf-result-json" rows="8" readonly></textarea>
       <div class="row">
+        <button id="bf-watch" hidden>▶ Watch the replay</button>
         <button id="bf-copy" class="ghost">Copy replay</button>
         <button id="bf-again">New battle</button>
       </div>

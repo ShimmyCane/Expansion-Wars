@@ -19,9 +19,30 @@
   // Neutral land: a survey or capture costs gold and food on top of the troops, per step of the route.
   var CLAIM = { gold: 3, food: 2 };
   // An attack: food for the rations (per soldier sent) and gold for the road (per step, plus one).
-  // Magic is the main fuel: up to MAGIC_PER_SOLDIER is spent for each soldier sent, and each point adds strength.
   var MARCH = { food: 0.05, gold: 1 };
-  var MAGIC_PER_SOLDIER = 0.5;
+  // Magic is made by fortresses only: MAGIC_PER_FORT a turn each. A stock holds up to MAGIC_CAP of the army (a quarter).
+  // An attack or a defence spends up to one magic for every four soldiers (MAGIC_PER_SOLDIER), and each point adds one
+  // soldier's worth of strength: 100 soldiers with 25 magic fight as 125.
+  var MAGIC_PER_SOLDIER = 0.25, MAGIC_PER_FORT = 25, MAGIC_CAP = 0.25;
+  // Food: cities and towns feed the army most. Each soldier eats UPKEEP food a turn, so food limits how big an army can be.
+  var FOOD = { v: 2, t: 4, c: 6, f: 3 }, UPKEEP = 0.05;
+  // Science is made mainly by cities, also by fortresses. It is spent on research tracks, which raise food, population
+  // and the army's hard cap. Science and population have no cap; the army does (the Arms track). Costs rise each level.
+  var SCIENCE = { v: 0.5, t: 1, c: 2, f: 1.5 };
+  var TRACK = {
+    agri: { name: 'Agriculture', icon: '🌾', per: 0.08, text: '+8% food a level' },
+    civic: { name: 'Civics', icon: '🏛️', per: 0.05, text: '+5% population a level (gold follows it)' },
+    arms: { name: 'Arms', icon: '🛡️', per: 60, text: '+60 to the army cap a level' }
+  };
+  var TRACK_KEYS = ['agri', 'civic', 'arms'];
+  var TRACK_COST = { base: 10, growth: 1.15 };   // cost of the next level: base x growth^level
+  var ARMY_BASE = 60;                             // the army cap before any Arms research
+  // Other resources are turned into food when food runs low, so an army can always march or declare war.
+  var FOOD_FLOOR = 5, GOLD_PER_FOOD = 2, STONE_PER_FOOD = 3;
+  // People eat too: each point of population needs this much food a turn. Population grows without limit, so food binds it.
+  var POP_EAT = 0.5;
+  // Recruiting needs food in store: a nation recruits at full pace only while its food is at least RATION a soldier.
+  var RATION = 0.5;
   // Population is made by cities: a village 1, a town 2, a city 3. A fortress holds the ground but adds no more people than a city.
   var POP = { v: 1, t: 2, c: 3, f: 3 };
   // Training: the War direction spends food and gold to raise the army's skill a little each turn.
@@ -259,7 +280,7 @@
     var n = {
       id: i, name: NAMES[i], x: p.x, y: p.y, alive: true, neutral: i >= 3, area: polyArea(poly), nb: [],
       soldiers: 40, tech: 10, morale: 50, happy: 50, guns: 0.5, food: 20, gold: 30, stone: 10,
-      magic: 0, culture: 0, unrest: 0, warTurns: 0, aim: 'growth'
+      magic: 0, culture: 0, unrest: 0, warTurns: 0, aim: 'growth', science: 0, research: { agri: 0, civic: 0, arms: 0 }
     };
     // Tier counts come from the provinces the nation holds.
     ['v', 't', 'c', 'f', 'e'].forEach(function (k) {
@@ -270,7 +291,30 @@
 
   function quality(n) { return 1 + (n.tech + n.morale + n.happy) / 300; }
   // Population: the people the cities hold (POP weights).
-  function population(n) { return POP.v * n.v + POP.t * n.t + POP.c * n.c + POP.f * n.f; }
+  function popRaw(n) { return POP.v * n.v + POP.t * n.t + POP.c * n.c + POP.f * n.f; }
+  function civMult(n) { return 1 + TRACK.civic.per * n.research.civic; }
+  function population(n) { return popRaw(n) * civMult(n); }
+  function agriMult(n) { return 1 + TRACK.agri.per * n.research.agri; }
+  function armyCap(n) { return ARMY_BASE + TRACK.arms.per * n.research.arms; }
+  function trackCost(n, k) { return Math.ceil(TRACK_COST.base * Math.pow(TRACK_COST.growth, n.research[k])); }
+  // Spend science on the next level of a track. Returns a message when it cannot.
+  function investAt(n, k) {
+    var c = trackCost(n, k);
+    if (n.science < c) return 'Not enough science (' + c + ').';
+    n.science -= c;
+    n.research[k]++;
+    return null;
+  }
+  // Keep food above the floor by buying it with gold, then stone.
+  function topUpFood(n) {
+    if (!n.alive || n.food >= FOOD_FLOOR) return;
+    var need = FOOD_FLOOR - n.food;
+    var goldFood = Math.min(need, Math.floor(n.gold / GOLD_PER_FOOD));
+    n.gold -= goldFood * GOLD_PER_FOOD; n.food += goldFood; need -= goldFood;
+    var stoneFood = Math.min(need, Math.floor(n.stone / STONE_PER_FOOD));
+    n.stone -= stoneFood * STONE_PER_FOOD; n.food += stoneFood;
+    if (n.id === 0 && goldFood + stoneFood > 0) addLog('Food was low, so ' + (goldFood + stoneFood) + ' food was bought (' + goldFood * GOLD_PER_FOOD + ' gold, ' + stoneFood * STONE_PER_FOOD + ' stone).');
+  }
   // Power = population density (per spot) x quality x soldiers.
   function power(n) {
     var sp = spots(n);
@@ -680,13 +724,18 @@
     var qa = strength / sent;                  // the army's strength per soldier marching
     var entry = st.provs[R.entry];
     var front = featureDef(entry) / 2;
-    var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
+    // The defenders spend magic too, on the same rule (up to a quarter of their soldiers).
+    var dSpent = Math.min(b.magic, b.soldiers * MAGIC_PER_SOLDIER);
+    b.magic -= dSpent;
+    var defBonus = 1 + (b.soldiers > 0 ? dSpent / b.soldiers : 0);
+    if (dSpent >= 1) addLog(b.name + ' spends ' + Math.floor(dSpent) + ' magic on the defence.');
+    var defence = b.soldiers * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus;
     var grade = weakestGrade(b);
     var pool = sent, d = b.soldiers;
     for (var k = 0; k < WAVES && pool >= 1 && d > 0; k++) {
       var w = pool / (WAVES - k);                     // this wave's share of the attackers still standing
       var A = w * qa;
-      var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front;
+      var D = d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus;
       pool -= w * D / (A + D);                        // attackers lost, in proportion to the defence
       d -= d * A / (A + D);                           // defenders lost, in proportion to the attack
     }
@@ -705,7 +754,7 @@
       home(pool + Math.max(0, d));                     // the defenders who are left surrender to you
       b.soldiers = 0;
       addLog(b.name + ' surrenders to ' + a.name + (taken.length ? ', giving up ' + taken.length + ' province' + (taken.length === 1 ? '' : 's') + ' (' + taken.join(', ') + ').' : '.'));
-    } else if (pool * qa > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front && pool > 0) {
+    } else if (pool * qa > d * quality(b) * (1 + FORT_BONUS * b.f) * DEFENDER * front * defBonus && pool > 0) {
       taken = captureMany(b, a, R.entry, 1);
       b.soldiers = Math.max(0, d);
       home(pool);                                      // survivors come home
@@ -808,6 +857,14 @@
       if (mine) addLog(AIM[aim].name + ' plan: ' + (step === 'build' ? 'built a village on an empty dot.' : 'upgraded a ' + LABEL[step] + ' to a ' + LABEL[GROW[step].to] + '.'));
       return false;
     });
+    // Research: the first track in the direction's order that the science stock can pay for, one level a turn.
+    var order = { growth: ['civic', 'agri', 'arms'], war: ['arms', 'agri', 'civic'], wealth: ['agri', 'civic', 'arms'] }[aim];
+    order.some(function (k) {
+      if (n.science < trackCost(n, k) * (aim === 'wealth' ? 2 : 1)) return false;
+      investAt(n, k);
+      if (mine) addLog(AIM[aim].name + ' plan: research ' + TRACK[k].name + ' to level ' + n.research[k] + '.');
+      return true;
+    });
     // Training comes from a surplus only, after the builds and upgrades above have had their turn.
     if (aim === 'war' && n.food - TRAIN.food >= keep.food + 20 && n.gold - TRAIN.gold >= keep.gold + 20) {
       spend(n, { food: TRAIN.food, gold: TRAIN.gold });
@@ -903,20 +960,22 @@
     var pf = prodFactor(n);
     var farm = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'farm'; }).length;
     var tradeP = ownedBy(n).filter(function (p) { return p.tier !== 'e' && feature(p) === 'trade'; }).length;
-    var produced = (2 * n.v + 3 * n.t + 3 * n.c + 2 * n.f) * (1.5 - n.guns) * pf + 0.5 * farm;
-    var upkeep = n.soldiers * 0.02;
+    var produced = (FOOD.v * n.v + FOOD.t * n.t + FOOD.c * n.c + FOOD.f * n.f) * (1.5 - n.guns) * pf * agriMult(n) + 0.5 * farm;
+    var upkeep = n.soldiers * UPKEEP + population(n) * POP_EAT;
     var foodNet = produced - upkeep;
     n.food += foodNet;
     if (n.food < 0) { n.soldiers *= 0.97; n.food = 0; }
     // Gold is taxed from the people: each village 1, town 2, city 3 (the population weights). Fortresses pay no tax.
-    n.gold += (POP.v * n.v + POP.t * n.t + POP.c * n.c) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
+    n.gold += (POP.v * n.v + POP.t * n.t + POP.c * n.c) * civMult(n) * pf + 3 * tradeCount(n.id) + 0.5 * tradeP;
+    // Science: cities mainly, and fortresses.
+    n.science += SCIENCE.v * n.v + SCIENCE.t * n.t + SCIENCE.c * n.c + SCIENCE.f * n.f;
     // Stone comes from cities (1 a turn each) and from trade routes (1 a turn each).
     n.stone += n.c + tradeCount(n.id);
     // Magic is gathered from every spot: village 0.05, town 0.1, city 0.2, fortress 0.4 a turn, plus the technology trickle.
-    var magicIn = 0.1 + n.tech / 200 + 0.05 * n.v + 0.1 * n.t + 0.2 * n.c + 0.4 * n.f;
-    n.magic += magicIn;
+    n.magic = Math.min(n.magic + MAGIC_PER_FORT * n.f, MAGIC_CAP * n.soldiers);
     // Culture draws in soldiers: up to +50% at 100 culture.
-    n.soldiers += (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf;
+    var cover = Math.min(1, n.food / Math.max(1, n.soldiers * RATION));   // thin food slows recruiting
+    n.soldiers = Math.min(armyCap(n), n.soldiers + (n.v + 1.5 * n.t + 2 * n.c + 2.5 * n.f) * (1 + n.morale / 200) * (1 + Math.min(n.culture, 100) / 200) * (0.5 + n.guns) * pf * cover);   // the Arms track is a hard cap
     if (atWar(n.id)) {
       n.morale = Math.max(0, n.morale - 0.5);
     } else {
@@ -948,6 +1007,7 @@
 
   function resolveTurn() {
     if (!st || st.over) return;
+    alive().forEach(topUpFood);
     alive().forEach(autopilot);   // every nation spends towards its direction; yours plans a claim or attack if you have none queued
     planAI();
     var q = st.queue;
@@ -1303,7 +1363,7 @@
     [
       ['Soldiers', Math.floor(p.soldiers)], ['Food', Math.floor(p.food)], ['Gold', Math.floor(p.gold)],
       ['Stone', Math.floor(p.stone)], ['Magic', Math.floor(p.magic)], ['Culture', Math.floor(p.culture)],
-      ['Population', population(p)], ['Unrest', Math.round(p.unrest)], ['Power', Math.round(power(p))],
+      ['Population', population(p)], ['Science', Math.floor(p.science)], ['Army cap', armyCap(p)], ['Unrest', Math.round(p.unrest)], ['Power', Math.round(power(p))],
       ['Stage', stage(ratio(p)) + ' (' + ratio(p).toFixed(2) + ')'], ['Direction', AIM[p.aim].name]
     ].forEach(function (pair) {
       var c = el('span', 'res-item');
@@ -1375,6 +1435,21 @@
       }
       // Direction: the north star the autopilot plays towards each turn. Upgrades are by hand when zoomed in.
       els.card.appendChild(directionPicker(n));
+      // Research: spend science on a track. Each level costs more than the last.
+      var rs = el('div', 'card-buttons');
+      rs.appendChild(el('p', 'muted small', 'Science ' + Math.floor(n.science) + '. Research raises food, population, or the army cap (Arms). Levels: Agriculture ' + n.research.agri + ', Civics ' + n.research.civic + ', Arms ' + n.research.arms + ' (army cap ' + armyCap(n) + ').'));
+      TRACK_KEYS.forEach(function (k) {
+        var c = trackCost(n, k);
+        var rb = el('button', 'big', TRACK[k].icon + ' ' + TRACK[k].name + ' level ' + (n.research[k] + 1) + ' (' + c + ' science): ' + TRACK[k].text);
+        rb.disabled = n.science < c;
+        rb.addEventListener('click', function () { var err = investAt(n, k); addLog(err || 'Research: ' + TRACK[k].name + ' is now level ' + n.research[k] + '.'); render(); });
+        rs.appendChild(rb);
+      });
+      var bf = el('button', 'big', 'Buy 10 food (20 gold)');
+      bf.disabled = n.gold < 20;
+      bf.addEventListener('click', function () { if (n.gold >= 20) { n.gold -= 20; n.food += 10; addLog('You bought 10 food for 20 gold.'); } else addLog('Not enough gold (20).'); render(); });
+      rs.appendChild(bf);
+      els.card.appendChild(rs);
       var vill = el('div', 'card-buttons');
       var vc = villageCost(n);
       var hasEmpty = ownedBy(n).some(function (p) { return p.tier === 'e'; });
