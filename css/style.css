@@ -875,3 +875,6 @@ body:has(#screen-game:not([hidden])) .float-panel { display: none; }
 html, body { touch-action: manipulation; }
 .country-map-wrap svg { touch-action: none; }
 
+.country-card .direction { margin: 6px 0 4px; }
+.country-card .direction-seg { margin: 4px 0 6px; }
+.country-card .direction-seg button { flex: 1; }

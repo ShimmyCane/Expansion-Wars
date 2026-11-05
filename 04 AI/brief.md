@@ -26,6 +26,7 @@
 
 ## Next steps
 
+0b. Round 9 (`convo/convo v0.14.md`, version 2.16): each nation has a direction (Growth, War or Wealth); an autopilot spends towards it at the end of each turn. Population is made by cities. Upgrades, villages, claims and attacks cost gold and food; magic is spent per soldier sent. Open: food under Growth, guns under War, the Wealth stock, and the balance pass.
 0. Round 10 (`convo/convo v0.9.md`): version 2 first playable slice built in `js/country.js` (🌍 on the home screen). Six nations, turns of 60 s with Ready, diplomacy on the nation card, growing, power and stage, country battles resolved at once. Not built: province battles, veteran upgrades, magic and culture effects, game log, tutorial levels 16 to 20. Version 1 is untouched in `V1/`.
 0a. Round 8 (`convo/convo v0.7.md`): version 1 archived in `V1/` and linked from ⚙️ ("Play version 1 (archive)"). Version 2 design answers recorded (convo v0.7 and v0.8).
 1. Round 7 (`convo/convo v0.6.md`, notes read 2026-11-04): built with defaults to check: team members keep their player colours (Level 4 note), and spots keep the same size on screen at any zoom (Level 5 note). Open: the test note. Still open from v0.5: surrender defaults, mid-upgrade capture, fortress numbers.
