@@ -1,7 +1,7 @@
 // Expansion Wars — the game modes. The campaign is the whole game: all three scales in one world. The three battle modes
 // are the same rules and views, each showing one scale only, with a world and a save of their own:
 //   unit      one battle at a time. Next battle starts a new one.
-//   province  province play as a progression of levels: a small map and one opponent first, then more provinces and
+//   province  province play as a progression of levels: a small map and two opponents first, then more provinces and
 //             more opponents. Like the first draft of the game: provinces grow their own soldiers, drag or tap to send them,
 //             fights settle themselves. No field army to manage, no country turns, no battles to join.
 //   country   country play: turns, diplomacy and war. Fights resolve on the map; none to join.
@@ -19,7 +19,7 @@
     unit: { id: 'unit', title: 'Unit battles', scales: ['unit'], start: 'unit', turns: false,
       key: 'xw-unit-battles-world', app: 'combined-unit' },
     province: { id: 'province', title: 'Province battles', scales: ['province'], start: 'province', turns: false,
-      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, clock: 'real', pool: false, hops: 99, countdown: 3 },
+      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, seconds: 1, pool: false, hops: 99, countdown: 3 },
     country: { id: 'country', title: 'Country battles', scales: ['country'], start: 'country', turns: true,
       key: 'xw-country-battles-world', app: 'combined-country' }
   };
@@ -35,10 +35,10 @@
   // free: the neutral towns, cities and fortresses on the map (as in the first draft). teams: nations allied from the
   // start (you are nation 0); everyone else is at war with everyone. There is no diplomacy in province battles.
   var LEVELS = [
-    { nations: 2, provs: 5, villages: 1, towns: 1, free: { t: 1 } },
-    { nations: 2, provs: 7, villages: 2, towns: 1, free: { t: 1, c: 1 } },
-    { nations: 3, provs: 7, villages: 2, towns: 1, free: { t: 2, c: 1 } },
-    { nations: 3, provs: 9, villages: 2, towns: 1, free: { t: 2, c: 1, f: 1 } },
+    { nations: 3, provs: 5, villages: 1, towns: 1, free: { t: 1 } },
+    { nations: 3, provs: 7, villages: 2, towns: 1, free: { t: 1, c: 1 } },
+    { nations: 4, provs: 7, villages: 2, towns: 1, free: { t: 2, c: 1 } },
+    { nations: 4, provs: 9, villages: 2, towns: 1, free: { t: 2, c: 1, f: 1 } },
     { nations: 4, provs: 9, villages: 2, towns: 1, free: { t: 2, c: 2, f: 1 }, teams: [[0, 1], [2, 3]] },
     { nations: 5, provs: 11, villages: 2, towns: 1, free: { t: 3, c: 2, f: 2 } },
     { nations: 6, provs: 15, villages: 2, towns: 1, free: { t: 3, c: 3, f: 2 }, teams: [[0, 1], [2, 3], [4, 5]] }
@@ -51,7 +51,7 @@
   function levelConfig(n) { return LEVELS[Math.min(Math.max(1, n), LEVELS.length) - 1]; }
 
   // The whole map is the window in province battles (the maps are small); the campaign shows two steps around a province.
-  var DEFAULT_RINGS = W.CONFIG.RINGS, DEFAULT_HOPS = W.CONFIG.MOVE_HOPS;
+  var DEFAULT_RINGS = W.CONFIG.RINGS, DEFAULT_HOPS = W.CONFIG.MOVE_HOPS, DEFAULT_SECONDS = W.CONFIG.FIGHT_SECONDS;
 
   // Sets the mode: its saves and its database tag (world/config.js holds the defaults the campaign uses).
   A.useMode = function (id) {
@@ -60,7 +60,7 @@
     W.CONFIG.APP = A.mode.app;
     W.CONFIG.RINGS = A.mode.rings || DEFAULT_RINGS;
     W.CONFIG.FIGHT_MODEL = A.mode.fights || 'waves';           // every mode fights in waves
-    W.CONFIG.FIGHT_CLOCK = A.mode.clock || 'world';           // ... a round a second in province battles
+    W.CONFIG.FIGHT_SECONDS = A.mode.seconds || DEFAULT_SECONDS; // ... a round every 3 real seconds, or 1 in province battles
     W.CONFIG.POOL = A.mode.pool !== false;                // province battles: no field army, provinces grow their own soldiers
     W.CONFIG.MOVE_HOPS = A.mode.hops || DEFAULT_HOPS;     // ... and soldiers go as far as your roads reach
     return A.mode;

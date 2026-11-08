@@ -312,4 +312,6 @@ Answers to `convo/convo v0.20.md`.
 - [x] **Surrender setting** in ⚙️ (off by default): outnumbered 10 to 1 gives up, provinces go neutral.
 - [ ] **Decide** convo v0.21: round time, the even case, ground both ways, withdrawals, split parts, upgrade time and the computer, the computer's boldness, teams, surrender, the campaign's pace.
 - [ ] **Flaky test:** "the computer offers peace" fails about one run in six (before this round too); seed the computer's choice.
+- [x] **Rounds no longer than 5 seconds**, in real time at every scale: 1 second in province battles, 3 in the campaign (`FIGHT_SECONDS`).
+- [x] **Level 1 has two opponents**; the ladder starts from there.
 

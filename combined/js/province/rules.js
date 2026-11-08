@@ -245,7 +245,7 @@
     var realClock = W.CONFIG.FIGHT_CLOCK === 'real';
     w.provs.forEach(function (p) {
       if (!p.fight) return;
-      var len = realClock ? K().FIGHT.ROUND : W.CONFIG.FIGHT_ROUND;
+      var len = realClock ? W.CONFIG.FIGHT_SECONDS : W.CONFIG.FIGHT_ROUND;
       p.fight.t = (p.fight.t || 0) + (realClock ? real : dt);
       while (p.fight && p.fight.t >= len) {
         p.fight.t -= len;
@@ -259,7 +259,7 @@
     var f = p.fight;
     if (!f) return '';
     if (W.CONFIG.FIGHT_MODEL === 'waves') {
-      var len = W.CONFIG.FIGHT_CLOCK === 'real' ? K().FIGHT.ROUND : W.CONFIG.FIGHT_ROUND;
+      var len = W.CONFIG.FIGHT_CLOCK === 'real' ? W.CONFIG.FIGHT_SECONDS : W.CONFIG.FIGHT_ROUND;
       var secs = Math.max(0, (len - (f.t || 0)) / (W.CONFIG.FIGHT_CLOCK === 'real' ? 1 : W.rateFor(w, w.view.scale)));
       var n = f.n || Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
       var mood = function (rout, sh) { return rout ? ' (routing)' : sh < 1 ? ' (shaken)' : ''; };

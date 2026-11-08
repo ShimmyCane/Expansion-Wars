@@ -41,7 +41,7 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 - **Routing.** A side that has lost half of what it committed in a round routs: its strikes for the rest of the round hit at half, and every later round it starts shaken (its strikes at 0.9 for each rout so far, never under half). So when the first wave crashes the defenders, the rest of the round is a rout.
 - **Fitted at city level** (400 runs each): 100 against 100, the defenders hold with about 89; 200 against 100, the attackers win with about 121; 500 against 100, the attackers win with about 475.
 - **The ground matters:** 150 against 100 takes a village but not a town, a city or a fortress; 200 against 100 takes a city but not a fortress; a tower holds against 2 to 1 and falls to 3 to 1.
-- **Time.** Province battles: a round a second, so a village fight is 3 seconds and a tower fight 10. The campaign: a round every 2 world seconds, so there is time to press Join.
+- **Time.** Every round is real time, never more than 5 seconds. Province battles: a round a second, so a village fight is 3 seconds and a tower fight 10. The campaign: a round every 3 seconds, so there is time to press Join (a village fight 9 seconds, a tower fight 30).
 
 ### Half upgrades (province scale, both modes)
 
@@ -64,6 +64,12 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
 - Every level's land is still connected after the splits (12 of 12 seeds each).
 - **Idle player:** gentler than before. At level 1 seven of eight idle runs lasted the hour. At level 3 three of eight lost within 32 minutes. The computer still waits for a lead of 1.7 to 1, and the new fight favours the defender.
+
+## Direction since
+
+"Each round [is] about one minute; each round should be no more than five seconds." That test was on `main`, which still had the old rounds of 6 world seconds (a minute in a province). Now every round is real time: 1 second in province battles and 3 in the campaign. The level progression (the mini campaign of province battles) arrives on `main` with this merge.
+
+"On level one you should have more than one opponent on your map." Level 1 now has two opponents, and the ladder starts from there: two opponents on levels 1 and 2, three on levels 3 and 4, two against you and an ally on level 5, four on level 6, and three teams of two on level 7.
 
 ## Questions
 
@@ -103,7 +109,7 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
    > **Answer:**
 
-10. **The campaign's pace.** The campaign now fights in waves too, a round every 2 world seconds: a village fight is about a minute in a province and 12 seconds on the country map; a tower fight is 3 minutes 20 seconds in a province and 40 seconds on the country map. Too slow, too fast?
+10. **The campaign's pace.** The campaign now fights in waves too, a round every 3 real seconds at any scale: a village fight is 9 seconds, a tower fight 30. Enough time to press Join, or too long?
 
    > **Answer:**
 

@@ -438,7 +438,7 @@ t.test('claims cost more than before', () => {
 
 t.test('risk rounds (kept for comparison): a round costs as many soldiers as there are pairs', () => {
   const { XW, w } = fresh(777);
-  XW.world.CONFIG.FIGHT_MODEL = 'risk';
+  XW.world.CONFIG.FIGHT_MODEL = 'risk'; XW.world.CONFIG.FIGHT_CLOCK = 'world';
   const pair = neutralNextToYou(w);
   for (const [a, d] of [[100, 100], [40, 30]]) {
     pair.target.owner = -1; pair.target.gar = d;
@@ -523,13 +523,13 @@ t.test('a half upgrade costs half the next grade\'s cap, from the province\'s ow
 function waveFights(seed, a, d, tier, runs, up) {
   const { XW, w } = fresh(seed);
   XW.world.CONFIG.FIGHT_MODEL = 'waves';
-  XW.world.CONFIG.FIGHT_CLOCK = 'real';
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
   const pair = neutralNextToYou(w), out = { wins: 0, left: 0, kept: 0, rounds: 0 };
   for (let i = 0; i < runs; i++) {
     pair.target.owner = -1; pair.target.gar = d; pair.target.tier = tier; pair.target.up = !!up; pair.mine.gar = 0;
     pair.target.fight = { owner: w.you, count: a, from: pair.mine.id, t: 0, rounds: 0 };
     let n = 0;
-    while (pair.target.fight && n < 30) { XW.province.fights(w, 0, XW.province.CONFIG.FIGHT.ROUND); n++; }
+    while (pair.target.fight && n < 30) { XW.province.fights(w, 0, 1); n++; }
     out.rounds += n;
     if (pair.target.owner === w.you) { out.wins++; out.left += pair.target.gar; } else out.kept += pair.target.gar;
   }
@@ -569,7 +569,7 @@ t.test('a wave round: the first strike breaks a much smaller army, and the rest 
 
 t.test('in province battles a round is 1 real second, whatever the world clock says', () => {
   const { XW, w } = fresh(910);
-  XW.world.CONFIG.FIGHT_CLOCK = 'real';
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
   const pair = neutralNextToYou(w);
   pair.target.gar = 100;
   pair.target.fight = { owner: w.you, count: 100, from: pair.mine.id, t: 0, rounds: 0 };
@@ -581,7 +581,7 @@ t.test('in province battles a round is 1 real second, whatever the world clock s
 
 t.test('the fight line shows the round of how many, and a side that is routing', () => {
   const { XW, w } = fresh(912);
-  XW.world.CONFIG.FIGHT_CLOCK = 'real';
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
   const pair = neutralNextToYou(w);
   pair.target.gar = 100; pair.target.tier = 'v';
   pair.target.fight = { owner: w.you, count: 500, from: pair.mine.id, t: 0, rounds: 0 };
@@ -590,10 +590,11 @@ t.test('the fight line shows the round of how many, and a side that is routing',
   if (pair.target.fight) assert.ok(/routing|shaken/.test(XW.province.fightLine(w, pair.target)), XW.province.fightLine(w, pair.target));
 });
 
-t.test('every mode fights in waves by default (the campaign on world time)', () => {
+t.test('fights run in waves on real time: a round is 3 seconds in the campaign, never more than 5', () => {
   const { XW } = fresh(913);
   assert.strictEqual(XW.world.CONFIG.FIGHT_MODEL, 'waves');
-  assert.strictEqual(XW.world.CONFIG.FIGHT_CLOCK, 'world');
+  assert.strictEqual(XW.world.CONFIG.FIGHT_CLOCK, 'real');
+  assert.ok(XW.world.CONFIG.FIGHT_SECONDS <= 5);
 });
 
 t.test('taking the last province of the last opponent wins', () => {

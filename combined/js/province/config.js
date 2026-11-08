@@ -36,7 +36,6 @@
     // Fitted at city level: 100 against 100 the defenders hold with about 89; 200 against 100 the attackers win with about
     // 121; 500 against 100 the attackers win with about 475.
     FIGHT: {
-      ROUND: 1,                       // real seconds a round takes in province battles (the campaign uses FIGHT_ROUND world seconds)
       STRIKES: [['a', 0.2], ['d', 0.5], ['a', 0.5], ['d', 0.5], ['a', 0.3]],
       KILL_A: 0.6, KILL_D: 1.8,
       BREAK: 0.5, ROUT_STRIKE: 0.5, SHAKEN: 0.9,
