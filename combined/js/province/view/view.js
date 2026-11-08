@@ -35,31 +35,63 @@
     redraw();
   }
 
-  // Drag: press on one of your provinces and let go on another (in this window). The garrison moves there, at the share
-  // chosen on the bar, along your roads. A drag is not a tap.
-  var drag = null, dragged = false;
+  // Drag: press on one of your provinces and let go on another (in this window). The garrisons move there, at the share
+  // chosen on the bar, along your roads. Passing over your other provinces on the way adds them to the group (as in the
+  // spot game): a drop sends each one that has a route to the target, and a drop on your own province reinforces it.
+  // A drag is not a tap.
+  var drag = null, dragged = false, dragLayer = null;
   function idAt(e) { var t = e.target.closest ? e.target.closest('[data-id]') : null; return t ? Number(t.getAttribute('data-id')) : null; }
+  function idUnder(e) { var hit = document.elementFromPoint(e.clientX, e.clientY); var v = hit && hit.getAttribute ? hit.getAttribute('data-id') : null; return v === null ? null : Number(v); }
+  function ownSource(w, id) { var p = w.provs[id]; return !!p && p.kind === 'province' && p.owner === w.you && p.gar >= 1; }
+
+  // The drag lines: from each dragged province to the pointer, green where the target can be reached by road.
+  function drawDrag(e) {
+    if (!dragLayer) return;
+    D.clear(dragLayer);
+    if (!drag || !drag.moved || !e) return;
+    var w = W.get(), end = D.svgPoint(svgEl, e), target = drag.target;
+    drag.sources.forEach(function (s) {
+      var p = w.provs[s], ok = target !== null && target !== s && P.routeTo(w, win, s, target, w.you);
+      D.svg('line', { x1: p.x, y1: p.y, x2: end.x, y2: end.y, 'class': 'drag' + (target === null ? '' : ok ? ' ok' : ' bad') }, dragLayer);
+    });
+  }
+
   function bind() {
     if (bound) return;
     bound = true;
     svgEl.addEventListener('pointerdown', function (e) {
       var w = W.get(), id = idAt(e);
       dragged = false;
-      drag = (id !== null && w.provs[id].owner === w.you && w.provs[id].gar >= 1) ? { from: id, x: e.clientX, y: e.clientY } : null;
+      drag = (id !== null && ownSource(w, id)) ? { sources: [id], x: e.clientX, y: e.clientY, moved: false, target: null } : null;
+    });
+    svgEl.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var w = W.get();
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8) drag.moved = true;
+      drag.target = idUnder(e);
+      if (drag.moved && drag.target !== null && ownSource(w, drag.target) && drag.sources.indexOf(drag.target) < 0) drag.sources.push(drag.target);
+      drawDrag(e);
     });
     svgEl.addEventListener('pointerup', function (e) {
       if (!drag) return;
-      var from = drag.from, moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8;
+      var d = drag;
       drag = null;
-      if (!moved) return;
+      drawDrag(null);
+      if (!d.moved) return;
       dragged = true;
-      var hit = document.elementFromPoint(e.clientX, e.clientY), to = hit && hit.getAttribute ? hit.getAttribute('data-id') : null;
-      if (to === null || Number(to) === from) return;
-      var w = W.get();
-      var err = P.send(w, win, w.you, from, Number(to), w.view.marchPct);
+      var to = idUnder(e);
+      if (to === null) return;
+      var w = W.get(), group = d.sources.filter(function (s) { return s !== to; });
+      if (!group.length) return;
+      var sent = 0, first = null;
+      group.forEach(function (s) {
+        var err = P.send(w, win, w.you, s, to, w.view.marchPct);
+        if (err) { if (first === null) first = err; } else sent++;
+      });
       ui.sel = null; ui.target = null;
-      act.done(err);
+      act.done(sent ? (sent === 1 ? 'Soldiers sent.' : 'Sent from ' + sent + ' provinces.') : first);
     });
+    svgEl.addEventListener('pointercancel', function () { drag = null; drawDrag(null); });
     svgEl.addEventListener('click', function (e) {
       if (dragged) { dragged = false; return; }
       tap(idAt(e) === null ? -1 : idAt(e));
@@ -91,7 +123,7 @@
       var f = P.view.frame(win);
       svgEl.setAttribute('viewBox', [f.x, f.y, f.w, f.h].join(' '));
       D.clear(svgEl);
-      ground = D.svg('g', {}, svgEl); live = D.svg('g', {}, svgEl);
+      ground = D.svg('g', {}, svgEl); live = D.svg('g', {}, svgEl); dragLayer = D.svg('g', {}, svgEl);
       groundKey = '';
       ui.sel = w.provs[win.focus].owner === w.you ? win.focus : null;
       ui.target = null;

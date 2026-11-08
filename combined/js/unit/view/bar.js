@@ -9,7 +9,8 @@
   U.view.drawBar = function (bar, w, st, ui, act) {
     D.clear(bar);
     if (st.done) {
-      bar.appendChild(button('🗺️ Back to the province', function () { A.scales.go('province'); }, { cls: 'big' }));
+      if (A.can('province')) bar.appendChild(button('🗺️ Back to the province', function () { A.scales.go('province'); }, { cls: 'big' }));
+      else bar.appendChild(button('⚔️ Next battle', function () { A.modes.next(); }, { cls: 'big' }));
       return;
     }
     bar.appendChild(button(ui.paused ? '▶ Play' : '⏸ Pause', function () { ui.paused = !ui.paused; act.redraw(); }));

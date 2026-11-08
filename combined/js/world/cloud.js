@@ -46,7 +46,7 @@
   function toRow(w) {
     var me = w.nations[w.you];
     return {
-      id: w.id, app: 'combined', version: w.v, seed: w.seed, turn: w.time.turn,
+      id: w.id, app: W.CONFIG.APP, version: w.v, seed: w.seed, turn: w.time.turn,
       scale: w.view.scale, provinces: w.provs.filter(function (p) { return p.owner === w.you; }).length,
       over: w.over || '', name: me ? me.name : '', updated_at: new Date().toISOString(), data: w
     };
@@ -84,7 +84,7 @@
     return session().then(function (s) {
       if (!s) throw new Error('Sign in first (⚙️, Family database).');
       return client().then(function (c) {
-        return withTimeout(c.from(TABLE).select('data').eq('app', 'combined').order('updated_at', { ascending: false }).limit(1));
+        return withTimeout(c.from(TABLE).select('data').eq('app', W.CONFIG.APP).order('updated_at', { ascending: false }).limit(1));
       });
     }).then(function (res) {
       if (res.error) throw res.error;

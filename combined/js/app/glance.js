@@ -11,13 +11,14 @@
       var b = D.button(text, function () { if (!here) A.scales.go(target); }, { cls: here ? 'here' : '' });
       nav.appendChild(b);
     }
-    crumb('🌍 Country', 'country', scale === 'country');
-    if (p && scale !== 'country') {
-      nav.appendChild(D.el('span', 'sep', '›'));
+    function sep() { if (nav.childNodes.length) nav.appendChild(D.el('span', 'sep', '›')); }
+    if (A.can('country')) crumb('🌍 Country', 'country', scale === 'country');
+    if (p && A.can('province') && scale !== 'country') {
+      sep();
       crumb('🗺️ ' + cap(W.label(p.tier)) + ' · ' + W.ownerName(w, p.owner), 'province', scale === 'province');
     }
     if (w.battle && scale === 'unit') {
-      nav.appendChild(D.el('span', 'sep', '›'));
+      sep();
       crumb('⚔️ Battle', 'unit', true);
     }
   }
@@ -33,10 +34,11 @@
     }
     var left = W.turnLeft(w) / rate;   // real seconds left at this scale
     var text = w.over === 'won' ? 'You win!' : w.over === 'lost' ? 'Your nation has fallen.'
-      : 'Turn ' + w.time.turn + ' · ' + fmt(left) + ' left' + (base < 1 || w.view.fast ? ' · time ×' + +(rate / 1).toFixed(3) : '');
+      : A.mode.turns ? 'Turn ' + w.time.turn + ' · ' + fmt(left) + ' left' + (base < 1 || w.view.fast ? ' · time ×' + +(rate / 1).toFixed(3) : '')
+      : (scale === 'unit' ? '⚔️ One battle' : '🗺️ Province time') + ' · time ×' + +(rate / 1).toFixed(3);
     D.$('clock').textContent = text;
     var ready = D.$('ready');
-    ready.hidden = scale !== 'country';
+    ready.hidden = scale !== 'country' || !A.mode.turns;
     ready.disabled = !!w.over;
   }
   function fmt(s) {

@@ -1,11 +1,22 @@
-# Expansion Wars — Combined scale (schematic)
+# Expansion Wars — Campaign (schematic)
 
-**Status:** first playable build. Not device-tested. Numbers are carried over from the three scales and not rebalanced.
+**Status:** version 3.0. Not device-tested. Numbers are carried over from the three scales and not rebalanced.
 **Files:** see `README.md` for the file map and where to change what.
 
 ## Goal
 
 One game in three zoom levels. Zoom in from the country to a province, and from a province to a battle. What you do at any level changes the same world, so it shows at every other level. Each level runs at its own speed (time dilation).
+
+## Modes (version 3.0)
+
+The campaign is the whole game: all three scales in one world. Three battle modes use the same rules and views, each showing one scale, with a world and a save of their own (`js/app/modes.js`):
+
+| Mode | Page | Shows | Country turns |
+|---|---|---|---|
+| Campaign | `index.html` | country, province, unit | yes |
+| Unit battles | `index.html?mode=unit` | unit: a new battle between two of your provinces each time | no |
+| Province battles | `index.html?mode=province` | province: marches, garrisons, fights in rounds, no battles to join | no |
+| Country battles | `index.html?mode=country` | country: turns, diplomacy, war, fights in rounds | yes |
 
 ## One world (single source of truth)
 

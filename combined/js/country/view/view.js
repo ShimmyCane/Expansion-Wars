@@ -25,7 +25,7 @@
       var line = D.el('p', 'small fight-line', fightText(w, p));
       line.setAttribute('data-prov', String(p.id));
       box.appendChild(line);
-      if (mine) {
+      if (mine && A.can('unit')) {
         box.appendChild(D.button('Join the fight at ' + W.aLabel(p.tier), function () {
           var err = XW.unit.startFight(w, p);
           if (err) { done(err); return; }

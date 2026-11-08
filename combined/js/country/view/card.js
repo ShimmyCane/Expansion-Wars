@@ -41,7 +41,7 @@
     card.appendChild(el('h3', '', cap(W.label(p.tier)) + (p.owner >= 0 ? ' of ' + w.nations[p.owner].name : ' (neutral land)')));
     card.appendChild(el('p', '', Math.floor(p.gar || 0) + ' soldiers stationed · defence ' + C.featureDef(w, p) + ' · ' + K().FEATURE_NAME[C.feature(w, p)] +
       (p.mount ? ' · mountain slope' : '') + (p.river ? ' · river border' : '') + (p.occ > 0 ? ' · occupied ' + p.occ + ' more turns' : '')));
-    card.appendChild(button('🔍 Zoom into this province (real time)', function () { XW.app.scales.go('province', p.id); }, { cls: 'big' }));
+    if (XW.app.can('province')) card.appendChild(button('🔍 Zoom into this province (real time)', function () { XW.app.scales.go('province', p.id); }, { cls: 'big' }));
     if (p.owner === w.you) {
       var row = el('div', 'row');
       // Garrison moves: pick this province, then tap another of yours (up to MOVE_HOPS away) on the map.
