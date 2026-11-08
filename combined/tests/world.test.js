@@ -372,7 +372,7 @@ t.test('a fight ticker says who is fighting and when the next round is', () => {
   pair.target.gar = 30;
   pair.target.fight = { owner: w.you, count: 12, from: pair.mine.id, t: 0, rounds: 0 };
   const line = XW.province.fightLine(w, pair.target);
-  assert.ok(/attackers 12/.test(line) && /defenders 30/.test(line) && /round 1 in \d+ s/.test(line), line);
+  assert.ok(/attackers 12/.test(line) && /defenders 30/.test(line) && /round 1 of \d+ in \d+ s/.test(line), line);
 });
 
 t.test('armies are four times the first version, and civics raise the cap', () => {
@@ -434,6 +434,180 @@ t.test('claims cost more than before', () => {
   const { XW, w } = fresh(31);
   const R = { hops: 2 };
   assert.ok(XW.country.claimCost(R).gold >= 14);
+});
+
+t.test('risk rounds (kept for comparison): a round costs as many soldiers as there are pairs', () => {
+  const { XW, w } = fresh(777);
+  XW.world.CONFIG.FIGHT_MODEL = 'risk'; XW.world.CONFIG.FIGHT_CLOCK = 'world';
+  const pair = neutralNextToYou(w);
+  for (const [a, d] of [[100, 100], [40, 30]]) {
+    pair.target.owner = -1; pair.target.gar = d;
+    pair.target.fight = { owner: w.you, count: a, from: pair.mine.id, t: 0, rounds: 0 };
+    XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);
+    const lost = (a - (pair.target.fight ? pair.target.fight.count : 0)) + (d - (pair.target.gar || 0));
+    if (pair.target.fight) assert.strictEqual(lost, Math.min(a, d));
+    pair.target.fight = null;
+  }
+});
+
+t.test('province battles: a province grows its own soldiers by grade, up to its cap, with no field army', () => {
+  const { XW, w } = fresh(779);
+  XW.world.CONFIG.POOL = false;
+  const P = XW.province;
+  const win = P.window(w, w.provs.find(p => p.kind === 'province' && p.owner === w.you).id);
+  const pool = w.nations[w.you].soldiers;
+  const mine = win.ids.map(id => w.provs[id]).filter(p => p.owner === w.you);
+  const before = mine.map(p => p.gar);
+  P.step(w, win, 10);
+  mine.forEach((p, i) => assert.ok(Math.abs(p.gar - Math.min(P.cap(w, p), before[i] + P.stat('GROW', P.grade(w, p)) * 10)) < 1e-6, p.tier + ' grew ' + (p.gar - before[i])));
+  assert.strictEqual(w.nations[w.you].soldiers, pool, 'the field army was not touched');
+  mine[0].gar = P.cap(w, mine[0]);
+  P.step(w, win, 100);
+  assert.strictEqual(mine[0].gar, P.cap(w, mine[0]), 'never over the cap');
+});
+
+t.test('with a field army (the campaign), garrisons still grow from it', () => {
+  const { XW, w } = fresh(781);
+  const win = XW.province.window(w, w.provs.find(p => p.kind === 'province' && p.owner === w.you).id);
+  const pool = w.nations[w.you].soldiers;
+  XW.province.step(w, win, 5);
+  assert.ok(w.nations[w.you].soldiers < pool, 'the pool paid for the growth');
+});
+
+t.test('province battles: soldiers go as far as your roads reach; nothing moves during the countdown', () => {
+  const { XW, w } = fresh(782);
+  XW.world.CONFIG.MOVE_HOPS = 99;
+  const mine = w.provs.filter(p => p.kind === 'province' && p.owner === w.you);
+  const win = XW.province.window(w, mine[0].id);
+  const far = w.provs.find(p => p.kind === 'province' && p.owner < 0 && XW.province.links(w, win, mine[0].id).indexOf(p.id) >= 0);
+  w.countdown = 3;
+  assert.strictEqual(XW.province.send(w, win, w.you, mine[0].id, far.id, 50), 'Wait for Go.');
+  w.countdown = 0;
+  assert.strictEqual(XW.province.send(w, win, w.you, mine[0].id, far.id, 50), null);
+});
+
+t.test('grades: village to tower, and a half upgrade sits halfway', () => {
+  const { XW } = fresh(1);
+  const P = XW.province, w = {};
+  const g = tier => P.grade(w, { tier });
+  assert.deepStrictEqual(['e', 'v', 't', 'c', 'f'].map(g), [0, 1, 2, 3, 4]);
+  assert.strictEqual(P.grade(w, { tier: 'f', tower: 2 }), 5, 'a fortress with an upgraded tower');
+  assert.strictEqual(P.grade(w, { tier: 'v', up: true }), 1.5);
+  assert.strictEqual(P.stat('DEF', 1), -0.25, 'a village: -25%');
+  assert.strictEqual(P.stat('DEF', 3), 0, 'a city: even');
+  assert.strictEqual(P.stat('DEF', 5), 0.25, 'a tower: +25%');
+  assert.strictEqual(P.stat('ROUNDS', 1), 3, 'a village fight is 3 rounds');
+  assert.strictEqual(P.stat('ROUNDS', 5), 10, 'a tower fight is 10 rounds');
+  assert.strictEqual(P.stat('GROW', 1), 0.5); assert.strictEqual(P.stat('GROW', 4), 2);
+  assert.strictEqual(P.stat('CAP', 1.5), 120, 'halfway between a village and a town');
+});
+
+t.test('a half upgrade costs half the next grade\'s cap, from the province\'s own soldiers, once', () => {
+  const { XW, w } = fresh(783);
+  const P = XW.province, p = w.provs.find(q => q.kind === 'province' && q.owner === w.you && q.tier === 'v');
+  p.gar = 50;
+  assert.ok(/costs 80/.test(P.upgrade(w, w.you, p.id)), 'a village upgrade costs half a town\'s cap (160)');
+  p.gar = 90;
+  assert.strictEqual(P.upgrade(w, w.you, p.id), null);
+  assert.strictEqual(p.gar, 10);
+  assert.ok(p.up && P.grade(w, p) === 1.5);
+  assert.ok(P.upgrade(w, w.you, p.id), 'only once');
+  const f = { kind: 'province', tier: 'f', owner: w.you, gar: 400 };
+  w.provs.push(f); f.id = w.provs.length - 1;
+  assert.strictEqual(P.upgrade(w, w.you, f.id), null, 'a fortress upgrade is its tower');
+  assert.strictEqual(f.tower, 2);
+  assert.strictEqual(P.grade(w, f), 5);
+});
+
+// Whole fights through the rules, at a given grade, many times (they carry a little randomness).
+function waveFights(seed, a, d, tier, runs, up) {
+  const { XW, w } = fresh(seed);
+  XW.world.CONFIG.FIGHT_MODEL = 'waves';
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
+  const pair = neutralNextToYou(w), out = { wins: 0, left: 0, kept: 0, rounds: 0 };
+  for (let i = 0; i < runs; i++) {
+    pair.target.owner = -1; pair.target.gar = d; pair.target.tier = tier; pair.target.up = !!up; pair.mine.gar = 0;
+    pair.target.fight = { owner: w.you, count: a, from: pair.mine.id, t: 0, rounds: 0 };
+    let n = 0;
+    while (pair.target.fight && n < 30) { XW.province.fights(w, 0, 1); n++; }
+    out.rounds += n;
+    if (pair.target.owner === w.you) { out.wins++; out.left += pair.target.gar; } else out.kept += pair.target.gar;
+  }
+  return out;
+}
+
+t.test('wave fights at city level fit the targets: 100 v 100 holds, 200 v 100 leaves about 120, 500 v 100 about 475', () => {
+  const even = waveFights(901, 100, 100, 'c', 60);
+  assert.strictEqual(even.wins, 0, '100 v 100: the defenders hold');
+  assert.ok(Math.abs(even.kept / 60 - 85) < 15, 'they keep about 80 to 90: ' + Math.round(even.kept / 60));
+  const two = waveFights(902, 200, 100, 'c', 60);
+  assert.strictEqual(two.wins, 60, '200 v 100: the attackers win');
+  assert.ok(Math.abs(two.left / 60 - 120) < 15, 'with about 120 left: ' + Math.round(two.left / 60));
+  const five = waveFights(903, 500, 100, 'c', 60);
+  assert.ok(Math.abs(five.left / 60 - 475) < 15, '500 v 100: about 475 left: ' + Math.round(five.left / 60));
+});
+
+t.test('the ground matters: 150 v 100 takes a village but not a fortress; a tower needs about 3 to 1', () => {
+  assert.strictEqual(waveFights(904, 150, 100, 'v', 30).wins, 30);
+  assert.strictEqual(waveFights(905, 150, 100, 'f', 30).wins, 0);
+  assert.strictEqual(waveFights(906, 200, 100, 'f', 30, true).wins, 0, 'a tower holds against two to one');
+  assert.strictEqual(waveFights(907, 300, 100, 'f', 30, true).wins, 30, 'but not three to one');
+});
+
+t.test('a fight takes as many rounds as the ground gives: 3 at a village, 10 at a tower', () => {
+  assert.strictEqual(waveFights(908, 100, 100, 'v', 10).rounds, 30);
+  assert.strictEqual(waveFights(909, 100, 100, 'f', 10, true).rounds, 100);
+});
+
+t.test('a wave round: the first strike breaks a much smaller army, and the rest of the round is a rout', () => {
+  const { XW } = fresh(1);
+  const r = XW.province.waveRound(500, 100, 0, 1, 1, () => 0.5);
+  assert.ok(r.routD, 'the defenders rout');
+  assert.ok(r.lostA < 40, 'the attackers lose little: ' + Math.round(r.lostA));
+  assert.strictEqual(Math.round(r.lostD), 100);
+});
+
+t.test('in province battles a round is 1 real second, whatever the world clock says', () => {
+  const { XW, w } = fresh(910);
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 100;
+  pair.target.fight = { owner: w.you, count: 100, from: pair.mine.id, t: 0, rounds: 0 };
+  XW.province.fights(w, 100, 0.6);
+  assert.strictEqual(pair.target.fight.rounds || 0, 0, 'no round yet');
+  XW.province.fights(w, 0, 0.5);
+  assert.strictEqual(pair.target.fight.rounds, 1);
+});
+
+t.test('the fight line shows the round of how many, and a side that is routing', () => {
+  const { XW, w } = fresh(912);
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 100; pair.target.tier = 'v';
+  pair.target.fight = { owner: w.you, count: 500, from: pair.mine.id, t: 0, rounds: 0 };
+  assert.ok(/round 1 of 3 in \d+ s/.test(XW.province.fightLine(w, pair.target)), XW.province.fightLine(w, pair.target));
+  XW.province.fights(w, 0, 1);
+  if (pair.target.fight) assert.ok(/routing|shaken/.test(XW.province.fightLine(w, pair.target)), XW.province.fightLine(w, pair.target));
+});
+
+t.test('fights run in waves on real time: a round is 3 seconds in the campaign, never more than 5', () => {
+  const { XW } = fresh(913);
+  assert.strictEqual(XW.world.CONFIG.FIGHT_MODEL, 'waves');
+  assert.strictEqual(XW.world.CONFIG.FIGHT_CLOCK, 'real');
+  assert.ok(XW.world.CONFIG.FIGHT_SECONDS <= 5);
+});
+
+t.test('taking the last province of the last opponent wins', () => {
+  const { XW, w } = fresh(780);
+  w.nations.forEach(k => { if (k.id !== w.you && k.id !== 1) { w.provs.forEach(p => { if (p.owner === k.id) p.owner = -1; }); k.alive = false; } });
+  const last = w.provs.filter(p => p.kind === 'province' && p.owner === 1);
+  const from = w.provs.find(p => p.kind === 'province' && p.owner === w.you);
+  last.slice(1).forEach(p => { p.owner = -1; });                  // leave Oakfield one province
+  const target = last[0];
+  target.gar = 1;
+  target.fight = { owner: w.you, count: 50, from: from.id, t: 0, rounds: 0 };
+  for (let i = 0; i < 50 && target.fight; i++) XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);
+  assert.strictEqual(w.over, 'won');
 });
 
 t.done();

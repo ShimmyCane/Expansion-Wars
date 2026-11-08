@@ -13,12 +13,31 @@
 
   P.view.drawBar = function (bar, w, win, ui, act) {
     D.clear(bar);
+    // A province battles level that has ended: win to go on to the next level, lose to try the same one again.
+    if (w.over && !A.mode.turns) {
+      bar.appendChild(el('span', 'note', w.over === 'won' ? 'Level won: every opponent has fallen.' : 'Your nation has fallen.'));
+      bar.appendChild(button(w.over === 'won' ? '🏆 Next level' : '🔁 Try the level again', function () { A.modes.next(); }, { cls: 'big' }));
+      return;
+    }
     var sel = W.prov(w, ui.sel), target = W.prov(w, ui.target);
     P.CONFIG.SEND_STEPS.forEach(function (pct) {
       bar.appendChild(button(pct + '%', function () { w.view.marchPct = pct; act.redraw(); }, { pressed: w.view.marchPct === pct }));
     });
-    if (!sel) { bar.appendChild(el('span', 'note', 'Tap one of your provinces to send its soldiers.')); return; }
+    if (!sel) { bar.appendChild(el('span', 'note', 'Drag from your provinces onto another to send soldiers, or tap one of yours and then a target.')); return; }
     var n = share(w, sel.id), M = P.CONFIG.MUSTER;
+    // A half upgrade, paid with this province's soldiers: halfway to the next grade (a fortress gets its tower).
+    function upgradeButton() {
+      if (sel.up || P.grade(w, sel) >= 5) return;
+      var cost = P.upgradeCost(w, sel);
+      bar.appendChild(button('⬆ Upgrade (' + cost + ' soldiers)', function () { act.done(P.upgrade(w, w.you, sel.id)); }, { disabled: (sel.gar || 0) < cost }));
+    }
+    // Province battles: no field army to muster from. Tapping the target sends.
+    if (!A.mode.turns) {
+      upgradeButton();
+      bar.appendChild(el('span', 'note', 'Now tap a province to send ' + n + ', or drag onto it.'));
+      return;
+    }
+    upgradeButton();
     // A fight on a province in this window that you are part of: join it as a battle.
     win.ids.forEach(function (id) {
       var f = w.provs[id];
@@ -54,8 +73,10 @@
     D.clear(card);
     var f = w.provs[win.focus];
     card.appendChild(el('h3', '', 'Province: ' + W.label(f.tier) + ' of ' + W.ownerName(w, f.owner)));
-    card.appendChild(el('p', 'small', 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
-      ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'));
+    card.appendChild(el('p', 'small', A.mode.turns
+      ? 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
+        ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'
+      : 'Each province grows its own soldiers, faster the higher its grade. Send them to take land; fights settle themselves in rounds, more of them at stronger places. Upgrade a province with its own soldiers. Take every opponent province to win.'));
     var held = {};
     win.ids.forEach(function (id) {
       var p = w.provs[id], k = p.owner;

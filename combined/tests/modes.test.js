@@ -112,6 +112,137 @@ t.test('a save from a scale the mode does not show is brought back to the mode',
   assert.strictEqual(w.view.scale, 'country');
 });
 
+t.test('province battles start small and grow: more provinces and opponents each level', () => {
+  const { XW } = inMode('province');
+  let lastProvs = 0, lastNations = 0;
+  for (let n = 1; n <= 8; n++) {
+    const w = XW.app.modes.fresh(900 + n, n);
+    const provs = w.provs.filter(p => p.kind === 'province').length;
+    assert.strictEqual(w.level, n);
+    assert.ok(provs >= lastProvs, 'level ' + n + ' has at least as many provinces (' + provs + ')');
+    assert.ok(w.nations.length >= lastNations, 'level ' + n + ' has at least as many nations');
+    lastProvs = provs; lastNations = w.nations.length;
+    // Everyone is at war with everyone, except allies set by the level; none is left out of the window.
+    w.nations.forEach(a => w.nations.forEach(b => {
+      if (a.id >= b.id) return;
+      const r = XW.world.rel(w, a.id, b.id);
+      assert.ok(r.war !== r.ally, a.name + ' and ' + b.name + ' are either at war or allies');
+    }));
+    const win = XW.province.window(w, w.view.prov);
+    w.provs.forEach(p => { if (p.kind === 'province' && p.owner >= 0) assert.ok(win.inside[p.id], 'province ' + p.id + ' is on the map'); });
+  }
+  assert.strictEqual(XW.app.modes.levelLine(XW.app.modes.fresh(1, 1)), 'Level 1 · 2 opponents · 5 provinces each');
+});
+
+t.test('team levels: you start with an ally, and everyone else is at war with everyone', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(77, 5);
+  assert.ok(XW.world.rel(w, 0, 1).ally && !XW.world.rel(w, 0, 1).war, 'nation 1 is your ally');
+  assert.ok(XW.world.rel(w, 2, 3).ally, 'the other two are a team');
+  assert.ok(XW.world.rel(w, 0, 2).war && XW.world.rel(w, 1, 3).war, 'the teams are at war');
+  const w1 = XW.app.modes.fresh(78, 1);
+  assert.ok(XW.world.rel(w1, 1, 2).war, 'without teams, the computer players fight each other too');
+});
+
+t.test('you win when every opponent has fallen, even with your ally still standing', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(79, 5);
+  [2, 3].forEach(id => { w.nations[id].alive = false; w.provs.forEach(p => { if (p.owner === id) p.owner = -1; }); });
+  XW.country.checkWin(w);
+  assert.strictEqual(w.over, 'won');
+});
+
+t.test('towns, cities and fortresses split into 2, 3 and 5 provinces; each part defends at the whole one\'s grade', () => {
+  const { XW } = inMode('province');
+  const P = XW.province;
+  const w = XW.app.modes.fresh(80, 4);
+  const groups = {};
+  w.provs.forEach(p => { if (p.group !== undefined) (groups[p.group] = groups[p.group] || []).push(p); });
+  const sizes = Object.keys(groups).map(g => [w.provs[g].tier, groups[g].length]);
+  sizes.forEach(([tier, n]) => assert.ok(n <= P.CONFIG.SPLITS[tier] && n >= 2, tier + ' split into ' + n));
+  assert.ok(sizes.some(([t]) => t === 'f'), 'level 4 has a fortress');
+  const fort = w.provs.find(p => p.tier === 'f' && p.group === p.id);
+  const part = groups[fort.id].find(p => p.id !== fort.id);
+  assert.strictEqual(P.defGrade(w, part), 4, 'a part of a neutral fortress defends like the fortress');
+  part.owner = w.you;                                                 // taken by you, but the fortress is not yours
+  assert.strictEqual(P.defGrade(w, part), 1, 'whoever takes a part does not get the fortress\'s protection');
+  groups[fort.id].forEach(p => { p.owner = w.you; });
+  P.claimGroup(w, fort);
+  assert.strictEqual(P.defGrade(w, part), 4, 'once all of it is yours, the protection is yours');
+});
+
+t.test('an upgraded tower in the middle of a split fortress reaches every part of it', () => {
+  const { XW } = inMode('province');
+  const P = XW.province;
+  const w = XW.app.modes.fresh(81, 4);
+  const fort = w.provs.find(p => p.tier === 'f' && p.group === p.id);
+  fort.tower = 2;
+  const r = P.towerRange(w, fort);
+  w.provs.filter(p => p.group === fort.id).forEach(p => assert.ok(Math.hypot(p.x - fort.x, p.y - fort.y) < r, 'part ' + p.id + ' is in range'));
+});
+
+t.test('surrender: a side outnumbered 10 to 1 gives up, and its provinces go neutral with their soldiers', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(82, 1);
+  w.provs.forEach(p => { if (p.owner > 0) p.gar = 5; if (p.owner === w.you) p.gar = 400; });
+  const theirs = w.provs.filter(p => p.owner > 0).map(p => p.id);
+  assert.deepStrictEqual(Array.from(XW.province.surrender(w)), [1, 2]);
+  theirs.forEach(id => { assert.strictEqual(w.provs[id].owner, -1); assert.strictEqual(w.provs[id].gar, 5); });
+  assert.strictEqual(w.over, 'won', 'the last opponent gave up');
+});
+
+t.test('level 1 is a small start with two opponents, a couple of provinces each', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(31, 1);
+  assert.strictEqual(w.nations.length, 3);
+  // A village and a town, and the town is two provinces when zoomed in.
+  assert.strictEqual(w.provs.filter(p => p.owner === w.you).length, 3);
+  assert.strictEqual(w.provs.filter(p => p.owner === 1).length, 3);
+});
+
+t.test('reaching a level unlocks it, and the record is kept', () => {
+  const { XW } = inMode('province');
+  assert.strictEqual(XW.app.modes.unlocked(), 1);
+  XW.app.modes.fresh(1, 3);
+  assert.strictEqual(XW.app.modes.unlocked(), 3);
+  XW.app.modes.fresh(1, 2);
+  assert.strictEqual(XW.app.modes.unlocked(), 3, 'going back does not lose it');
+});
+
+t.test('a province battle save with no level is replaced by level 1', () => {
+  const { XW } = inMode('province');
+  const old = XW.country.newWorld(5);
+  old.view.prov = old.provs.find(p => p.kind === 'province' && p.owner === old.you).id;
+  const w = XW.app.modes.ensure(old);
+  assert.strictEqual(w.level, 1);
+});
+
+t.test('the province window is the whole map in province battles, two steps in the campaign', () => {
+  assert.strictEqual(inMode('province').XW.world.CONFIG.RINGS, 99);
+  assert.strictEqual(inMode('campaign').XW.world.CONFIG.RINGS, 2);
+});
+
+t.test('every mode fights in waves on real time: a round a second in province battles, 3 seconds elsewhere', () => {
+  for (const id of ['campaign', 'country', 'unit', 'province']) {
+    const C = inMode(id).XW.world.CONFIG;
+    assert.strictEqual(C.FIGHT_MODEL, 'waves', id);
+    assert.strictEqual(C.FIGHT_CLOCK, 'real', id);
+    assert.ok(C.FIGHT_SECONDS <= 5, id + ': no round over 5 seconds');
+  }
+  assert.strictEqual(inMode('province').XW.world.CONFIG.FIGHT_SECONDS, 1);
+  assert.strictEqual(inMode('campaign').XW.world.CONFIG.FIGHT_SECONDS, 3);
+});
+
+t.test('province battles play like the first draft: no field army, no move limit, a countdown at the start', () => {
+  const pb = inMode('province').XW;
+  assert.strictEqual(pb.world.CONFIG.POOL, false);
+  assert.strictEqual(pb.world.CONFIG.MOVE_HOPS, 99);
+  assert.strictEqual(pb.app.modes.fresh(5, 1).countdown, 3);
+  const camp = inMode('campaign').XW;
+  assert.strictEqual(camp.world.CONFIG.POOL, true);
+  assert.strictEqual(camp.world.CONFIG.MOVE_HOPS, 3);
+});
+
 t.test('the version is 3.0 and shown with the mode', () => {
   const { XW } = inMode('unit');
   assert.strictEqual(XW.app.VERSION, '3.0');

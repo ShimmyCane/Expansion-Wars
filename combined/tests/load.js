@@ -22,7 +22,7 @@ const RULES = [
   'world/config', 'world/state', 'world/rules', 'world/clock', 'world/save',
   'country/config', 'country/query', 'country/route', 'country/build', 'country/diplomacy',
   'country/war', 'country/economy', 'country/move', 'country/ai', 'country/turn', 'country/mapgen',
-  'province/config', 'province/scene', 'province/rules', 'province/ai'
+  'province/config', 'province/scene', 'province/rules', 'province/split', 'province/ai'
 ].concat(ENGINE).concat(['unit/bridge']);
 
 // A fresh sandbox with the listed files loaded. localStorage is a plain in-memory stand-in.

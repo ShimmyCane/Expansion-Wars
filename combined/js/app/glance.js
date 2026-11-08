@@ -35,7 +35,8 @@
     var left = W.turnLeft(w) / rate;   // real seconds left at this scale
     var text = w.over === 'won' ? 'You win!' : w.over === 'lost' ? 'Your nation has fallen.'
       : A.mode.turns ? 'Turn ' + w.time.turn + ' · ' + fmt(left) + ' left' + (base < 1 || w.view.fast ? ' · time ×' + +(rate / 1).toFixed(3) : '')
-      : (scale === 'unit' ? '⚔️ One battle' : '🗺️ Province time') + ' · time ×' + +(rate / 1).toFixed(3);
+      : scale === 'unit' ? '⚔️ One battle · time ×' + +(rate / 1).toFixed(3)
+      : A.modes.levelLine(w) + (w.view.fast ? ' · ×2' : '');
     D.$('clock').textContent = text;
     var ready = D.$('ready');
     ready.hidden = scale !== 'country' || !A.mode.turns;
@@ -46,9 +47,24 @@
     return s >= 60 ? Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + s % 60 + ' s' : '') : s + ' s';
   }
 
+  // Province battles: the first draft's population line, a chip for each nation with its provinces and soldiers.
+  function population(w, box) {
+    w.nations.forEach(function (n) {
+      if (!n.alive) return;
+      var mine = w.provs.filter(function (p) { return p.kind === 'province' && p.owner === n.id; }), soldiers = XW.province.marching(w, n.id);
+      mine.forEach(function (p) { soldiers += p.gar || 0; });
+      var s = D.el('span', '');
+      s.appendChild(D.el('i', 'swatch o' + n.id));
+      s.appendChild(D.el('b', '', ' ' + n.name + (n.id !== w.you && W.rel(w, w.you, n.id).ally ? ' 🤝' : '') + ' '));
+      s.appendChild(document.createTextNode(mine.length + ' province' + (mine.length === 1 ? '' : 's') + ' · ' + Math.floor(soldiers) + ' soldiers'));
+      box.appendChild(s);
+    });
+  }
+
   function glance(w) {
     var n = w.nations[w.you], box = D.$('glance');
     D.clear(box);
+    if (A.mode.id === 'province') { population(w, box); return; }
     var mine = C.ownedBy(w, n);
     var queued = w.queue.filter(function (x) { return x.from === w.you; }).length;
     [

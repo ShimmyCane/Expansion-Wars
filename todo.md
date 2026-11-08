@@ -266,3 +266,52 @@ The province view is shared by the campaign and the province battles, so both ge
 - [ ] **Not ported from the spot game, on purpose.** The 3-2-1-Go countdown: the province window is opened in the middle of a game, so a countdown would only freeze it. The population bar: the window card already shows territories and stationed soldiers per nation. The 10:1 surrender toggle: the campaign surrenders at country level (two times the defence). Team avatars: the campaign uses allies.
 - [x] **Supabase notes checked (2026-11-08).** `xw_notes`: all 14 rows are already `done` and built (rounds 2 to 4). `xw_maps` notes: 25 rows, one `open`: "Test note 1" (Level 4 Valley), which needs no build. Left open until you confirm.
 
+## Version 3.0, round 3: province battles as a progression, bigger risk rounds (convo v0.19)
+
+- [x] **Risk rounds: every soldier goes once.** Each round every attacker and every defender rolls a die; dice pair from the highest down, and each pair costs the loser one soldier (ties to the defender). A 100 against 100 round costs 100 soldiers, so a big fight takes a few rounds, not one soldier at a time. Shared with the campaign.
+- [x] **Rounds are faster.** `FIGHT_ROUND` 6 → 2 world seconds: about 20 s in a province, 4 s on the country map (it was a minute in a province).
+- [x] **Province battles are a progression.** Seven levels, then the last repeats: level 1 is you and one opponent with 5 provinces each and two of yours to start; the maps grow to the full six nations. Everyone is at war with you from the start. Take every opponent province to win; **Next level** after a win, **Try the level again** after a loss. ⚙️ has a button for every level you have reached (kept on this device).
+- [x] **The whole map is the window** in province battles, so the computer plays everywhere. Lakes and mountains shrink with the map, and a map is used only when the land is connected (12 of 12 seeds at every level).
+- [x] **Recruiting without turns.** Each province adds 0.5 soldiers a second to its nation's field army, up to its army cap (`RECRUIT` in `province/config.js`).
+- [x] **No pull into other scales.** In province battles a fight has a quiet thin ring, not the red dashes, and no join button. The campaign keeps both.
+- [x] **Taking the last opponent province wins at once** (it was checked only at the end of a country turn). Shared with the campaign.
+- [ ] **Balance after play:** level sizes, recruit rate, round pace, and the computer's 1.7 to 1 rule before it attacks.
+
+## Version 3.0, round 4: phased province fights, recruiting by tier (convo v0.20)
+
+Answers to `convo/convo v0.19.md` questions 3 to 6 (1 and 2 are still open).
+
+- [x] **Province battles fight in three phased turns, 3 real seconds each,** like Torn Wars: the first 20% of each army fights, then 50%, then the last 30%. Morale (start 70, defender plus 3 for each point of defence) and formation (in formation, wavering, routing) shape each turn. A routing wave kills nobody and is cut down. The middle turn swings morale most, so it tilts the battle. Province battles only; the campaign keeps the risk rounds.
+- [x] **Beaten attackers withdraw** with what they have left, to the province they came from (or the field army), in phased fights.
+- [x] **The fight ticker** shows the turn, the time to the next, and each army's mood.
+- [x] **Growth by tier** (province battles): empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second, each province growing its own. Built so that higher tiers grow faster; the answer as written ran the other way (convo v0.20 question 4).
+- [x] **Level ladder confirmed** (question 4).
+- [ ] **Decide** convo v0.20: version number, unit battle sides, province battles without turns, recruiting rates, phased fight numbers, the campaign's fights, the computer's boldness.
+
+## Version 3.0, round 5: province battles play like the first draft (convo v0.20)
+
+- [x] **No field army in province battles.** Each province grows its own soldiers by tier (`POOL` false); no muster buttons.
+- [x] **Tap a source, then a target, and the soldiers go.** No Send or Cancel buttons; only 10, 25, 50 and 100%.
+- [x] **No move limit** in this mode (`MOVE_HOPS` 99): soldiers go as far as your own roads reach.
+- [x] **The first draft's population line** across the top (provinces and soldiers per nation), in place of food, gold and science.
+- [x] **3, 2, 1, Go** at the start of each level; nothing moves until it is over.
+- [x] **Shorter card text.**
+- [ ] **Open** (convo v0.20 questions 8 to 10): phased fights against settling on arrival, upgrades, and anything else from the first draft that is missing.
+
+## Version 3.0, round 6: wave fights by grade, half upgrades, split provinces, teams (convo v0.21)
+
+Answers to `convo/convo v0.20.md`.
+
+- [x] **Grades.** Every province has a grade (empty dot 0 to tower 5; a half upgrade adds 0.5) that sets its ground (-25% to +25%), the rounds a fight there takes (3 to 10), its growth and its cap (`GRADE` in `province/config.js`).
+- [x] **Wave fights, every mode.** Each round each side commits its share; the committed soldiers strike in turn (attackers 20%, defenders 50%, attackers 50%, defenders 50%, attackers 30%). A side that loses half of what it committed routs and stays shaken. Fitted at city level: 100 v 100 holds with about 89, 200 v 100 wins with about 121, 500 v 100 wins with about 475.
+- [x] **Fight time.** Province battles: a round a second (village 3 s, tower 10 s). The campaign: a round every 2 world seconds.
+- [x] **Half upgrades** with the province's own soldiers, half the next grade's cap, once per province; a fortress's is its tower. In both province views.
+- [x] **Split provinces** in province battles: town 2, city 3, fortress 5. Every part defends at the settlement's grade for the nation that holds all of it. An upgraded tower in the middle reaches every part.
+- [x] **Neutral towns, cities and fortresses** on the level maps.
+- [x] **Teams** (level 5 two against two, level 7 three teams of two); everyone else at war with everyone; you win with your ally standing.
+- [x] **Surrender setting** in ⚙️ (off by default): outnumbered 10 to 1 gives up, provinces go neutral.
+- [ ] **Decide** convo v0.21: round time, the even case, ground both ways, withdrawals, split parts, upgrade time and the computer, the computer's boldness, teams, surrender, the campaign's pace.
+- [ ] **Flaky test:** "the computer offers peace" fails about one run in six (before this round too); seed the computer's choice.
+- [x] **Rounds no longer than 5 seconds**, in real time at every scale: 1 second in province battles, 3 in the campaign (`FIGHT_SECONDS`).
+- [x] **Level 1 has two opponents**; the ladder starts from there.
+

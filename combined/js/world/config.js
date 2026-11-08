@@ -13,10 +13,21 @@
     FAST: 2,
     // While a fortress is in the province window, province time runs at this share again (more time to react).
     FORT_DILATION: 0.5,
-    // A risk-style fight on a province is fought in rounds of this many world seconds (see province/rules.js).
-    FIGHT_ROUND: 6,
+    // A risk-style fight on a province is fought in rounds of this many world seconds (see province/rules.js). Every soldier
+    // rolls each round, so a fight takes a few rounds: about 20 s each in a province, 4 s on the country map.
+    FIGHT_ROUND: 2,
+    // How a province fight is settled: 'waves' (rounds of strikes by grade, with routing; FIGHT in province/config.js) or
+    // 'risk' (every soldier rolls, round after round; kept for comparison). FIGHT_CLOCK: 'real' (a round every FIGHT_SECONDS
+    // real seconds, at any scale) or 'world' (a round every FIGHT_ROUND world seconds, slowed by time dilation).
+    // A round takes 3 real seconds in the campaign (time to press Join) and 1 in province battles (app/modes.js).
+    FIGHT_MODEL: 'waves',
+    FIGHT_CLOCK: 'real',
+    FIGHT_SECONDS: 3,
     // An army moves up to this many provinces in one order.
     MOVE_HOPS: 3,
+    // Garrisons grow by drawing on the nation's field army (true: the campaign). In province battles there is no field army:
+    // each province grows its own soldiers (false). app/modes.js sets it.
+    POOL: true,
 
     // Saving. The world is kept on this device after every turn, every scale change, and every AUTOSAVE real seconds.
     // It goes to the family database (table xw_worlds) when signed in, at most every CLOUD_EVERY real seconds,

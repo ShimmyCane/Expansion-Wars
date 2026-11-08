@@ -53,6 +53,8 @@
 
   C.checkWin = function (w) {
     if (!w.nations[w.you].alive) { w.over = 'lost'; W.log(w, 'Your nation has fallen.'); return; }
-    if (!C.alive(w).some(function (n) { return n.id !== w.you; })) { w.over = 'won'; W.log(w, 'Every other nation has fallen. You win!'); }
+    // In province battles your allies are on your side: the game is won when every opponent has fallen.
+    var foe = function (n) { return n.id !== w.you && !(w.level && W.rel(w, w.you, n.id).ally); };
+    if (!C.alive(w).some(foe)) { w.over = 'won'; W.log(w, w.level ? 'Every opponent has fallen. You win!' : 'Every other nation has fallen. You win!'); }
   };
 })();

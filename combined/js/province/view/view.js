@@ -21,6 +21,22 @@
     done: function (msg) { if (msg) A.toast(msg); W.changed('province'); }
   };
 
+  // The countdown at the start of a province battles level: the number big over the map, then Go. True while it runs.
+  var goT = 0, surT = 0;
+  function countdown(w, dt) {
+    var el = D.$('province-count');
+    if (!el) return false;
+    if (w.countdown > 0) {
+      w.countdown = Math.max(0, w.countdown - dt);
+      el.hidden = false;
+      el.textContent = w.countdown > 0 ? String(Math.ceil(w.countdown)) : 'Go!';
+      goT = 0.7;
+      return w.countdown > 0;
+    }
+    if (goT > 0) { goT -= dt; if (goT <= 0) el.hidden = true; }
+    return false;
+  }
+
   function tap(id) {
     var w = W.get(), p = w.provs[id];
     if (!p || p.kind !== 'province' || !win.inside[id]) { ui.sel = null; ui.target = null; return redraw(); }
@@ -29,6 +45,11 @@
       ui.target = p.owner === w.you ? null : id;
     } else if (id === ui.sel) {                  // the selected one again: clear
       ui.sel = null; ui.target = null;
+    } else if (!A.mode.turns) {                  // province battles: tap a source, then a target, and the soldiers go
+      var err = P.send(w, win, w.you, ui.sel, id, w.view.marchPct);
+      ui.sel = null; ui.target = null;
+      act.done(err);
+      return;
     } else {                                     // anything else is the target: the bar offers Send (and Battle)
       ui.target = id;
     }
@@ -125,6 +146,8 @@
       D.clear(svgEl);
       ground = D.svg('g', {}, svgEl); live = D.svg('g', {}, svgEl); dragLayer = D.svg('g', {}, svgEl);
       groundKey = '';
+      goT = 0;
+      if (D.$('province-count')) D.$('province-count').hidden = !(w.countdown > 0);
       ui.sel = w.provs[win.focus].owner === w.you ? win.focus : null;
       ui.target = null;
       P.aiReset();
@@ -136,8 +159,14 @@
     render: function () { redraw(); },
     tick: function (w, dt) {
       if (!win) return;
-      P.step(w, win, dt);
-      P.aiThink(w, win, dt);
+      // 3, 2, 1, Go: nothing moves until it is over. A level that has ended stands still.
+      if (countdown(w, dt)) return;
+      if (!w.over) {
+        P.step(w, win, dt);
+        P.aiThink(w, win, dt);
+        surT += dt;
+        if (surT >= 1) { surT = 0; if (!A.mode.turns && A.surrenderOn() && P.surrender(w).length) W.changed('surrender'); }
+      }
       // The ground and spots every frame; the bar and card a few times a second.
       var key = P.view.groundKey(w, win, ui);
       if (key !== groundKey) { P.view.drawGround(ground, w, win, ui); groundKey = key; }
