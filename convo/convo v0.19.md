@@ -23,6 +23,16 @@
 - **Not brought back:** the countdown, the population bar, the 10:1 surrender toggle and team avatars. Reasons are in `todo.md`.
 - **Supabase notes:** none open that need building. The one open note is a test note.
 
+## Round 3 (same version): province battles as a progression
+
+Direction: the freestanding province mode should still be a progression, with a small start, an opponent, and fights that resolve themselves, with nothing pulling you into the unit scale. Risk fights should scale up: every soldier goes once.
+
+- **Risk rounds.** Every soldier rolls a die each round; dice pair highest to lowest; each pair costs the loser one soldier (ties to the defender). Big fights end in a few rounds. Rounds are 2 world seconds (about 20 s in a province).
+- **Levels.** Seven, then the last repeats: 1 opponent and 5 provinces each, 1 and 7, 2 and 7, 2 and 9, 3 and 9, 4 and 11, 5 and 15. Everyone is at war with you. Win by taking every opponent province. ⚙️ lists the levels you have reached.
+- **Whole map, no turns.** The computer plays everywhere. Soldiers are recruited at 0.5 a second for each province you hold, up to the army cap.
+- **No red dashes.** A fight has a thin quiet ring in this mode and no join button. The campaign keeps the red dashes and the join button.
+- The campaign shares the new dice, the faster rounds, and the instant win when the last opponent falls.
+
 ## Questions
 
 1. **Version number.** 3.0 is a guess for "major". Should the campaign's version be 3.0, or should the version follow the old numbers some other way?
@@ -34,6 +44,18 @@
    > **Answer:**
 
 3. **Province battles without a country.** Your neighbours stay at the peace or war they started with, and do not change while you play. Is that right, or should this mode run country turns too?
+
+   > **Answer:**
+
+4. **Level ladder.** Is the start (you and one opponent, 5 provinces each) the right beginning, and is the climb (more provinces first, then more opponents) the right order?
+
+   > **Answer:**
+
+5. **Fight pace and the computer.** A round is about 20 s in a province, and the computer attacks only with a lead of about 1.7 to 1. Too fast, too slow, too cautious?
+
+   > **Answer:**
+
+6. **Recruiting.** 0.5 soldiers a second for each province held. Should provinces of higher tiers recruit faster?
 
    > **Answer:**
 

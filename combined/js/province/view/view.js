@@ -136,8 +136,12 @@
     render: function () { redraw(); },
     tick: function (w, dt) {
       if (!win) return;
-      P.step(w, win, dt);
-      P.aiThink(w, win, dt);
+      // A level that has ended stands still. Province battles have no country turn, so soldiers are recruited here.
+      if (!w.over) {
+        P.step(w, win, dt);
+        P.aiThink(w, win, dt);
+        if (!A.mode.turns) P.recruit(w, dt);
+      }
       // The ground and spots every frame; the bar and card a few times a second.
       var key = P.view.groundKey(w, win, ui);
       if (key !== groundKey) { P.view.drawGround(ground, w, win, ui); groundKey = key; }

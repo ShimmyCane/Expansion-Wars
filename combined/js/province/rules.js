@@ -90,8 +90,10 @@
   }
 
   // ---- risk-style fights --------------------------------------------------------------------------------------------
-  // Each round: attackers roll up to 3 dice, defenders up to 2. The dice are paired from the highest down; a pair the
-  // attacker wins costs the defender one soldier, and a pair the defender wins (ties too) costs the attacker one.
+  // Each round every soldier goes once: each attacker and each defender rolls a die. The dice are paired from the
+  // highest down, as many pairs as the smaller side has. A pair the attacker wins costs the defender one soldier, and a
+  // pair the defender wins (ties too) costs the attacker one. So a round costs as many soldiers as there are pairs, and
+  // a big fight is settled in a few rounds, not one soldier at a time.
   function roll(n) {
     var out = [];
     for (var i = 0; i < n; i++) out.push(1 + Math.floor(Math.random() * 6));
@@ -99,7 +101,7 @@
   }
   function round(w, p) {
     var f = p.fight, A = f.count, D = p.gar || 0;
-    var na = Math.min(3, Math.floor(A)), nd = Math.min(2, Math.floor(D));
+    var na = Math.floor(A), nd = Math.floor(D);
     if (nd === 0) return takeFight(w, p);
     var ra = roll(na), rd = roll(nd);
     for (var i = 0; i < Math.min(na, nd); i++) {
@@ -122,6 +124,7 @@
     W.capture(w, p, f.owner, f.count);
     W.log(w, W.ownerName(w, f.owner) + ' takes ' + W.aLabel(p.tier) + ' from ' + W.ownerName(w, before) + '.');
     XW.country.checkFallen(w);
+    XW.country.checkWin(w);
     XW.country.updateNeighbours(w);
   }
 
@@ -189,6 +192,17 @@
       n.soldiers -= add;
     });
   }
+
+  // Province battles have no country turns, so soldiers join each nation's field army here instead: RECRUIT a second for
+  // each province it holds, up to its army cap. (In the campaign the country turn does this.)
+  P.recruit = function (w, dt) {
+    var C = XW.country;
+    w.nations.forEach(function (n) {
+      if (!n.alive) return;
+      var room = C.armyCap(w, n) - C.garrisons(w, n) - n.soldiers;
+      if (room > 0) n.soldiers += Math.min(room, K().RECRUIT * C.provCount(w, n) * dt);
+    });
+  };
 
   // One step of province time (dt real seconds) inside the window. opts.grow false: marches only (used when settling).
   P.step = function (w, win, dt, opts) {

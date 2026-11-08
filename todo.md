@@ -266,3 +266,14 @@ The province view is shared by the campaign and the province battles, so both ge
 - [ ] **Not ported from the spot game, on purpose.** The 3-2-1-Go countdown: the province window is opened in the middle of a game, so a countdown would only freeze it. The population bar: the window card already shows territories and stationed soldiers per nation. The 10:1 surrender toggle: the campaign surrenders at country level (two times the defence). Team avatars: the campaign uses allies.
 - [x] **Supabase notes checked (2026-11-08).** `xw_notes`: all 14 rows are already `done` and built (rounds 2 to 4). `xw_maps` notes: 25 rows, one `open`: "Test note 1" (Level 4 Valley), which needs no build. Left open until you confirm.
 
+## Version 3.0, round 3: province battles as a progression, bigger risk rounds (convo v0.19)
+
+- [x] **Risk rounds: every soldier goes once.** Each round every attacker and every defender rolls a die; dice pair from the highest down, and each pair costs the loser one soldier (ties to the defender). A 100 against 100 round costs 100 soldiers, so a big fight takes a few rounds, not one soldier at a time. Shared with the campaign.
+- [x] **Rounds are faster.** `FIGHT_ROUND` 6 → 2 world seconds: about 20 s in a province, 4 s on the country map (it was a minute in a province).
+- [x] **Province battles are a progression.** Seven levels, then the last repeats: level 1 is you and one opponent with 5 provinces each and two of yours to start; the maps grow to the full six nations. Everyone is at war with you from the start. Take every opponent province to win; **Next level** after a win, **Try the level again** after a loss. ⚙️ has a button for every level you have reached (kept on this device).
+- [x] **The whole map is the window** in province battles, so the computer plays everywhere. Lakes and mountains shrink with the map, and a map is used only when the land is connected (12 of 12 seeds at every level).
+- [x] **Recruiting without turns.** Each province adds 0.5 soldiers a second to its nation's field army, up to its army cap (`RECRUIT` in `province/config.js`).
+- [x] **No pull into other scales.** In province battles a fight has a quiet thin ring, not the red dashes, and no join button. The campaign keeps both.
+- [x] **Taking the last opponent province wins at once** (it was checked only at the end of a country turn). Shared with the campaign.
+- [ ] **Balance after play:** level sizes, recruit rate, round pace, and the computer's 1.7 to 1 rule before it attacks.
+

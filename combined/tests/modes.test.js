@@ -112,6 +112,54 @@ t.test('a save from a scale the mode does not show is brought back to the mode',
   assert.strictEqual(w.view.scale, 'country');
 });
 
+t.test('province battles start small and grow: more provinces and opponents each level', () => {
+  const { XW } = inMode('province');
+  let lastProvs = 0, lastNations = 0;
+  for (let n = 1; n <= 8; n++) {
+    const w = XW.app.modes.fresh(900 + n, n);
+    const provs = w.provs.filter(p => p.kind === 'province').length;
+    assert.strictEqual(w.level, n);
+    assert.ok(provs >= lastProvs, 'level ' + n + ' has at least as many provinces (' + provs + ')');
+    assert.ok(w.nations.length >= lastNations, 'level ' + n + ' has at least as many nations');
+    lastProvs = provs; lastNations = w.nations.length;
+    // Every opponent is at war with you from the start, and none is left out of the window.
+    w.nations.forEach(k => { if (k.id !== w.you) assert.ok(XW.world.rel(w, w.you, k.id).war, 'at war with ' + k.name); });
+    const win = XW.province.window(w, w.view.prov);
+    w.provs.forEach(p => { if (p.kind === 'province' && p.owner >= 0) assert.ok(win.inside[p.id], 'province ' + p.id + ' is on the map'); });
+  }
+  assert.strictEqual(XW.app.modes.levelLine(XW.app.modes.fresh(1, 1)), 'Level 1 · 1 opponent · 5 provinces each');
+});
+
+t.test('level 1 is a small start: you and one opponent, a couple of provinces each', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(31, 1);
+  assert.strictEqual(w.nations.length, 2);
+  assert.strictEqual(w.provs.filter(p => p.owner === w.you).length, 2);
+  assert.strictEqual(w.provs.filter(p => p.owner === 1).length, 2);
+});
+
+t.test('reaching a level unlocks it, and the record is kept', () => {
+  const { XW } = inMode('province');
+  assert.strictEqual(XW.app.modes.unlocked(), 1);
+  XW.app.modes.fresh(1, 3);
+  assert.strictEqual(XW.app.modes.unlocked(), 3);
+  XW.app.modes.fresh(1, 2);
+  assert.strictEqual(XW.app.modes.unlocked(), 3, 'going back does not lose it');
+});
+
+t.test('a province battle save with no level is replaced by level 1', () => {
+  const { XW } = inMode('province');
+  const old = XW.country.newWorld(5);
+  old.view.prov = old.provs.find(p => p.kind === 'province' && p.owner === old.you).id;
+  const w = XW.app.modes.ensure(old);
+  assert.strictEqual(w.level, 1);
+});
+
+t.test('the province window is the whole map in province battles, two steps in the campaign', () => {
+  assert.strictEqual(inMode('province').XW.world.CONFIG.RINGS, 99);
+  assert.strictEqual(inMode('campaign').XW.world.CONFIG.RINGS, 2);
+});
+
 t.test('the version is 3.0 and shown with the mode', () => {
   const { XW } = inMode('unit');
   assert.strictEqual(XW.app.VERSION, '3.0');

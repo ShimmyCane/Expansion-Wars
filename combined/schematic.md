@@ -15,7 +15,7 @@ The campaign is the whole game: all three scales in one world. Three battle mode
 |---|---|---|---|
 | Campaign | `index.html` | country, province, unit | yes |
 | Unit battles | `index.html?mode=unit` | unit: a new battle between two of your provinces each time | no |
-| Province battles | `index.html?mode=province` | province: marches, garrisons, fights in rounds, no battles to join | no |
+| Province battles | `index.html?mode=province` | province, as a ladder of levels (a small map and one opponent first); the whole map; fights in rounds, no battles to join | no |
 | Country battles | `index.html?mode=country` | country: turns, diplomacy, war, fights in rounds | yes |
 
 ## One world (single source of truth)

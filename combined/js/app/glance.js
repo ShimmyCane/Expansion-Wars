@@ -35,7 +35,8 @@
     var left = W.turnLeft(w) / rate;   // real seconds left at this scale
     var text = w.over === 'won' ? 'You win!' : w.over === 'lost' ? 'Your nation has fallen.'
       : A.mode.turns ? 'Turn ' + w.time.turn + ' · ' + fmt(left) + ' left' + (base < 1 || w.view.fast ? ' · time ×' + +(rate / 1).toFixed(3) : '')
-      : (scale === 'unit' ? '⚔️ One battle' : '🗺️ Province time') + ' · time ×' + +(rate / 1).toFixed(3);
+      : scale === 'unit' ? '⚔️ One battle · time ×' + +(rate / 1).toFixed(3)
+      : A.modes.levelLine(w) + (w.view.fast ? ' · ×2' : '');
     D.$('clock').textContent = text;
     var ready = D.$('ready');
     ready.hidden = scale !== 'country' || !A.mode.turns;

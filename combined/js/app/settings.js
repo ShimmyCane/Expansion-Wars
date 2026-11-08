@@ -13,14 +13,37 @@
     return A.describeMode() + ' · ' + s + ' · turn ' + w.time.turn + (p && s !== 'country' ? ' · ' + W.label(p.tier) + ' of ' + W.ownerName(w, p.owner) : '');
   }
 
+  // Province battles: a button for every level you have reached, with the one you are on pressed.
+  function levelButtons() {
+    var w = W.get();
+    if (!lines.levels || !w) return;
+    D.clear(lines.levels);
+    for (var n = 1; n <= A.modes.unlocked(); n++) {
+      (function (level) {
+        lines.levels.appendChild(button('Level ' + level, function () {
+          if (level !== (W.get() || {}).level && !window.confirm('Start level ' + level + '? The level you are on is not kept.')) return;
+          A.modes.level(level);
+          levelButtons();
+          worldLine();
+        }, { pressed: level === w.level }));
+      })(n);
+    }
+  }
+
   function worldLine() {
     var w = W.get();
+    levelButtons();
     if (!w || !lines.world) return;
     lines.world.textContent = 'Map seed ' + w.seed + ' · turn ' + w.time.turn + ' · world ' + w.id.slice(0, 8) + '.';
   }
 
   function build(body) {
     body.appendChild(el('p', 'small', A.describeMode() + '. The other modes are on the home page.'));
+    if (A.mode.id === 'province') {
+      body.appendChild(el('h3', '', 'Level'));
+      lines.levels = el('div', 'row');
+      body.appendChild(lines.levels);
+    }
     body.appendChild(el('h3', '', 'World'));
     lines.world = el('p', 'small');
     body.appendChild(lines.world);

@@ -23,10 +23,13 @@
     if (w) {
       var scale = w.view.scale, rate = W.rateFor(w, scale);
       W.advance(w, dt, scale);
-      // Fights on the provinces run in world time, so one resolves whether or not you are looking at it.
-      XW.province.fights(w, dt * rate);
-      // Garrisons keep drifting towards the border, in peace and in war.
-      XW.country.migrate(w, dt * rate);
+      // Fights on the provinces run in world time, so one resolves whether or not you are looking at it. A game that
+      // is over stands still.
+      if (!w.over) {
+        XW.province.fights(w, dt * rate);
+        // Garrisons keep drifting towards the border, in peace and in war.
+        XW.country.migrate(w, dt * rate);
+      }
       var turned = false;
       while (W.turnDue(w)) { C.endTurn(w); turned = true; }
       if (turned) { bus.emit('world:turn', w); W.changed('turn'); A.saveNow('turn'); }

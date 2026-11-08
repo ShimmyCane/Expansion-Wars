@@ -107,8 +107,15 @@
     P.forEach(function (p) { p.river = p.adjRiver.some(Boolean); });
   }
 
-  // A complete new world, from a seed (random when none is given).
-  C.newWorld = function (seedIn) {
+  // A complete new world, from a seed (random when none is given). opts overrides the size for the battle modes:
+  // {COUNT, PROVS, START_VILLAGES, START_TOWNS, NEUTRAL_FROM}. The defaults are the campaign's.
+  C.newWorld = function (seedIn, opts) {
+    var k = K(), saved = {};
+    Object.keys(opts || {}).forEach(function (key) { saved[key] = k[key]; k[key] = opts[key]; });
+    try { return make(seedIn, !!opts); } finally { Object.keys(saved).forEach(function (key) { k[key] = saved[key]; }); }
+  };
+
+  function make(seedIn, custom) {
     var seed = seedIn || XW.core.randomSeed(), rnd = XW.core.rng(seed);
     function range(a, b) { return a + rnd() * (b - a); }
     var k = K(), seeds = [], minD = 0.55 * Math.sqrt(k.W * k.H / k.COUNT);
@@ -135,11 +142,13 @@
     geometry(w);
     makeRivers(w, rnd, range);
     C.updateNeighbours(w);
-    W.rel(w, 1, 2).war = true;
-    W.rel(w, 1, 2).warSince = 1;
-    W.log(w, 'Map seed ' + seed + '. Each nation holds two villages and a town; the rest of the land is neutral.');
-    W.log(w, 'The country is at peace, except ' + k.NAMES[1] + ' and ' + k.NAMES[2] + ', who are at war.');
-    W.log(w, 'Zoom into a province to fight for it in real time, and into a fight to command the battle.');
+    if (!custom) {
+      W.rel(w, 1, 2).war = true;
+      W.rel(w, 1, 2).warSince = 1;
+      W.log(w, 'Map seed ' + seed + '. Each nation holds two villages and a town; the rest of the land is neutral.');
+      W.log(w, 'The country is at peace, except ' + k.NAMES[1] + ' and ' + k.NAMES[2] + ', who are at war.');
+      W.log(w, 'Zoom into a province to fight for it in real time, and into a fight to command the battle.');
+    }
     return w;
-  };
+  }
 })();

@@ -13,8 +13,9 @@
     FAST: 2,
     // While a fortress is in the province window, province time runs at this share again (more time to react).
     FORT_DILATION: 0.5,
-    // A risk-style fight on a province is fought in rounds of this many world seconds (see province/rules.js).
-    FIGHT_ROUND: 6,
+    // A risk-style fight on a province is fought in rounds of this many world seconds (see province/rules.js). Every soldier
+    // rolls each round, so a fight takes a few rounds: about 20 s each in a province, 4 s on the country map.
+    FIGHT_ROUND: 2,
     // An army moves up to this many provinces in one order.
     MOVE_HOPS: 3,
 

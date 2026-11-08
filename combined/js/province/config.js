@@ -13,6 +13,7 @@
     FORT: { range: 40, dmg: 2, slow: 0.5, upgradedMul: 2 },
     SEND_STEPS: [10, 25, 50, 100],   // % of a province's garrison sent by one order
     MUSTER: 10,             // soldiers moved between the field army and a garrison with one tap
+    RECRUIT: 0.5,           // province battles only: soldiers a second joining the field army for each province held
     // Computer players in the window: how often they think, the share they send, the least garrison that moves,
     // and the most moves a minute.
     AI: { every: 1.8, fraction: 0.6, threshold: 7, perMinute: 10 },

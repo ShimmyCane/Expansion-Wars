@@ -13,6 +13,12 @@
 
   P.view.drawBar = function (bar, w, win, ui, act) {
     D.clear(bar);
+    // A province battles level that has ended: win to go on to the next level, lose to try the same one again.
+    if (w.over && !A.mode.turns) {
+      bar.appendChild(el('span', 'note', w.over === 'won' ? 'Level won: every opponent has fallen.' : 'Your nation has fallen.'));
+      bar.appendChild(button(w.over === 'won' ? '🏆 Next level' : '🔁 Try the level again', function () { A.modes.next(); }, { cls: 'big' }));
+      return;
+    }
     var sel = W.prov(w, ui.sel), target = W.prov(w, ui.target);
     P.CONFIG.SEND_STEPS.forEach(function (pct) {
       bar.appendChild(button(pct + '%', function () { w.view.marchPct = pct; act.redraw(); }, { pressed: w.view.marchPct === pct }));
@@ -54,8 +60,11 @@
     D.clear(card);
     var f = w.provs[win.focus];
     card.appendChild(el('h3', '', 'Province: ' + W.label(f.tier) + ' of ' + W.ownerName(w, f.owner)));
-    card.appendChild(el('p', 'small', 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
-      ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'));
+    card.appendChild(el('p', 'small', A.mode.turns
+      ? 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
+        ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'
+      : 'Real time, on the whole map. Each province adds soldiers to its nation\'s field army, and garrisons grow from it. ' +
+        'Fights are settled in rounds by themselves: every soldier rolls a die.'));
     var held = {};
     win.ids.forEach(function (id) {
       var p = w.provs[id], k = p.owner;

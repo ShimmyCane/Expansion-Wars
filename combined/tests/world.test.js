@@ -436,4 +436,54 @@ t.test('claims cost more than before', () => {
   assert.ok(XW.country.claimCost(R).gold >= 14);
 });
 
+t.test('every soldier rolls in a risk round: a round costs as many soldiers as there are pairs', () => {
+  const { XW, w } = fresh(777);
+  const pair = neutralNextToYou(w);
+  const win = XW.province.window(w, pair.mine.id);
+  for (const [a, d] of [[100, 100], [40, 30], [10, 60]]) {
+    pair.target.owner = -1; pair.target.gar = d;
+    pair.target.fight = { owner: w.you, count: a, from: pair.mine.id, t: 0, rounds: 0 };
+    XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);          // exactly one round
+    const lost = (a - (pair.target.fight ? pair.target.fight.count : 0)) + (d - (pair.target.gar || 0));
+    if (pair.target.fight) assert.strictEqual(lost, Math.min(a, d), a + ' v ' + d + ': one pair, one soldier lost');
+    pair.target.fight = null;
+  }
+});
+
+t.test('a big fight is settled in a few rounds', () => {
+  const { XW, w } = fresh(778);
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 300;
+  pair.target.fight = { owner: w.you, count: 400, from: pair.mine.id, t: 0, rounds: 0 };
+  let rounds = 0;
+  while (pair.target.fight && rounds < 100) { XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND); rounds++; }
+  assert.ok(!pair.target.fight, 'it resolved');
+  assert.ok(rounds <= 12, 'in ' + rounds + ' rounds');
+});
+
+t.test('province recruiting: each province adds soldiers to its nation up to the army cap', () => {
+  const { XW, w } = fresh(779);
+  const n = w.nations[w.you];
+  n.soldiers = 0;
+  XW.province.recruit(w, 10);
+  const mine = w.provs.filter(p => p.kind === 'province' && p.owner === w.you).length;
+  assert.ok(Math.abs(n.soldiers - XW.province.CONFIG.RECRUIT * mine * 10) < 1e-6, 'gained ' + n.soldiers);
+  n.soldiers = XW.country.armyCap(w, n);                          // already at the cap
+  XW.province.recruit(w, 100);
+  assert.ok(n.soldiers <= XW.country.armyCap(w, n) + 1e-6, 'never over the cap');
+});
+
+t.test('taking the last province of the last opponent wins', () => {
+  const { XW, w } = fresh(780);
+  w.nations.forEach(k => { if (k.id !== w.you && k.id !== 1) { w.provs.forEach(p => { if (p.owner === k.id) p.owner = -1; }); k.alive = false; } });
+  const last = w.provs.filter(p => p.kind === 'province' && p.owner === 1);
+  const from = w.provs.find(p => p.kind === 'province' && p.owner === w.you);
+  last.slice(1).forEach(p => { p.owner = -1; });                  // leave Oakfield one province
+  const target = last[0];
+  target.gar = 1;
+  target.fight = { owner: w.you, count: 50, from: from.id, t: 0, rounds: 0 };
+  for (let i = 0; i < 50 && target.fight; i++) XW.province.fights(w, XW.world.CONFIG.FIGHT_ROUND);
+  assert.strictEqual(w.over, 'won');
+});
+
 t.done();
