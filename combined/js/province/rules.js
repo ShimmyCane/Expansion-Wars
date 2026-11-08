@@ -81,6 +81,7 @@
   function startFight(w, p, m) {
     if (p.fight) {
       p.fight.count += m.count;
+      if (p.fight.a0 !== undefined) p.fight.a0 += m.count;    // a phased fight already under way: the waves grow too
       W.log(w, m.count + ' more soldiers of ' + W.ownerName(w, m.owner) + ' join the fight at ' + W.aLabel(p.tier) + '.');
       return;
     }
@@ -94,12 +95,16 @@
   // highest down, as many pairs as the smaller side has. A pair the attacker wins costs the defender one soldier, and a
   // pair the defender wins (ties too) costs the attacker one. So a round costs as many soldiers as there are pairs, and
   // a big fight is settled in a few rounds, not one soldier at a time.
-  function roll(n) {
+  function roll(n, bonus) {
     var out = [];
-    for (var i = 0; i < n; i++) out.push(1 + Math.floor(Math.random() * 6));
+    for (var i = 0; i < n; i++) out.push(1 + Math.floor(Math.random() * 6) + (bonus || 0));
     return out.sort(function (a, b) { return b - a; });
   }
   function round(w, p) {
+    if (W.CONFIG.FIGHT_MODEL === 'phased') return phasedRound(w, p);
+    return riskRound(w, p);
+  }
+  function riskRound(w, p) {
     var f = p.fight, A = f.count, D = p.gar || 0;
     var na = Math.floor(A), nd = Math.floor(D);
     if (nd === 0) return takeFight(w, p);
@@ -117,6 +122,58 @@
     }
     if (p.gar < 1) takeFight(w, p);
   }
+  // ---- phased fights (province battles) -----------------------------------------------------------------------------
+  // See PHASED in config.js. Each turn the next wave of each army fights, its dice helped or hurt by morale; the casualties
+  // move morale, which decides how the next turn goes.
+  function PH() { return K().PHASED; }
+  function status(m) { return m >= PH().FORM ? 'formed' : m >= PH().ROUT ? 'wavering' : 'routing'; }
+  var WORD = { formed: 'in formation', wavering: 'wavering', routing: 'routing' };
+  function clamp(m) { return Math.max(0, Math.min(100, m)); }
+
+  function phasedRound(w, p) {
+    var c = PH(), f = p.fight, i = Math.min(f.phase || 0, c.WAVES.length - 1), last = i === c.WAVES.length - 1;
+    if (f.a0 === undefined) {                       // the first turn: the armies and their morale are fixed
+      f.a0 = f.count; f.d0 = p.gar || 0;
+      f.mA = c.START; f.mD = clamp(c.START + c.DEF_BONUS * XW.country.featureDef(w, p));
+    }
+    var A = Math.floor(f.count), D = Math.floor(p.gar || 0);
+    if (A < 1) return holdFight(w, p, f);
+    if (D < 1) return takeFight(w, p);
+    var ea = Math.min(A, Math.ceil(c.WAVES[i] * f.a0)), ed = Math.min(D, Math.ceil(c.WAVES[i] * f.d0));
+    var sa = status(f.mA), sd = status(f.mD), lostA = 0, lostD = 0;
+    // Each soldier in a wave kills KILL of the enemy wave, more with morale and a little at random. A routing wave kills
+    // none and is cut down as it runs. Both sides strike at once, and neither can lose more than its wave.
+    function strike(n, m, mood) { return mood === 'routing' ? 0 : n * c.KILL * (c.EFF_BASE + m / 100) * (1 + c.NOISE * (2 * Math.random() - 1)); }
+    lostD = Math.round(strike(ea, f.mA, sa));
+    lostA = Math.round(strike(ed, f.mD, sd));
+    if (sa === 'routing' && sd !== 'routing') lostA += Math.ceil(c.ROUT_LOSS * ea);
+    if (sd === 'routing' && sa !== 'routing') lostD += Math.ceil(c.ROUT_LOSS * ed);
+    lostA = Math.min(lostA, ea); lostD = Math.min(lostD, ed);
+    f.count = Math.max(0, f.count - lostA);
+    p.gar = Math.max(0, (p.gar || 0) - lostD);
+    var cA = ea ? lostA / ea : 0, cD = ed ? lostD / ed : 0;
+    f.mA = clamp(f.mA + c.SWING[i] * (cD - cA));
+    f.mD = clamp(f.mD + c.SWING[i] * (cA - cD));
+    f.phase = i + 1;
+    f.rounds = (f.rounds || 0) + 1;
+    if (f.count < 1) return holdFight(w, p, f);
+    if (p.gar < 1) return takeFight(w, p);
+    if (last) {                                     // three turns done: the side with more left, weighted by morale, wins
+      if (f.count * (f.mA + 50) > (p.gar || 0) * (f.mD + 50)) takeFight(w, p); else holdFight(w, p, f);
+    }
+  }
+
+  // The defenders hold. Attackers still alive withdraw to the province they came from (or their field army).
+  function holdFight(w, p, f) {
+    p.fight = null;
+    var left = Math.floor(f.count);
+    if (left >= 1) {
+      var src = w.provs[f.from];
+      if (src && src.owner === f.owner) src.gar = (src.gar || 0) + left; else w.nations[f.owner].soldiers += left;
+    }
+    W.log(w, W.ownerName(w, p.owner) + ' holds ' + W.aLabel(p.tier) + ' against ' + W.ownerName(w, f.owner) + (left >= 1 ? ' (' + left + ' attackers withdraw).' : '.'));
+  }
+
   // The attackers take the province with what is left of them.
   function takeFight(w, p) {
     var f = p.fight, before = p.owner;
@@ -128,15 +185,18 @@
     XW.country.updateNeighbours(w);
   }
 
-  // Runs the fights for `dt` world seconds (the caller passes real time times the scale's rate). Runs in every scale, so a
-  // fight resolves whether or not you are looking at it.
-  P.fights = function (w, dt) {
-    if (!(dt > 0)) return;
+  // Runs the fights for `dt` world seconds (the caller passes real time times the scale's rate) and `real` real seconds
+  // (phased fights keep real time). Runs in every scale, so a fight resolves whether or not you are looking at it.
+  P.fights = function (w, dt, real) {
+    if (real === undefined) real = dt;
+    if (!(dt > 0) && !(real > 0)) return;
+    var phased = W.CONFIG.FIGHT_MODEL === 'phased';
     w.provs.forEach(function (p) {
       if (!p.fight) return;
-      p.fight.t = (p.fight.t || 0) + dt;
-      while (p.fight && p.fight.t >= W.CONFIG.FIGHT_ROUND) {
-        p.fight.t -= W.CONFIG.FIGHT_ROUND;
+      var len = phased ? PH().ROUND : W.CONFIG.FIGHT_ROUND;
+      p.fight.t = (p.fight.t || 0) + (phased ? real : dt);
+      while (p.fight && p.fight.t >= len) {
+        p.fight.t -= len;
         round(w, p);
       }
     });
@@ -146,6 +206,12 @@
   P.fightLine = function (w, p) {
     var f = p.fight;
     if (!f) return '';
+    if (W.CONFIG.FIGHT_MODEL === 'phased') {
+      var left = Math.max(0, PH().ROUND - (f.t || 0)), turn = Math.min(f.phase || 0, PH().WAVES.length - 1) + 1;
+      var mood = function (m) { return m === undefined ? '' : ' (' + WORD[status(m)] + ')'; };
+      return 'turn ' + turn + ' of ' + PH().WAVES.length + ' in ' + Math.ceil(left) + ' s · attackers ' + Math.floor(f.count) + mood(f.mA) +
+        ' · defenders ' + Math.floor(p.gar || 0) + mood(f.mD);
+    }
     var rate = W.rateFor(w, w.view.scale);
     var next = Math.max(0, (W.CONFIG.FIGHT_ROUND - (f.t || 0)) / rate);
     return 'attackers ' + Math.floor(f.count) + ' · defenders ' + Math.floor(p.gar || 0) + ' · round ' + ((f.rounds || 0) + 1) + ' in ' + Math.ceil(next) + ' s';
@@ -194,13 +260,14 @@
   }
 
   // Province battles have no country turns, so soldiers join each nation's field army here instead: RECRUIT a second for
-  // each province it holds, up to its army cap. (In the campaign the country turn does this.)
+  // each province it holds, by its tier, up to its army cap. (In the campaign the country turn does this.)
   P.recruit = function (w, dt) {
-    var C = XW.country;
+    var C = XW.country, rate = {};
+    w.provs.forEach(function (p) { if (p.kind === 'province' && p.owner >= 0) rate[p.owner] = (rate[p.owner] || 0) + (K().RECRUIT[p.tier] || 0); });
     w.nations.forEach(function (n) {
       if (!n.alive) return;
       var room = C.armyCap(w, n) - C.garrisons(w, n) - n.soldiers;
-      if (room > 0) n.soldiers += Math.min(room, K().RECRUIT * C.provCount(w, n) * dt);
+      if (room > 0) n.soldiers += Math.min(room, (rate[n.id] || 0) * dt);
     });
   };
 

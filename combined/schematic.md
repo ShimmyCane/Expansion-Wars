@@ -18,6 +18,8 @@ The campaign is the whole game: all three scales in one world. Three battle mode
 | Province battles | `index.html?mode=province` | province, as a ladder of levels (a small map and one opponent first); the whole map; fights in rounds, no battles to join | no |
 | Country battles | `index.html?mode=country` | country: turns, diplomacy, war, fights in rounds | yes |
 
+Province fights have two models, set by the mode (`FIGHT_MODEL` in `js/world/config.js`): the campaign and the country mode use **risk rounds** (every soldier rolls, round after round); province battles use **three phased turns** (waves of 20%, 50% and 30%, with morale and routing; `PHASED` in `js/province/config.js`).
+
 ## One world (single source of truth)
 
 Everything that matters lives in one plain JSON object, the world (`js/world/state.js` documents every field). The country map, the province close-up and the battle all read it and write it. Views keep only their drawing; reload the page and the world brings you back to the same scale, province and battle.

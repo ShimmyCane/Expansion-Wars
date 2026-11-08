@@ -160,6 +160,11 @@ t.test('the province window is the whole map in province battles, two steps in t
   assert.strictEqual(inMode('campaign').XW.world.CONFIG.RINGS, 2);
 });
 
+t.test('province battles settle fights in three phased turns; the other modes keep the risk rounds', () => {
+  assert.strictEqual(inMode('province').XW.world.CONFIG.FIGHT_MODEL, 'phased');
+  for (const id of ['campaign', 'country', 'unit']) assert.strictEqual(inMode(id).XW.world.CONFIG.FIGHT_MODEL, 'risk', id);
+});
+
 t.test('the version is 3.0 and shown with the mode', () => {
   const { XW } = inMode('unit');
   assert.strictEqual(XW.app.VERSION, '3.0');

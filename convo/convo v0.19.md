@@ -45,21 +45,23 @@ Direction: the freestanding province mode should still be a progression, with a 
 
 3. **Province battles without a country.** Your neighbours stay at the peace or war they started with, and do not change while you play. Is that right, or should this mode run country turns too?
 
-   > **Answer:**
+   > **Answer:** Yes. _(Read as: that is right, no country turns. The question offered two options, so this is asked again in `convo/convo v0.20.md`.)_
 
 4. **Level ladder.** Is the start (you and one opponent, 5 provinces each) the right beginning, and is the climb (more provinces first, then more opponents) the right order?
 
-   > **Answer:**
+   > **Answer:** Yes.
 
 5. **Fight pace and the computer.** A round is about 20 s in a province, and the computer attacks only with a lead of about 1.7 to 1. Too fast, too slow, too cautious?
 
-   > **Answer:**
+   > **Answer:** No, in this mode, individualized, each round should be 3 seconds. But it's not a single dice roll. Instead I want to approach it like Torn Wars, a text based game, where they launch three turns total. And each turn resolved the attacks by the first 20% of the army, the next the 50% and the last the remaining 30%. But impacts of morale and routing really matter, so that the battle could actually be very tilted at the middle phase. Think of each round start with seeing whether the armies are in formation or if they are routing. _(Built in version 3.0 round 4: see `convo/convo v0.20.md`.)_
 
 6. **Recruiting.** 0.5 soldiers a second for each province held. Should provinces of higher tiers recruit faster?
 
-   > **Answer:**
+   > **Answer:** Yes, high tiers recruit faster. Let's start with 2 /s at village level to .5/s at the fortress level. _(The rates as written run the other way from "high tiers recruit faster", so they were built as 0.5 a second at a village up to 2 a second at a fortress. Asked again in `convo/convo v0.20.md`.)_
 
 ## Still open
+
+- Questions 1 (version number) and 2 (unit battle sides) are unanswered. Both carry to `convo/convo v0.20.md`.
 
 - Convo v0.14 to v0.18 questions are unanswered. See `convo/convo v0.18.md` for food and the land cap.
 

@@ -461,16 +461,96 @@ t.test('a big fight is settled in a few rounds', () => {
   assert.ok(rounds <= 12, 'in ' + rounds + ' rounds');
 });
 
-t.test('province recruiting: each province adds soldiers to its nation up to the army cap', () => {
+t.test('province recruiting: each province adds soldiers by its tier, up to the army cap', () => {
   const { XW, w } = fresh(779);
   const n = w.nations[w.you];
   n.soldiers = 0;
   XW.province.recruit(w, 10);
-  const mine = w.provs.filter(p => p.kind === 'province' && p.owner === w.you).length;
-  assert.ok(Math.abs(n.soldiers - XW.province.CONFIG.RECRUIT * mine * 10) < 1e-6, 'gained ' + n.soldiers);
+  const R = XW.province.CONFIG.RECRUIT;
+  const per = w.provs.filter(p => p.kind === 'province' && p.owner === w.you).reduce((s, p) => s + R[p.tier], 0);
+  assert.ok(Math.abs(n.soldiers - per * 10) < 1e-6, 'gained ' + n.soldiers + ', expected ' + per * 10);
   n.soldiers = XW.country.armyCap(w, n);                          // already at the cap
   XW.province.recruit(w, 100);
   assert.ok(n.soldiers <= XW.country.armyCap(w, n) + 1e-6, 'never over the cap');
+});
+
+t.test('higher tiers recruit faster: a village 0.5 a second up to a fortress 2', () => {
+  const R = fresh(1).XW.province.CONFIG.RECRUIT;
+  assert.ok(R.e < R.v && R.v < R.t && R.t < R.c && R.c < R.f);
+  assert.strictEqual(R.v, 0.5);
+  assert.strictEqual(R.f, 2);
+});
+
+// Phased fights (province battles): three turns, waves of 20%, 50% and 30%, morale and routing.
+function phasedFight(seed, a, d) {
+  const { XW, w } = fresh(seed);
+  XW.world.CONFIG.FIGHT_MODEL = 'phased';
+  const pair = neutralNextToYou(w);
+  pair.target.gar = d;
+  pair.target.fight = { owner: w.you, count: a, from: pair.mine.id, t: 0, rounds: 0 };
+  const turn = () => XW.province.fights(w, 0, XW.province.CONFIG.PHASED.ROUND);
+  return { XW, w, pair, f: pair.target.fight, turn };
+}
+
+t.test('a phased fight turn lasts 3 real seconds, whatever the world clock says', () => {
+  const { XW, w, pair } = phasedFight(803, 100, 100);
+  XW.province.fights(w, 100, 2);       // a lot of world time, but 2 real seconds
+  assert.strictEqual(pair.target.fight.rounds || 0, 0, 'no turn yet');
+  XW.province.fights(w, 0, 1.2);
+  assert.strictEqual(pair.target.fight.rounds, 1, 'the first turn after 3 real seconds');
+});
+
+t.test('the first turn fights only the first 20% of each army', () => {
+  const { pair, f, turn } = phasedFight(804, 100, 100);
+  turn();
+  const fight = pair.target.fight;
+  if (fight) {                                                    // the fight goes on after turn one
+    assert.ok(100 - fight.count <= 20, 'attackers lost ' + (100 - fight.count) + ' of a wave of 20');
+    assert.ok(100 - pair.target.gar <= 20, 'defenders lost ' + (100 - pair.target.gar) + ' of a wave of 20');
+    assert.strictEqual(fight.phase, 1);
+  }
+});
+
+t.test('a phased fight is over after three turns', () => {
+  for (let seed = 810; seed < 830; seed++) {
+    const { pair, turn } = phasedFight(seed, 100, 100);
+    let turns = 0;
+    while (pair.target.fight && turns < 10) { turn(); turns++; }
+    assert.ok(!pair.target.fight, 'resolved');
+    assert.ok(turns <= 3, 'in ' + turns + ' turns');
+  }
+});
+
+t.test('routing: a routing wave kills nobody and is cut down', () => {
+  const { XW, pair, f, turn } = phasedFight(840, 100, 100);
+  Object.assign(f, { a0: 100, d0: 100, mA: 10, mD: 90, phase: 1 });   // the attackers have broken; the big middle turn is next
+  turn();
+  const after = pair.target.fight;
+  assert.strictEqual(pair.target.gar, 100, 'the defenders lost nobody');
+  assert.ok(100 - after.count >= Math.ceil(XW.province.CONFIG.PHASED.ROUT_LOSS * 50), 'a third of the wave was cut down: ' + (100 - after.count));
+  assert.ok(after.mA <= 10, 'morale does not recover while it runs');
+});
+
+t.test('a beaten attack withdraws to the province it came from with the soldiers it has left', () => {
+  const { w, pair, f, turn } = phasedFight(850, 60, 100);
+  const before = pair.mine.gar;
+  let turns = 0;
+  while (pair.target.fight && turns < 5) { turn(); turns++; }
+  if (pair.target.owner === w.you) return;                         // (60 against 100 should not take it)
+  assert.ok(pair.mine.gar >= before, 'survivors went home: ' + before + ' to ' + pair.mine.gar);
+  assert.ok(pair.target.owner === -1, 'the defenders held');
+});
+
+t.test('a phased fight line shows the turn, and the mood of each army once it is under way', () => {
+  const { XW, w, pair, f, turn } = phasedFight(860, 100, 100);
+  assert.ok(/turn 1 of 3 in \d+ s/.test(XW.province.fightLine(w, pair.target)), XW.province.fightLine(w, pair.target));
+  turn();
+  if (pair.target.fight) assert.ok(/(in formation|wavering|routing)/.test(XW.province.fightLine(w, pair.target)));
+});
+
+t.test('the campaign still settles fights with every soldier rolling', () => {
+  const { XW, w } = fresh(870);
+  assert.strictEqual(XW.world.CONFIG.FIGHT_MODEL, 'risk');
 });
 
 t.test('taking the last province of the last opponent wins', () => {

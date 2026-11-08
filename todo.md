@@ -277,3 +277,14 @@ The province view is shared by the campaign and the province battles, so both ge
 - [x] **Taking the last opponent province wins at once** (it was checked only at the end of a country turn). Shared with the campaign.
 - [ ] **Balance after play:** level sizes, recruit rate, round pace, and the computer's 1.7 to 1 rule before it attacks.
 
+## Version 3.0, round 4: phased province fights, recruiting by tier (convo v0.20)
+
+Answers to `convo/convo v0.19.md` questions 3 to 6 (1 and 2 are still open).
+
+- [x] **Province battles fight in three phased turns, 3 real seconds each,** like Torn Wars: the first 20% of each army fights, then 50%, then the last 30%. Morale (start 70, defender plus 3 for each point of defence) and formation (in formation, wavering, routing) shape each turn. A routing wave kills nobody and is cut down. The middle turn swings morale most, so it tilts the battle. Province battles only; the campaign keeps the risk rounds.
+- [x] **Beaten attackers withdraw** with what they have left, to the province they came from (or the field army), in phased fights.
+- [x] **The fight ticker** shows the turn, the time to the next, and each army's mood.
+- [x] **Recruiting by tier** (province battles): empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second. Built so that higher tiers recruit faster; the answer as written ran the other way (convo v0.20 question 4).
+- [x] **Level ladder confirmed** (question 4).
+- [ ] **Decide** convo v0.20: version number, unit battle sides, province battles without turns, recruiting rates, phased fight numbers, the campaign's fights, the computer's boldness.
+

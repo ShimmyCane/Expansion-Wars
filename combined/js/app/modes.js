@@ -19,7 +19,7 @@
     unit: { id: 'unit', title: 'Unit battles', scales: ['unit'], start: 'unit', turns: false,
       key: 'xw-unit-battles-world', app: 'combined-unit' },
     province: { id: 'province', title: 'Province battles', scales: ['province'], start: 'province', turns: false,
-      key: 'xw-province-battles-world', app: 'combined-province', rings: 99 },
+      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, fights: 'phased' },
     country: { id: 'country', title: 'Country battles', scales: ['country'], start: 'country', turns: true,
       key: 'xw-country-battles-world', app: 'combined-country' }
   };
@@ -53,6 +53,7 @@
     W.CONFIG.SAVE_KEY = A.mode.key;
     W.CONFIG.APP = A.mode.app;
     W.CONFIG.RINGS = A.mode.rings || DEFAULT_RINGS;
+    W.CONFIG.FIGHT_MODEL = A.mode.fights || 'risk';
     return A.mode;
   };
   A.useMode(A.modeFor(typeof location !== 'undefined' ? location.search : '').id);
