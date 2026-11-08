@@ -17,6 +17,12 @@
 - **Each battle mode has its own save** on this device (`xw-unit-battles-world`, `xw-province-battles-world`, `xw-country-battles-world`) and its own family database tag, so they never overwrite the campaign.
 - **Version 3.0** in ⚙️ and in the notes panel's page name.
 
+## Round 2 (same version)
+
+- **Province merged back from the archive.** The archived province copy is the original spot game, so its province rules were compared with the campaign's. Most already came across (clash on roads, send steps, computer caps, towers, routing). The one missing was **dragging from several provinces** at once, which the spot game had. Now built in the shared province view, so the campaign and province battles both have it.
+- **Not brought back:** the countdown, the population bar, the 10:1 surrender toggle and team avatars. Reasons are in `todo.md`.
+- **Supabase notes:** none open that need building. The one open note is a test note.
+
 ## Questions
 
 1. **Version number.** 3.0 is a guess for "major". Should the campaign's version be 3.0, or should the version follow the old numbers some other way?

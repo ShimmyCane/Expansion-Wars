@@ -17,3 +17,8 @@
 #province-map .terrain-icon { pointer-events: none; opacity: 0.8; }
 #province-map .fight { fill: none; stroke: var(--war); stroke-width: 2.4; stroke-dasharray: 3 2; pointer-events: none; }
 #province-map { touch-action: none; }
+
+/* The drag lines of a move: dashed, green where the target can be reached by road, red where it cannot. */
+.drag { stroke: var(--ink, #5a4a3a); stroke-width: 3; stroke-dasharray: 6 5; opacity: 0.85; pointer-events: none; }
+.drag.ok { stroke: var(--trade); }
+.drag.bad { stroke: var(--war); }

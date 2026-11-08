@@ -256,3 +256,13 @@ Major revision. The combined game is the campaign; its unit, province and countr
 - [x] **Tests.** `node combined/tests/modes.test.js` (11 checks), and the browser check of every mode, the hub links and the archive.
 - [ ] **Decide** the questions in `convo/convo v0.19.md` (version number, unit battle sides, province neighbours).
 - [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project before the battle modes can sync to the database (as for the campaign).
+
+## Version 3.0, round 2: province merged back from the archive (convo v0.19)
+
+The province view is shared by the campaign and the province battles, so both get these.
+
+- [x] **Multi-drag from several provinces.** Drag from one of yours, passing over others of yours on the way to add them. A drop on another province sends each one that has a road to it; a drop on your own province reinforces it. Ported from the spot game (`archive/v1/js/game.js`, `endDrag`). Drag lines are dashed, green where the target can be reached by road, red where not.
+- [x] **Checked in the browser:** two provinces dragged onto a neutral one sent two marches, with no page errors.
+- [ ] **Not ported from the spot game, on purpose.** The 3-2-1-Go countdown: the province window is opened in the middle of a game, so a countdown would only freeze it. The population bar: the window card already shows territories and stationed soldiers per nation. The 10:1 surrender toggle: the campaign surrenders at country level (two times the defence). Team avatars: the campaign uses allies.
+- [x] **Supabase notes checked (2026-11-08).** `xw_notes`: all 14 rows are already `done` and built (rounds 2 to 4). `xw_maps` notes: 25 rows, one `open`: "Test note 1" (Level 4 Valley), which needs no build. Left open until you confirm.
+
