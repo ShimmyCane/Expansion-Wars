@@ -22,7 +22,7 @@
     // A fight on a province in this window that you are part of: join it as a battle.
     win.ids.forEach(function (id) {
       var f = w.provs[id];
-      if (!f.fight || (f.owner !== w.you && f.fight.owner !== w.you)) return;
+      if (!A.can('unit') || !f.fight || (f.owner !== w.you && f.fight.owner !== w.you)) return;
       bar.appendChild(button('⚔️ Join the fight at ' + W.aLabel(f.tier) + ' · ' + P.fightLine(w, f), function () {
         var err = U.startFight(w, f);
         if (err) { act.done(err); return; }
@@ -38,7 +38,7 @@
       ui.target = null;
       act.done(err);
     }, { disabled: n < 1 }));
-    if (target.owner !== w.you) {
+    if (target.owner !== w.you && A.can('unit')) {
       bar.appendChild(button('⚔️ Battle with ' + n, function () {
         var err = U.start(w, win, sel.id, target.id, w.view.marchPct);
         if (err) { act.done(err); return; }
@@ -86,6 +86,6 @@
         return 'turn ' + b.turn + ', ' + (b.winner === 'attacker' ? W.ownerName(w, b.attacker) + ' won' : W.ownerName(w, b.defender) + ' held');
       }).join('; ') + '.'));
     }
-    card.appendChild(button('🌍 Back to the country', function () { A.scales.go('country'); }));
+    if (A.can('country')) card.appendChild(button('🌍 Back to the country', function () { A.scales.go('country'); }));
   };
 })();

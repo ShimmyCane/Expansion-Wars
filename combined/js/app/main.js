@@ -1,11 +1,10 @@
-// Expansion Wars (combined) — start-up: load the world saved on this device (or make a new one), show the scale it was
+// Expansion Wars — start-up: load the world saved on this device for the mode (or make a new one), show the scale it was
 // left on, and start the frame loop.
 (function () {
   'use strict';
   var XW = window.XW, A = XW.app, W = XW.world, C = XW.country, D = XW.core;
 
-  var w = W.loadLocal();
-  if (!w) w = C.newWorld();
+  var w = A.modes.ensure(W.loadLocal());
   W.set(w);
   A.settings.init();
   // ×2 fast-forward: the country and province scales run at double time while it is on.

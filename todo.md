@@ -241,3 +241,18 @@ Copied from the Family database (`xw_notes`, page Combined, 14 notes, turn 160).
 - [x] **Peace needs acceptance.** A ceasefire is never unilateral. The computer offers peace on your card; it stands for 2 turns, and the war goes on until you accept. Your own ceasefire is accepted only if the other side is weaker (power at most 0.7 of yours). Nothing can be offered in the first 4 turns of a war.
 - [x] **Claims cost more.** A claim costs 12 gold and 8 food base (was 3 and 2), plus one per step. A nation at war claims half as often.
 - [ ] **Open: unrest.** It falls only at peace with food of at least 20. At war it rises every turn and never falls. Decide whether it should fall at war too.
+
+## Version 3.0: campaign and battle modes (convo v0.19)
+
+Major revision. The combined game is the campaign; its unit, province and country parts are battle modes on the home page. The individual games are in `archive/`.
+
+- [x] **Version 3.0.** Shown in ⚙️ with the mode's name.
+- [x] **Campaign.** The combined game, unchanged in play. Keeps its save and its family database rows.
+- [x] **Unit battles** (home link 2). The battle view alone: a new battle between two of your provinces each time, Next battle after each one.
+- [x] **Province battles** (home link 3). The province view alone: marches, garrisons, and fights resolved in rounds. No battles to pick.
+- [x] **Country battles** (home link 4). The country view alone: turns, diplomacy and war. Fights resolved on the map.
+- [x] **Each battle mode has its own save** and database tag. The campaign's save key is unchanged.
+- [x] **Individual games archived.** Unit scale 4.5 (`archive/unit-scale/`), country scale 2.20 (`archive/country-scale/`), province scale (`archive/province-scale/`), linked from the Archive page. Their paths are updated, and the Map creator plays from the archived unit scale.
+- [x] **Tests.** `node combined/tests/modes.test.js` (11 checks), and the browser check of every mode, the hub links and the archive.
+- [ ] **Decide** the questions in `convo/convo v0.19.md` (version number, unit battle sides, province neighbours).
+- [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project before the battle modes can sync to the database (as for the campaign).

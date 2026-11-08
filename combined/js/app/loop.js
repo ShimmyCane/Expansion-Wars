@@ -55,7 +55,7 @@
 
   // A new fight on a province you hold or attack: say so, with the join button on the country and province screens.
   bus.on('fight:new', function (e) {
-    if (e && e.you) A.toast('A fight has started on one of your provinces. Join it from the red button.');
+    if (e && e.you) A.toast(A.can('unit') ? 'A fight has started on one of your provinces. Join it from the red button.' : 'A fight has started on one of your provinces. It is fought in rounds.');
   });
 
   // Leaving the page or hiding the tab saves the world first.

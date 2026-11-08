@@ -24,6 +24,8 @@
     AUTOSAVE: 10,
     CLOUD_EVERY: 60,
     SAVE_KEY: 'xw-combined-world',
+    // The family database tag of the world (app/modes.js sets it for each battle mode).
+    APP: 'combined',
 
     // The province window: the province you zoom into, and the provinces up to RINGS steps from it.
     RINGS: 2,

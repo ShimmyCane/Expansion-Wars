@@ -28,8 +28,8 @@
   </main>
 
   <!-- The same field-building code the unit scale uses, to draw each battle's ground. -->
-  <script src="../V4/js/config.js"></script>
-  <script src="../V4/js/field.js"></script>
+  <script src="../archive/unit-scale/js/config.js"></script>
+  <script src="../archive/unit-scale/js/field.js"></script>
   <script>
     (function () {
       'use strict';
@@ -107,7 +107,7 @@
           btn.addEventListener('click', function () {
             // The battle is started again from its request: same seed, same field, same armies.
             try { sessionStorage.setItem('xw-launch', JSON.stringify({ request: req })); } catch (e) { /* no storage */ }
-            window.location.href = '../V4/index.html';
+            window.location.href = '../archive/unit-scale/index.html';
           });
           li.appendChild(btn);
           box.appendChild(li);

@@ -1,4 +1,4 @@
-// Expansion Wars (combined) — the ⚙️ panel: the world (seed, new world), saving (this device and the family database),
+// Expansion Wars — the ⚙️ panel: the world (seed, new world), saving (this device and the family database),
 // the time dilation of each scale, and notes with the family sign-in (shared/notes.js).
 (function () {
   'use strict';
@@ -8,9 +8,9 @@
 
   function describe() {
     var w = W.get();
-    if (!w) return 'Combined';
+    if (!w) return A.describeMode();
     var s = w.view.scale, p = W.prov(w, w.view.prov);
-    return 'Combined · ' + s + ' · turn ' + w.time.turn + (p && s !== 'country' ? ' · ' + W.label(p.tier) + ' of ' + W.ownerName(w, p.owner) : '');
+    return A.describeMode() + ' · ' + s + ' · turn ' + w.time.turn + (p && s !== 'country' ? ' · ' + W.label(p.tier) + ' of ' + W.ownerName(w, p.owner) : '');
   }
 
   function worldLine() {
@@ -20,6 +20,7 @@
   }
 
   function build(body) {
+    body.appendChild(el('p', 'small', A.describeMode() + '. The other modes are on the home page.'));
     body.appendChild(el('h3', '', 'World'));
     lines.world = el('p', 'small');
     body.appendChild(lines.world);
@@ -29,9 +30,9 @@
     row.appendChild(seed);
     row.appendChild(button('New world', function () {
       if (!window.confirm('Start a new world? This one stays in the family database if it was saved there, but not on this device.')) return;
-      var w = C.newWorld(D.parseSeed(seed.value));
+      var w = A.modes.fresh(D.parseSeed(seed.value));
       W.set(w);
-      A.scales.open(w, 'country');
+      A.scales.open(w, w.view.scale);
       A.saveNow('button');
       worldLine();
     }));
@@ -80,7 +81,7 @@
       gear.addEventListener('click', function () { open(panel.hidden); });
       D.$('settings-close').addEventListener('click', function () { open(false); });
       build(body);
-      if (window.XWNotes) window.XWNotes.attach({ panel: body, page: 'Combined', context: describe });
+      if (window.XWNotes) window.XWNotes.attach({ panel: body, page: A.mode.title, context: describe });
     }
   };
 })();

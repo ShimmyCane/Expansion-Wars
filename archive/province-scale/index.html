@@ -7,9 +7,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Expansion Wars">
   <meta name="theme-color" content="#fbf6e9">
-  <title>Expansion Wars</title>
+  <title>Expansion Wars — Province scale</title>
+  <link rel="stylesheet" href="../../shared/notes.css">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="../shared/notes.css">
 </head>
 <body>
 
@@ -23,34 +23,8 @@
       <button id="btn-map" class="big">🗺️ Progress map</button>
       <button id="btn-shop" class="big">🛒 Shop</button>
       <button id="btn-scores" class="big">🏆 High scores</button>
-      <button id="btn-country" class="big">🌍 Country</button>
     </div>
     <p class="foot">Made for iPhone and iPad</p>
-    <p class="center"><a class="link" href="../index.html">← All scales</a></p>
-  </section>
-
-  <!-- Version 2: the country layer (js/country.js) -->
-  <section id="screen-country" class="screen country" hidden>
-    <div class="gamebar">
-      <button id="country-back" class="back">🏠 Home</button>
-      <p id="country-status" class="pill">Turn 1</p>
-      <p class="turn-clock">Turn clock <span id="country-clock">60s</span></p>
-    </div>
-    <main class="country-stage">
-      <div id="country-res" class="country-res"></div>
-      <div class="country-map-wrap">
-        <svg id="country-svg" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Country map"></svg>
-        <svg id="country-mini" class="country-mini" viewBox="0 0 1000 640" role="img" aria-label="Mini map: tap to look at a place"></svg>
-      </div>
-      <div id="country-card" class="country-card" hidden></div>
-      <div class="country-actions">
-        <button id="country-ready" class="big hero">✔ Ready</button>
-        <button id="country-zoom" class="big" type="button">🔍 Zoom in</button>
-        <button id="country-new" class="big">🔄 New country</button>
-        <label class="seed-box">Map seed <input id="country-seed" type="text" inputmode="numeric" maxlength="9" placeholder="random"></label>
-      </div>
-      <ol id="country-log" class="country-log"></ol>
-    </main>
   </section>
 
   <!-- Progression map -->
@@ -120,9 +94,37 @@
       </div>
     </main>
     <p class="rotate-hint">Turn your phone sideways for a bigger board.</p>
+  </section>
+
+  <!-- Overlays -->
+  <div id="overlay" class="overlay" hidden>
+    <div class="card">
+      <h2 id="win-title"></h2>
+      <p id="win-text"></p>
+      <p id="win-stars" class="stars-big" aria-live="polite"></p>
+      <div class="card-buttons">
+        <button id="win-next" class="big hero">Next level</button>
+        <button id="win-retry" class="big">Play again</button>
+        <button id="win-map" class="big">Progress map</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="maps" class="overlay" hidden>
+    <div class="card maps-card">
+      <h2>Saved maps</h2>
+      <div id="maps-list" class="maps-list"></div>
+      <button id="maps-close" class="big">Close</button>
+    </div>
+  </div>
+
+  <div id="errors" class="errors" hidden></div>
+
+  <!-- Settings: on every screen. The game settings and the notes both live here. -->
     <button id="gear" class="gear" aria-label="Settings">⚙️</button>
     <section id="panel" class="panel" hidden>
       <h2>Settings</h2>
+      <p><a href="../../index.html">← All scales</a></p>
       <div class="row">
         <span>Computer</span>
         <div class="seg" id="seg-ai">
@@ -165,47 +167,19 @@
         <button id="errors-toggle" class="toggle" aria-pressed="false">Off</button>
       </div>
     </section>
-  </section>
 
-  <!-- Overlays -->
-  <div id="overlay" class="overlay" hidden>
-    <div class="card">
-      <h2 id="win-title"></h2>
-      <p id="win-text"></p>
-      <p id="win-stars" class="stars-big" aria-live="polite"></p>
-      <div class="card-buttons">
-        <button id="win-next" class="big hero">Next level</button>
-        <button id="win-retry" class="big">Play again</button>
-        <button id="win-map" class="big">Progress map</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="maps" class="overlay" hidden>
-    <div class="card maps-card">
-      <h2>Saved maps</h2>
-      <div id="maps-list" class="maps-list"></div>
-      <button id="maps-close" class="big">Close</button>
-    </div>
-  </div>
-
-  <div id="errors" class="errors" hidden></div>
-
-  <!-- Floating settings: on every screen except the game, which has its own ⚙️. Notes are added by js/settings.js. -->
-  <button id="float-gear" class="float-gear" aria-label="Settings" aria-expanded="false">⚙️</button>
-  <section id="float-panel" class="panel float-panel" hidden>
-    <h2>Settings</h2>
-    <button id="float-reset-zoom" class="big">Reset zoom</button>
-    <p id="float-note" class="muted small" aria-live="polite"></p>
-  </section>
   <script src="js/sound.js"></script>
   <script src="js/map.js"></script>
-  <script src="../shared/config.js"></script>
-  <script src="../shared/notes.js"></script>
+  <script src="js/config.js"></script>
+  <script src="../../shared/notes.js"></script>
   <script src="js/cloud.js"></script>
   <script src="js/store.js"></script>
   <script src="js/game.js"></script>
-  <script src="js/country.js"></script>
-  <script src="js/settings.js"></script>
+  <script>
+    if (window.XWNotes) XWNotes.attach({
+      panel: document.getElementById('panel'), page: 'Province scale',
+      context: function () { return 'Province scale: ' + (document.querySelector('.screen:not([hidden])') ? document.querySelector('.screen:not([hidden])').id : 'map'); }
+    });
+  </script>
 </body>
 </html>

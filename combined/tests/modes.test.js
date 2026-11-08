@@ -1,0 +1,121 @@
+// Expansion Wars — the game modes (campaign, unit battles, province battles, country battles). Run with: node tests/modes.test.js
+'use strict';
+const assert = require('assert');
+const { load, runner, RULES } = require('./load');
+
+const t = runner('Modes');
+const FILES = RULES.concat(['app/modes']);
+
+// A fresh sandbox per mode: the mode is chosen at load, as the page does from its address.
+function inMode(id) {
+  const ctx = load(FILES);
+  const XW = ctx.XW;
+  XW.app.useMode(id);
+  return { ctx, XW };
+}
+
+t.test('the address picks the mode, and anything else is the campaign', () => {
+  const { XW } = inMode('campaign');
+  assert.strictEqual(XW.app.modeFor('').id, 'campaign');
+  assert.strictEqual(XW.app.modeFor('?mode=unit').id, 'unit');
+  assert.strictEqual(XW.app.modeFor('?x=1&mode=province').id, 'province');
+  assert.strictEqual(XW.app.modeFor('?mode=country').id, 'country');
+  assert.strictEqual(XW.app.modeFor('?mode=nonsense').id, 'campaign');
+});
+
+t.test('each mode has its own save and database tag; the campaign keeps its old save', () => {
+  const keys = ['campaign', 'unit', 'province', 'country'].map(id => inMode(id).XW.world.CONFIG.SAVE_KEY);
+  assert.strictEqual(new Set(keys).size, 4);
+  assert.strictEqual(keys[0], 'xw-combined-world');
+  const apps = ['campaign', 'unit', 'province', 'country'].map(id => { const { XW } = inMode(id); return XW.world.CONFIG.APP; });
+  assert.strictEqual(new Set(apps).size, 4);
+});
+
+t.test('the campaign shows all three scales; each battle mode shows one', () => {
+  assert.strictEqual(JSON.stringify(inMode('campaign').XW.app.mode.scales), JSON.stringify(['country', 'province', 'unit']));
+  assert.strictEqual(JSON.stringify(inMode('unit').XW.app.mode.scales), JSON.stringify(['unit']));
+  assert.strictEqual(JSON.stringify(inMode('province').XW.app.mode.scales), JSON.stringify(['province']));
+  assert.strictEqual(JSON.stringify(inMode('country').XW.app.mode.scales), JSON.stringify(['country']));
+  const { XW } = inMode('unit');
+  assert.strictEqual(XW.app.can('country'), false);
+  assert.strictEqual(XW.app.can('unit'), true);
+});
+
+t.test('only the campaign and country battles have country turns', () => {
+  for (const id of ['unit', 'province']) {
+    const { XW } = inMode(id);
+    const w = XW.country.newWorld(4321);
+    w.time.t = w.time.turn * XW.world.CONFIG.TURN + 5;   // past the end of the turn
+    assert.strictEqual(XW.world.turnDue(w), false, id + ' has no turns');
+  }
+  for (const id of ['campaign', 'country']) {
+    const { XW } = inMode(id);
+    const w = XW.country.newWorld(4321);
+    w.time.t = w.time.turn * XW.world.CONFIG.TURN + 5;
+    assert.strictEqual(XW.world.turnDue(w), true, id + ' has turns');
+  }
+});
+
+t.test('a unit battle mode world starts with a battle between two neighbours', () => {
+  const { XW } = inMode('unit');
+  const w = XW.app.modes.fresh(777);
+  assert.strictEqual(w.view.scale, 'unit');
+  assert.ok(w.battle, 'there is a battle');
+  const from = w.provs[w.battle.from], to = w.provs[w.battle.to];
+  assert.strictEqual(from.owner, w.you);
+  assert.notStrictEqual(to.owner, w.you);
+  assert.ok(from.adj.indexOf(to.id) >= 0, 'the two provinces are neighbours');
+  assert.ok(XW.unit.rebuild(w), 'the battle can be rebuilt for the screen');
+});
+
+t.test('a unit battle plays to its end and the result goes into the world', () => {
+  const { XW } = inMode('unit');
+  const w = XW.app.modes.fresh(777);
+  const st = XW.unit.rebuild(w);
+  const r = XW.unit.finishAuto(st);
+  XW.unit.apply(w, r);
+  assert.strictEqual(w.battle, null);
+  assert.strictEqual(w.battles.length, 1);
+  assert.ok(r.winner === 'attacker' || r.winner === 'defender');
+});
+
+t.test('a unit battle mode with no battle saved gets a new one', () => {
+  const { XW } = inMode('unit');
+  const w = XW.app.modes.fresh(777);
+  w.battle = null;
+  const fixed = XW.app.modes.ensure(w);
+  assert.ok(fixed.battle, 'a battle is made');
+  assert.strictEqual(fixed.view.scale, 'unit');
+});
+
+t.test('a province battle mode world starts on one of your provinces, with no country scale', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(777);
+  assert.strictEqual(w.view.scale, 'province');
+  const p = w.provs[w.view.prov];
+  assert.strictEqual(p.kind, 'province');
+  assert.strictEqual(p.owner, w.you);
+});
+
+t.test('a country battle mode world starts on the country scale', () => {
+  const { XW } = inMode('country');
+  const w = XW.app.modes.fresh(777);
+  assert.strictEqual(w.view.scale, 'country');
+  assert.strictEqual(w.battle, null);
+});
+
+t.test('a save from a scale the mode does not show is brought back to the mode', () => {
+  const { XW } = inMode('country');
+  const w = XW.country.newWorld(99);
+  w.view.scale = 'unit';
+  XW.app.modes.ensure(w);
+  assert.strictEqual(w.view.scale, 'country');
+});
+
+t.test('the version is 3.0 and shown with the mode', () => {
+  const { XW } = inMode('unit');
+  assert.strictEqual(XW.app.VERSION, '3.0');
+  assert.strictEqual(XW.app.describeMode(), 'Expansion Wars 3.0 · Unit battles');
+});
+
+t.done();

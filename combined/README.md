@@ -1,6 +1,6 @@
-# Expansion Wars — Combined: file map
+# Expansion Wars — Campaign (version 3.0): file map
 
-One game in three zoom levels (country, province, unit) sharing one world. Open `index.html` in a browser (no build step, no server). Design and open decisions: `schematic.md`.
+The campaign is one game in three zoom levels (country, province, unit) sharing one world. The three battle modes (unit battles, province battles, country battles) are the same code, each showing one scale: `?mode=unit`, `?mode=province`, `?mode=country`. Open `index.html` in a browser (no build step, no server). Design and open decisions: `schematic.md`.
 
 Every file is small and does one job. Rules files take the world as an argument and never touch the page; view files draw from the world and never hold game state.
 
@@ -15,6 +15,8 @@ Every file is small and does one job. Rules files take the world as an argument 
 | How soldiers become a battle army, and the result goes back | `js/unit/bridge.js` |
 | What happens when a province changes hands (all scales) | `js/world/rules.js` (`capture`) |
 | What a transition between scales does | `js/app/scales.js` |
+| Which scales each mode shows, and each mode's save | `js/app/modes.js` (`MODES`) |
+| The version number | `js/app/modes.js` (`A.VERSION`) |
 
 ## Files
 
@@ -54,5 +56,6 @@ tests/                     node tests/world.test.js · node tests/unit-engine.te
 ```
 node tests/world.test.js        # the world across scales: turns, dilation, captures, soldiers kept, battles, saving
 node tests/unit-engine.test.js  # the battle engine (the V4 tests, on the split files)
+node tests/modes.test.js        # the campaign and the three battle modes: scales, saves, unit battles, country turns
 node tests/unit-balance.js 12   # the battle balance matrix
 ```
