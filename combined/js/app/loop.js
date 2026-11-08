@@ -25,7 +25,7 @@
       W.advance(w, dt, scale);
       // Fights on the provinces run in world time, so one resolves whether or not you are looking at it. A game that
       // is over stands still.
-      if (!w.over) {
+      if (!w.over && !(w.countdown > 0)) {
         XW.province.fights(w, dt * rate, dt);
         // Garrisons keep drifting towards the border, in peace and in war.
         XW.country.migrate(w, dt * rate);

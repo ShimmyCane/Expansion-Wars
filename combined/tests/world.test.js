@@ -461,17 +461,40 @@ t.test('a big fight is settled in a few rounds', () => {
   assert.ok(rounds <= 12, 'in ' + rounds + ' rounds');
 });
 
-t.test('province recruiting: each province adds soldiers by its tier, up to the army cap', () => {
+t.test('province battles: a province grows its own soldiers by tier, up to its cap, with no field army', () => {
   const { XW, w } = fresh(779);
-  const n = w.nations[w.you];
-  n.soldiers = 0;
-  XW.province.recruit(w, 10);
+  XW.world.CONFIG.POOL = false;
+  const win = XW.province.window(w, w.provs.find(p => p.kind === 'province' && p.owner === w.you).id);
+  const pool = w.nations[w.you].soldiers;
   const R = XW.province.CONFIG.RECRUIT;
-  const per = w.provs.filter(p => p.kind === 'province' && p.owner === w.you).reduce((s, p) => s + R[p.tier], 0);
-  assert.ok(Math.abs(n.soldiers - per * 10) < 1e-6, 'gained ' + n.soldiers + ', expected ' + per * 10);
-  n.soldiers = XW.country.armyCap(w, n);                          // already at the cap
-  XW.province.recruit(w, 100);
-  assert.ok(n.soldiers <= XW.country.armyCap(w, n) + 1e-6, 'never over the cap');
+  const mine = win.ids.map(id => w.provs[id]).filter(p => p.owner === w.you);
+  const before = mine.map(p => p.gar);
+  XW.province.step(w, win, 10);
+  mine.forEach((p, i) => assert.ok(Math.abs(p.gar - Math.min(XW.province.CONFIG.CAP[p.tier], before[i] + R[p.tier] * 10)) < 1e-6, p.tier + ' grew ' + (p.gar - before[i])));
+  assert.strictEqual(w.nations[w.you].soldiers, pool, 'the field army was not touched');
+  mine[0].gar = XW.province.CONFIG.CAP[mine[0].tier];
+  XW.province.step(w, win, 100);
+  assert.strictEqual(mine[0].gar, XW.province.CONFIG.CAP[mine[0].tier], 'never over the cap');
+});
+
+t.test('with a field army (the campaign), garrisons still grow from it', () => {
+  const { XW, w } = fresh(781);
+  const win = XW.province.window(w, w.provs.find(p => p.kind === 'province' && p.owner === w.you).id);
+  const pool = w.nations[w.you].soldiers;
+  XW.province.step(w, win, 5);
+  assert.ok(w.nations[w.you].soldiers < pool, 'the pool paid for the growth');
+});
+
+t.test('province battles: soldiers go as far as your roads reach; nothing moves during the countdown', () => {
+  const { XW, w } = fresh(782);
+  XW.world.CONFIG.MOVE_HOPS = 99;
+  const mine = w.provs.filter(p => p.kind === 'province' && p.owner === w.you);
+  const win = XW.province.window(w, mine[0].id);
+  const far = w.provs.find(p => p.kind === 'province' && p.owner < 0 && XW.province.links(w, win, mine[0].id).indexOf(p.id) >= 0);
+  w.countdown = 3;
+  assert.strictEqual(XW.province.send(w, win, w.you, mine[0].id, far.id, 50), 'Wait for Go.');
+  w.countdown = 0;
+  assert.strictEqual(XW.province.send(w, win, w.you, mine[0].id, far.id, 50), null);
 });
 
 t.test('higher tiers recruit faster: a village 0.5 a second up to a fortress 2', () => {

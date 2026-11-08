@@ -19,6 +19,9 @@
 #province-map .fight.quiet { stroke: var(--ink); stroke-width: 1.4; stroke-dasharray: none; opacity: 0.5; }
 #province-map { touch-action: none; }
 
+/* The 3, 2, 1, Go over the map at the start of a province battles level. */
+.count { position: absolute; inset: 0; display: grid; place-items: center; font-size: 96px; font-weight: 800; color: var(--ink); text-shadow: 0 2px 0 var(--paper), 0 0 18px var(--paper); pointer-events: none; }
+
 /* The drag lines of a move: dashed, green where the target can be reached by road, red where it cannot. */
 .drag { stroke: var(--ink, #5a4a3a); stroke-width: 3; stroke-dasharray: 6 5; opacity: 0.85; pointer-events: none; }
 .drag.ok { stroke: var(--trade); }

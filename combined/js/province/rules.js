@@ -29,6 +29,7 @@
   // Returns a message when it cannot, or null when the soldiers are on their way.
   P.send = function (w, win, owner, from, to, pct) {
     var a = w.provs[from], b = w.provs[to];
+    if (w.countdown > 0) return 'Wait for Go.';
     if (!a || a.owner !== owner) return 'Send from one of your own provinces.';
     var why = W.whyNot(w, owner, b);
     if (why) return why;
@@ -252,24 +253,16 @@
       var p = w.provs[id];
       if (p.owner < 0) return;
       var n = w.nations[p.owner], cap = K().CAP[p.tier] || 10;
+      if (W.CONFIG.POOL === false) {                  // province battles: a province grows its own soldiers
+        if ((p.gar || 0) < cap) p.gar = Math.min(cap, (p.gar || 0) + (K().RECRUIT[p.tier] || 0) * dt);
+        return;
+      }
       if ((p.gar || 0) >= cap || n.soldiers < 1) return;
       var add = Math.min(K().GROW[p.tier] * dt, cap - (p.gar || 0), n.soldiers);
       p.gar = (p.gar || 0) + add;
       n.soldiers -= add;
     });
   }
-
-  // Province battles have no country turns, so soldiers join each nation's field army here instead: RECRUIT a second for
-  // each province it holds, by its tier, up to its army cap. (In the campaign the country turn does this.)
-  P.recruit = function (w, dt) {
-    var C = XW.country, rate = {};
-    w.provs.forEach(function (p) { if (p.kind === 'province' && p.owner >= 0) rate[p.owner] = (rate[p.owner] || 0) + (K().RECRUIT[p.tier] || 0); });
-    w.nations.forEach(function (n) {
-      if (!n.alive) return;
-      var room = C.armyCap(w, n) - C.garrisons(w, n) - n.soldiers;
-      if (room > 0) n.soldiers += Math.min(room, (rate[n.id] || 0) * dt);
-    });
-  };
 
   // One step of province time (dt real seconds) inside the window. opts.grow false: marches only (used when settling).
   P.step = function (w, win, dt, opts) {

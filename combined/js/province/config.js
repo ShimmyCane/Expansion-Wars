@@ -13,7 +13,7 @@
     FORT: { range: 40, dmg: 2, slow: 0.5, upgradedMul: 2 },
     SEND_STEPS: [10, 25, 50, 100],   // % of a province's garrison sent by one order
     MUSTER: 10,             // soldiers moved between the field army and a garrison with one tap
-    // Province battles only: soldiers a second joining the field army from each province held, by tier. Higher tiers recruit more.
+    // Province battles only (no field army): soldiers a second each province grows by itself, up to its cap, by tier. Higher tiers grow faster.
     RECRUIT: { e: 0.25, v: 0.5, t: 1.0, c: 1.5, f: 2.0 },
     // Province battles settle a fight in three turns (as in Torn Wars): the first 20% of each army fights, then 50%, then the
     // last 30%. Morale decides how it goes. At the start of each turn an army is in formation (morale at least FORM), wavering,

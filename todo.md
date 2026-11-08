@@ -284,7 +284,17 @@ Answers to `convo/convo v0.19.md` questions 3 to 6 (1 and 2 are still open).
 - [x] **Province battles fight in three phased turns, 3 real seconds each,** like Torn Wars: the first 20% of each army fights, then 50%, then the last 30%. Morale (start 70, defender plus 3 for each point of defence) and formation (in formation, wavering, routing) shape each turn. A routing wave kills nobody and is cut down. The middle turn swings morale most, so it tilts the battle. Province battles only; the campaign keeps the risk rounds.
 - [x] **Beaten attackers withdraw** with what they have left, to the province they came from (or the field army), in phased fights.
 - [x] **The fight ticker** shows the turn, the time to the next, and each army's mood.
-- [x] **Recruiting by tier** (province battles): empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second. Built so that higher tiers recruit faster; the answer as written ran the other way (convo v0.20 question 4).
+- [x] **Growth by tier** (province battles): empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second, each province growing its own. Built so that higher tiers grow faster; the answer as written ran the other way (convo v0.20 question 4).
 - [x] **Level ladder confirmed** (question 4).
 - [ ] **Decide** convo v0.20: version number, unit battle sides, province battles without turns, recruiting rates, phased fight numbers, the campaign's fights, the computer's boldness.
+
+## Version 3.0, round 5: province battles play like the first draft (convo v0.20)
+
+- [x] **No field army in province battles.** Each province grows its own soldiers by tier (`POOL` false); no muster buttons.
+- [x] **Tap a source, then a target, and the soldiers go.** No Send or Cancel buttons; only 10, 25, 50 and 100%.
+- [x] **No move limit** in this mode (`MOVE_HOPS` 99): soldiers go as far as your own roads reach.
+- [x] **The first draft's population line** across the top (provinces and soldiers per nation), in place of food, gold and science.
+- [x] **3, 2, 1, Go** at the start of each level; nothing moves until it is over.
+- [x] **Shorter card text.**
+- [ ] **Open** (convo v0.20 questions 8 to 10): phased fights against settling on arrival, upgrades, and anything else from the first draft that is missing.
 

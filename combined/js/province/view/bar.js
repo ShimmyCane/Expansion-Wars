@@ -23,8 +23,10 @@
     P.CONFIG.SEND_STEPS.forEach(function (pct) {
       bar.appendChild(button(pct + '%', function () { w.view.marchPct = pct; act.redraw(); }, { pressed: w.view.marchPct === pct }));
     });
-    if (!sel) { bar.appendChild(el('span', 'note', 'Tap one of your provinces to send its soldiers.')); return; }
+    if (!sel) { bar.appendChild(el('span', 'note', 'Drag from your provinces onto another to send soldiers, or tap one of yours and then a target.')); return; }
     var n = share(w, sel.id), M = P.CONFIG.MUSTER;
+    // Province battles: no field army to muster from and no buttons to press. Tapping the target sends.
+    if (!A.mode.turns) { bar.appendChild(el('span', 'note', 'Now tap a province to send ' + n + ', or drag onto it.')); return; }
     // A fight on a province in this window that you are part of: join it as a battle.
     win.ids.forEach(function (id) {
       var f = w.provs[id];
@@ -63,8 +65,7 @@
     card.appendChild(el('p', 'small', A.mode.turns
       ? 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
         ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'
-      : 'Real time, on the whole map. Each province adds soldiers to its nation\'s field army, and garrisons grow from it. ' +
-        'Fights are settled in rounds by themselves: every soldier rolls a die.'));
+      : 'Each province grows its own soldiers, faster the higher its tier. Send them to take land; fights settle themselves in three turns. Take every opponent province to win.'));
     var held = {};
     win.ids.forEach(function (id) {
       var p = w.provs[id], k = p.owner;

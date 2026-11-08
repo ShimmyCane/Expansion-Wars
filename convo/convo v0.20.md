@@ -22,7 +22,7 @@
   - **A turn.** Each soldier in a wave kills 0.5 of the enemy wave at morale 50, times (0.5 + morale / 100), give or take 35% at random. So morale 100 kills one and a half times as fast as morale 50, and morale 0 half as fast. A routing wave kills nobody and loses 35% of itself as it runs.
   - **Morale moves** after each turn by the difference in losses: 60 points for a whole-wave difference in turns 1 and 3, and 120 in turn 2. The middle turn, with half the army in it, is where a battle tilts.
   - **The end.** If one side is wiped out, the other wins at once. After turn 3 the side with more left, weighted by morale, wins. Winning attackers take the province with what is left. Losing attackers who are still alive **withdraw** to the province they came from (or the field army), where before they were lost.
-- **Recruiting by tier.** Soldiers a second joining the field army from each province held: empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2. (You wrote "2 /s at village level to .5/s at the fortress level", which runs the other way from "high tiers recruit faster". I took "higher tiers recruit faster" as the intent.)
+- **Growth by tier.** Soldiers a second each province grows by itself: empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2, up to the tier's cap (80 village, 160 town, 240 city, 480 fortress). (You wrote "2 /s at village level to .5/s at the fortress level", which runs the other way from "high tiers recruit faster". I took "higher tiers recruit faster" as the intent.)
 
 ## What the simulation showed
 
@@ -30,6 +30,18 @@
 - **First tries with dice were wrong.** With many soldiers rolling sorted dice, the k-th best die of each army is almost always equal, so any small morale gap won every pair and each fight snowballed. The phased fight uses kill rates instead.
 - **The campaign's all-roll rounds have that problem too.** 100 against 100: the attacker wins 1%. 110 against 100: 16%. 120 against 100: 55%. 150 against 100: always. So the break-even is about 1.2 to 1 and there is little luck. I have not changed it (you asked for this mode to be individualized).
 - **Idle player, province battles, 8 seeds each:** most idle runs last an hour, but at level 1 three of eight lost within 4.5 minutes, because the computer sometimes picks a fight early. That is just how the computer's 1.7 to 1 rule landed, and nothing is tuned for it.
+
+## Direction since: play like the first draft
+
+"In general I'd like the province level battle to still function like the very first draft of game, where the gameplay flows easily." Built, in province battles only:
+
+- **No field army.** Each province grows its own soldiers (the rates above), as every spot did in the first draft. The muster buttons and the field army are gone from this mode, and the top bar shows the first draft's population line (a chip for each nation with its provinces and soldiers) in place of food, gold and science.
+- **Tap, tap, go.** Tap one of your provinces, then a target, and the soldiers go at once. Dragging works as before, from several provinces at a time. There are no Send or Cancel buttons, only the share buttons (10, 25, 50 and 100%).
+- **No move limit.** Soldiers go as far as your roads reach, through your own provinces (the campaign keeps its limit of three provinces).
+- **3, 2, 1, Go.** Each new level starts with a countdown over the map, and nothing moves until it is over.
+- **Shorter card.** One short line of what to do, then who holds what.
+- **Kept from your earlier answers, which are richer than the first draft:** the three-turn phased fights (9 seconds in all) and the level ladder.
+- **Idle player, 8 seeds a level:** the computer now plays. Every idle run loses, in about 5 to 30 minutes (a first number, nothing tuned).
 
 ## Questions
 
@@ -45,7 +57,7 @@
 
    > **Answer:**
 
-4. **Recruiting rates.** Built as empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 a second. Is that the direction you meant (fortresses recruit most), and are the values right?
+4. **Growth rates.** Built as empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second. Is that the direction you meant (fortresses grow fastest), and are the values right?
 
    > **Answer:**
 
@@ -58,6 +70,18 @@
    > **Answer:**
 
 7. **Pace and the computer.** A phased fight is 9 seconds in all (three turns of 3). Is that the speed you want, and should the computer be bolder than its 1.7 to 1 rule, since a lead of 1.2 to 1 now wins almost every time?
+
+   > **Answer:**
+
+8. **First-draft feel.** Fights are the one thing that is not like the first draft, where soldiers simply reduced the defenders on arrival. I kept the 9-second phased fights because you asked for them. Do they fit, or should this mode settle a fight on arrival after all?
+
+   > **Answer:**
+
+9. **Upgrades.** The first draft let you tap a city to upgrade it. Province battles have none: a province stays the tier it started as, or drops one when captured. Should upgrades come back, and if so, by tapping the province and paying soldiers, as in the first draft?
+
+   > **Answer:**
+
+10. **What else from the first draft?** The first draft also had team games, fortresses that shoot, a surrender setting, and a "game over when the other players are gone" rule. The last two of those and the shooting fortresses are already in. Is anything else from the first draft missing from how this mode plays?
 
    > **Answer:**
 

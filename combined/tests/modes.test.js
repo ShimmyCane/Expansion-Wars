@@ -165,6 +165,16 @@ t.test('province battles settle fights in three phased turns; the other modes ke
   for (const id of ['campaign', 'country', 'unit']) assert.strictEqual(inMode(id).XW.world.CONFIG.FIGHT_MODEL, 'risk', id);
 });
 
+t.test('province battles play like the first draft: no field army, no move limit, a countdown at the start', () => {
+  const pb = inMode('province').XW;
+  assert.strictEqual(pb.world.CONFIG.POOL, false);
+  assert.strictEqual(pb.world.CONFIG.MOVE_HOPS, 99);
+  assert.strictEqual(pb.app.modes.fresh(5, 1).countdown, 3);
+  const camp = inMode('campaign').XW;
+  assert.strictEqual(camp.world.CONFIG.POOL, true);
+  assert.strictEqual(camp.world.CONFIG.MOVE_HOPS, 3);
+});
+
 t.test('the version is 3.0 and shown with the mode', () => {
   const { XW } = inMode('unit');
   assert.strictEqual(XW.app.VERSION, '3.0');

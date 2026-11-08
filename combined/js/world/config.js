@@ -21,6 +21,9 @@
     FIGHT_MODEL: 'risk',
     // An army moves up to this many provinces in one order.
     MOVE_HOPS: 3,
+    // Garrisons grow by drawing on the nation's field army (true: the campaign). In province battles there is no field army:
+    // each province grows its own soldiers (false). app/modes.js sets it.
+    POOL: true,
 
     // Saving. The world is kept on this device after every turn, every scale change, and every AUTOSAVE real seconds.
     // It goes to the family database (table xw_worlds) when signed in, at most every CLOUD_EVERY real seconds,

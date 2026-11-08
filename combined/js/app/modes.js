@@ -2,8 +2,8 @@
 // are the same rules and views, each showing one scale only, with a world and a save of their own:
 //   unit      one battle at a time. Next battle starts a new one.
 //   province  province play as a progression of levels: a small map and one opponent first, then more provinces and
-//             more opponents. Marches, garrisons and risk-style fights that resolve on their own. No country turns,
-//             no battles to join.
+//             more opponents. Like the first draft of the game: provinces grow their own soldiers, drag or tap to send them,
+//             fights settle themselves. No field army to manage, no country turns, no battles to join.
 //   country   country play: turns, diplomacy and war. Fights resolve on the map; none to join.
 // The mode is read from the page address (?mode=unit, ?mode=province, ?mode=country). The campaign is the default, and
 // keeps the save it always had. The version is shown in ⚙️.
@@ -19,7 +19,7 @@
     unit: { id: 'unit', title: 'Unit battles', scales: ['unit'], start: 'unit', turns: false,
       key: 'xw-unit-battles-world', app: 'combined-unit' },
     province: { id: 'province', title: 'Province battles', scales: ['province'], start: 'province', turns: false,
-      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, fights: 'phased' },
+      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, fights: 'phased', pool: false, hops: 99, countdown: 3 },
     country: { id: 'country', title: 'Country battles', scales: ['country'], start: 'country', turns: true,
       key: 'xw-country-battles-world', app: 'combined-country' }
   };
@@ -45,7 +45,7 @@
   function levelConfig(n) { return LEVELS[Math.min(Math.max(1, n), LEVELS.length) - 1]; }
 
   // The whole map is the window in province battles (the maps are small); the campaign shows two steps around a province.
-  var DEFAULT_RINGS = W.CONFIG.RINGS;
+  var DEFAULT_RINGS = W.CONFIG.RINGS, DEFAULT_HOPS = W.CONFIG.MOVE_HOPS;
 
   // Sets the mode: its saves and its database tag (world/config.js holds the defaults the campaign uses).
   A.useMode = function (id) {
@@ -54,6 +54,8 @@
     W.CONFIG.APP = A.mode.app;
     W.CONFIG.RINGS = A.mode.rings || DEFAULT_RINGS;
     W.CONFIG.FIGHT_MODEL = A.mode.fights || 'risk';
+    W.CONFIG.POOL = A.mode.pool !== false;                // province battles: no field army, provinces grow their own soldiers
+    W.CONFIG.MOVE_HOPS = A.mode.hops || DEFAULT_HOPS;     // ... and soldiers go as far as your roads reach
     return A.mode;
   };
   A.useMode(A.modeFor(typeof location !== 'undefined' ? location.search : '').id);
@@ -102,6 +104,7 @@
     });
     var w = C.newWorld(seed, { COUNT: L.nations, PROVS: L.provs, START_VILLAGES: L.villages, START_TOWNS: L.towns, NEUTRAL_FROM: 99, TERRAIN: terrain });
     w.level = n;
+    w.countdown = A.mode.countdown || 0;                  // 3, 2, 1, Go before the level starts
     w.nations.forEach(function (k) {
       if (k.id === w.you) return;
       var r = W.rel(w, w.you, k.id);

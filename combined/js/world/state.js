@@ -3,6 +3,7 @@
 // state that has to survive: views keep only their DOM, and rebuild it from the world.
 //
 // The world is plain JSON (no functions, no DOM), so it saves, loads and syncs as it is:
+//   level, countdown                  province battles only: the level you are on, and the seconds left of 3, 2, 1, Go
 //   v, id, seed, created, updated     version, world id (also the database row id), map seed, timestamps
 //   time: { t, turn }                 world seconds, and the country turn number (see world/clock.js)
 //   you                               the player's nation id (0)
