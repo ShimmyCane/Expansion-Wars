@@ -298,3 +298,18 @@ Answers to `convo/convo v0.19.md` questions 3 to 6 (1 and 2 are still open).
 - [x] **Shorter card text.**
 - [ ] **Open** (convo v0.20 questions 8 to 10): phased fights against settling on arrival, upgrades, and anything else from the first draft that is missing.
 
+## Version 3.0, round 6: wave fights by grade, half upgrades, split provinces, teams (convo v0.21)
+
+Answers to `convo/convo v0.20.md`.
+
+- [x] **Grades.** Every province has a grade (empty dot 0 to tower 5; a half upgrade adds 0.5) that sets its ground (-25% to +25%), the rounds a fight there takes (3 to 10), its growth and its cap (`GRADE` in `province/config.js`).
+- [x] **Wave fights, every mode.** Each round each side commits its share; the committed soldiers strike in turn (attackers 20%, defenders 50%, attackers 50%, defenders 50%, attackers 30%). A side that loses half of what it committed routs and stays shaken. Fitted at city level: 100 v 100 holds with about 89, 200 v 100 wins with about 121, 500 v 100 wins with about 475.
+- [x] **Fight time.** Province battles: a round a second (village 3 s, tower 10 s). The campaign: a round every 2 world seconds.
+- [x] **Half upgrades** with the province's own soldiers, half the next grade's cap, once per province; a fortress's is its tower. In both province views.
+- [x] **Split provinces** in province battles: town 2, city 3, fortress 5. Every part defends at the settlement's grade for the nation that holds all of it. An upgraded tower in the middle reaches every part.
+- [x] **Neutral towns, cities and fortresses** on the level maps.
+- [x] **Teams** (level 5 two against two, level 7 three teams of two); everyone else at war with everyone; you win with your ally standing.
+- [x] **Surrender setting** in ⚙️ (off by default): outnumbered 10 to 1 gives up, provinces go neutral.
+- [ ] **Decide** convo v0.21: round time, the even case, ground both ways, withdrawals, split parts, upgrade time and the computer, the computer's boldness, teams, surrender, the campaign's pace.
+- [ ] **Flaky test:** "the computer offers peace" fails about one run in six (before this round too); seed the computer's choice.
+

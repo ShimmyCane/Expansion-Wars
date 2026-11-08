@@ -107,6 +107,16 @@
     P.forEach(function (p) { p.river = p.adjRiver.some(Boolean); });
   }
 
+  // Works out the cells, roads and rivers again after provinces were added (province battles split big provinces).
+  C.reshape = function (w) {
+    var rnd = XW.core.rng((w.seed || 1) + 7919);
+    function range(a, b) { return a + rnd() * (b - a); }
+    w.provs.forEach(function (q, i) { q.id = i; });
+    geometry(w);
+    makeRivers(w, rnd, range);
+    C.updateNeighbours(w);
+  };
+
   // A complete new world, from a seed (random when none is given). opts overrides the size for the battle modes:
   // {COUNT, PROVS, START_VILLAGES, START_TOWNS, NEUTRAL_FROM}. The defaults are the campaign's.
   C.newWorld = function (seedIn, opts) {

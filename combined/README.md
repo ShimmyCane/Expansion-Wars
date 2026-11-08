@@ -10,7 +10,7 @@ Every file is small and does one job. Rules files take the world as an argument 
 |---|---|
 | Time dilation, autosave, the province window size | `js/world/config.js` |
 | Country numbers (costs, food, war, AI odds) | `js/country/config.js` |
-| Province numbers (march speed, garrison growth and caps, AI) | `js/province/config.js` |
+| Province numbers (march speed, grades, the wave fight, splits, AI) | `js/province/config.js` |
 | Battle numbers (unit types, damage, morale) | `js/unit/engine/config.js` |
 | How soldiers become a battle army, and the result goes back | `js/unit/bridge.js` |
 | What happens when a province changes hands (all scales) | `js/world/rules.js` (`capture`) |
@@ -38,7 +38,8 @@ js/country/                country scale: turns, economy, diplomacy, war
   config.js  query.js  route.js  build.js  diplomacy.js  war.js  economy.js  move.js (garrison moves)  ai.js  turn.js  mapgen.js
   view/map.js  view/card.js  view/view.js
 js/province/               province scale: real time on the world's provinces
-  config.js  scene.js (the window)  rules.js (growth, marches, towers, risk-style fights, donations)  ai.js
+  config.js  scene.js (the window)  rules.js (grades, growth, marches, towers, wave fights, upgrades, surrender)
+  split.js (province battles: towns, cities and fortresses split into parts)  ai.js
   view/map.js  view/bar.js  view/view.js
 js/unit/                   unit scale
   engine/                  the battle engine (window.V4), split from V4/js/sim.js; same results, seed for seed

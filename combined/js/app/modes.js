@@ -19,7 +19,7 @@
     unit: { id: 'unit', title: 'Unit battles', scales: ['unit'], start: 'unit', turns: false,
       key: 'xw-unit-battles-world', app: 'combined-unit' },
     province: { id: 'province', title: 'Province battles', scales: ['province'], start: 'province', turns: false,
-      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, fights: 'phased', pool: false, hops: 99, countdown: 3 },
+      key: 'xw-province-battles-world', app: 'combined-province', rings: 99, clock: 'real', pool: false, hops: 99, countdown: 3 },
     country: { id: 'country', title: 'Country battles', scales: ['country'], start: 'country', turns: true,
       key: 'xw-country-battles-world', app: 'combined-country' }
   };
@@ -32,15 +32,21 @@
 
   // The province battle levels. Each is a new map: nations (you and the opponents), provinces for each nation (the
   // rest of its land is neutral), and what you hold at the start. Past the last, the last repeats.
+  // free: the neutral towns, cities and fortresses on the map (as in the first draft). teams: nations allied from the
+  // start (you are nation 0); everyone else is at war with everyone. There is no diplomacy in province battles.
   var LEVELS = [
-    { nations: 2, provs: 5, villages: 1, towns: 1 },
-    { nations: 2, provs: 7, villages: 2, towns: 1 },
-    { nations: 3, provs: 7, villages: 2, towns: 1 },
-    { nations: 3, provs: 9, villages: 2, towns: 1 },
-    { nations: 4, provs: 9, villages: 2, towns: 1 },
-    { nations: 5, provs: 11, villages: 2, towns: 1 },
-    { nations: 6, provs: 15, villages: 2, towns: 1 }
+    { nations: 2, provs: 5, villages: 1, towns: 1, free: { t: 1 } },
+    { nations: 2, provs: 7, villages: 2, towns: 1, free: { t: 1, c: 1 } },
+    { nations: 3, provs: 7, villages: 2, towns: 1, free: { t: 2, c: 1 } },
+    { nations: 3, provs: 9, villages: 2, towns: 1, free: { t: 2, c: 1, f: 1 } },
+    { nations: 4, provs: 9, villages: 2, towns: 1, free: { t: 2, c: 2, f: 1 }, teams: [[0, 1], [2, 3]] },
+    { nations: 5, provs: 11, villages: 2, towns: 1, free: { t: 3, c: 2, f: 2 } },
+    { nations: 6, provs: 15, villages: 2, towns: 1, free: { t: 3, c: 3, f: 2 }, teams: [[0, 1], [2, 3], [4, 5]] }
   ];
+  function teamOf(L, id) {
+    var t = (L.teams || []).filter(function (team) { return team.indexOf(id) >= 0; })[0];
+    return t || [id];
+  }
   var BEST_KEY = 'xw-province-battles-best';
   function levelConfig(n) { return LEVELS[Math.min(Math.max(1, n), LEVELS.length) - 1]; }
 
@@ -53,7 +59,8 @@
     W.CONFIG.SAVE_KEY = A.mode.key;
     W.CONFIG.APP = A.mode.app;
     W.CONFIG.RINGS = A.mode.rings || DEFAULT_RINGS;
-    W.CONFIG.FIGHT_MODEL = A.mode.fights || 'risk';
+    W.CONFIG.FIGHT_MODEL = A.mode.fights || 'waves';           // every mode fights in waves
+    W.CONFIG.FIGHT_CLOCK = A.mode.clock || 'world';           // ... a round a second in province battles
     W.CONFIG.POOL = A.mode.pool !== false;                // province battles: no field army, provinces grow their own soldiers
     W.CONFIG.MOVE_HOPS = A.mode.hops || DEFAULT_HOPS;     // ... and soldiers go as far as your roads reach
     return A.mode;
@@ -105,13 +112,27 @@
     var w = C.newWorld(seed, { COUNT: L.nations, PROVS: L.provs, START_VILLAGES: L.villages, START_TOWNS: L.towns, NEUTRAL_FROM: 99, TERRAIN: terrain });
     w.level = n;
     w.countdown = A.mode.countdown || 0;                  // 3, 2, 1, Go before the level starts
-    w.nations.forEach(function (k) {
-      if (k.id === w.you) return;
-      var r = W.rel(w, w.you, k.id);
-      r.war = true; r.warSince = 1;
+    // Neutral towns, cities and fortresses, on empty land, with garrisons of about a third of their cap.
+    var rnd = D.rng(w.seed + 17), empty = w.provs.filter(function (p) { return p.kind === 'province' && p.owner < 0; });
+    ['f', 'c', 't'].forEach(function (tier) {
+      for (var i = 0; i < ((L.free || {})[tier] || 0) && empty.length; i++) {
+        var p = empty.splice(Math.floor(rnd() * empty.length), 1)[0];
+        p.tier = p.origTier = tier;
+        p.gar = Math.round(P.stat('CAP', W.TIERS[tier].rank) * 0.3);
+      }
+    });
+    P.splitProvinces(w);
+    // Teams: allies from the start; everyone else is at war with everyone.
+    w.nations.forEach(function (a) {
+      w.nations.forEach(function (b) {
+        if (a.id >= b.id) return;
+        var r = W.rel(w, a.id, b.id), same = teamOf(L, a.id).indexOf(b.id) >= 0;
+        r.ally = same; r.war = !same; r.warSince = same ? 0 : 1;
+      });
     });
     w.view.prov = ownProvince(w);
-    W.log(w, 'Level ' + n + ': ' + (L.nations - 1) + ' opponent' + (L.nations === 2 ? '' : 's') + ', ' + L.provs + ' provinces each. Take every opponent province to win.');
+    var foes = L.nations - teamOf(L, w.you).length;
+    W.log(w, 'Level ' + n + ': ' + foes + ' opponent' + (foes === 1 ? '' : 's') + (L.teams ? ', and an ally at your side' : '') + '. Take every opponent province to win.');
     return w;
   }
 
@@ -126,6 +147,11 @@
     });
     return { ok: ok, all: all };
   }
+
+  // Surrender (province battles): off unless turned on in ⚙️, as in the first draft. Kept on this device.
+  var SURRENDER_KEY = 'xw-province-battles-surrender';
+  A.surrenderOn = function () { try { return localStorage.getItem(SURRENDER_KEY) === '1'; } catch (e) { return false; } };
+  A.setSurrender = function (on) { try { localStorage.setItem(SURRENDER_KEY, on ? '1' : '0'); } catch (e) { /* no storage */ } };
 
   // The furthest province battle level you have reached, kept on this device.
   function best() {
@@ -165,8 +191,8 @@
     // Province battle levels you may start, and the line that says which one you are on.
     unlocked: best,
     levelLine: function (w) {
-      var L = levelConfig(w.level || 1);
-      return 'Level ' + (w.level || 1) + ' · ' + (L.nations - 1) + ' opponent' + (L.nations === 2 ? '' : 's') + ' · ' + L.provs + ' provinces each';
+      var L = levelConfig(w.level || 1), foes = L.nations - teamOf(L, 0).length;
+      return 'Level ' + (w.level || 1) + ' · ' + foes + ' opponent' + (foes === 1 ? '' : 's') + (L.teams ? ' · with an ally' : '') + ' · ' + L.provs + ' provinces each';
     },
     level: function (n) {
       var w = A.modes.fresh(undefined, n);

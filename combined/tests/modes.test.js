@@ -122,20 +122,82 @@ t.test('province battles start small and grow: more provinces and opponents each
     assert.ok(provs >= lastProvs, 'level ' + n + ' has at least as many provinces (' + provs + ')');
     assert.ok(w.nations.length >= lastNations, 'level ' + n + ' has at least as many nations');
     lastProvs = provs; lastNations = w.nations.length;
-    // Every opponent is at war with you from the start, and none is left out of the window.
-    w.nations.forEach(k => { if (k.id !== w.you) assert.ok(XW.world.rel(w, w.you, k.id).war, 'at war with ' + k.name); });
+    // Everyone is at war with everyone, except allies set by the level; none is left out of the window.
+    w.nations.forEach(a => w.nations.forEach(b => {
+      if (a.id >= b.id) return;
+      const r = XW.world.rel(w, a.id, b.id);
+      assert.ok(r.war !== r.ally, a.name + ' and ' + b.name + ' are either at war or allies');
+    }));
     const win = XW.province.window(w, w.view.prov);
     w.provs.forEach(p => { if (p.kind === 'province' && p.owner >= 0) assert.ok(win.inside[p.id], 'province ' + p.id + ' is on the map'); });
   }
   assert.strictEqual(XW.app.modes.levelLine(XW.app.modes.fresh(1, 1)), 'Level 1 · 1 opponent · 5 provinces each');
 });
 
+t.test('team levels: you start with an ally, and everyone else is at war with everyone', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(77, 5);
+  assert.ok(XW.world.rel(w, 0, 1).ally && !XW.world.rel(w, 0, 1).war, 'nation 1 is your ally');
+  assert.ok(XW.world.rel(w, 2, 3).ally, 'the other two are a team');
+  assert.ok(XW.world.rel(w, 0, 2).war && XW.world.rel(w, 1, 3).war, 'the teams are at war');
+  const w1 = XW.app.modes.fresh(78, 3);
+  assert.ok(XW.world.rel(w1, 1, 2).war, 'without teams, the computer players fight each other too');
+});
+
+t.test('you win when every opponent has fallen, even with your ally still standing', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(79, 5);
+  [2, 3].forEach(id => { w.nations[id].alive = false; w.provs.forEach(p => { if (p.owner === id) p.owner = -1; }); });
+  XW.country.checkWin(w);
+  assert.strictEqual(w.over, 'won');
+});
+
+t.test('towns, cities and fortresses split into 2, 3 and 5 provinces; each part defends at the whole one\'s grade', () => {
+  const { XW } = inMode('province');
+  const P = XW.province;
+  const w = XW.app.modes.fresh(80, 4);
+  const groups = {};
+  w.provs.forEach(p => { if (p.group !== undefined) (groups[p.group] = groups[p.group] || []).push(p); });
+  const sizes = Object.keys(groups).map(g => [w.provs[g].tier, groups[g].length]);
+  sizes.forEach(([tier, n]) => assert.ok(n <= P.CONFIG.SPLITS[tier] && n >= 2, tier + ' split into ' + n));
+  assert.ok(sizes.some(([t]) => t === 'f'), 'level 4 has a fortress');
+  const fort = w.provs.find(p => p.tier === 'f' && p.group === p.id);
+  const part = groups[fort.id].find(p => p.id !== fort.id);
+  assert.strictEqual(P.defGrade(w, part), 4, 'a part of a neutral fortress defends like the fortress');
+  part.owner = w.you;                                                 // taken by you, but the fortress is not yours
+  assert.strictEqual(P.defGrade(w, part), 1, 'whoever takes a part does not get the fortress\'s protection');
+  groups[fort.id].forEach(p => { p.owner = w.you; });
+  P.claimGroup(w, fort);
+  assert.strictEqual(P.defGrade(w, part), 4, 'once all of it is yours, the protection is yours');
+});
+
+t.test('an upgraded tower in the middle of a split fortress reaches every part of it', () => {
+  const { XW } = inMode('province');
+  const P = XW.province;
+  const w = XW.app.modes.fresh(81, 4);
+  const fort = w.provs.find(p => p.tier === 'f' && p.group === p.id);
+  fort.tower = 2;
+  const r = P.towerRange(w, fort);
+  w.provs.filter(p => p.group === fort.id).forEach(p => assert.ok(Math.hypot(p.x - fort.x, p.y - fort.y) < r, 'part ' + p.id + ' is in range'));
+});
+
+t.test('surrender: a side outnumbered 10 to 1 gives up, and its provinces go neutral with their soldiers', () => {
+  const { XW } = inMode('province');
+  const w = XW.app.modes.fresh(82, 1);
+  w.provs.forEach(p => { if (p.owner === 1) p.gar = 5; if (p.owner === w.you) p.gar = 400; });
+  const theirs = w.provs.filter(p => p.owner === 1).map(p => p.id);
+  assert.deepStrictEqual(Array.from(XW.province.surrender(w)), [1]);
+  theirs.forEach(id => { assert.strictEqual(w.provs[id].owner, -1); assert.strictEqual(w.provs[id].gar, 5); });
+  assert.strictEqual(w.over, 'won', 'the last opponent gave up');
+});
+
 t.test('level 1 is a small start: you and one opponent, a couple of provinces each', () => {
   const { XW } = inMode('province');
   const w = XW.app.modes.fresh(31, 1);
   assert.strictEqual(w.nations.length, 2);
-  assert.strictEqual(w.provs.filter(p => p.owner === w.you).length, 2);
-  assert.strictEqual(w.provs.filter(p => p.owner === 1).length, 2);
+  // A village and a town, and the town is two provinces when zoomed in.
+  assert.strictEqual(w.provs.filter(p => p.owner === w.you).length, 3);
+  assert.strictEqual(w.provs.filter(p => p.owner === 1).length, 3);
 });
 
 t.test('reaching a level unlocks it, and the record is kept', () => {
@@ -160,9 +222,10 @@ t.test('the province window is the whole map in province battles, two steps in t
   assert.strictEqual(inMode('campaign').XW.world.CONFIG.RINGS, 2);
 });
 
-t.test('province battles settle fights in three phased turns; the other modes keep the risk rounds', () => {
-  assert.strictEqual(inMode('province').XW.world.CONFIG.FIGHT_MODEL, 'phased');
-  for (const id of ['campaign', 'country', 'unit']) assert.strictEqual(inMode(id).XW.world.CONFIG.FIGHT_MODEL, 'risk', id);
+t.test('every mode fights in waves; province battles on a real-time clock, the others on the world clock', () => {
+  for (const id of ['campaign', 'country', 'unit', 'province']) assert.strictEqual(inMode(id).XW.world.CONFIG.FIGHT_MODEL, 'waves', id);
+  assert.strictEqual(inMode('province').XW.world.CONFIG.FIGHT_CLOCK, 'real');
+  assert.strictEqual(inMode('campaign').XW.world.CONFIG.FIGHT_CLOCK, 'world');
 });
 
 t.test('province battles play like the first draft: no field army, no move limit, a countdown at the start', () => {

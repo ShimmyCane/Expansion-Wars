@@ -16,9 +16,11 @@
     // A risk-style fight on a province is fought in rounds of this many world seconds (see province/rules.js). Every soldier
     // rolls each round, so a fight takes a few rounds: about 20 s each in a province, 4 s on the country map.
     FIGHT_ROUND: 2,
-    // How a province fight is settled: 'risk' (every soldier rolls, round after round: the campaign) or 'phased' (three turns
-    // of waves with morale and routing: province battles; its numbers are PHASED in province/config.js). app/modes.js sets it.
-    FIGHT_MODEL: 'risk',
+    // How a province fight is settled: 'waves' (rounds of strikes by tier, with routing; FIGHT in province/config.js) or
+    // 'risk' (every soldier rolls, round after round; kept for comparison). FIGHT_CLOCK: 'world' (a round every FIGHT_ROUND
+    // world seconds: the campaign) or 'real' (a round every FIGHT.ROUND real seconds: province battles). app/modes.js sets it.
+    FIGHT_MODEL: 'waves',
+    FIGHT_CLOCK: 'world',
     // An army moves up to this many provinces in one order.
     MOVE_HOPS: 3,
     // Garrisons grow by drawing on the nation's field army (true: the campaign). In province battles there is no field army:

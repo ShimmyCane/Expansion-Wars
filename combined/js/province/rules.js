@@ -102,8 +102,8 @@
     return out.sort(function (a, b) { return b - a; });
   }
   function round(w, p) {
-    if (W.CONFIG.FIGHT_MODEL === 'phased') return phasedRound(w, p);
-    return riskRound(w, p);
+    if (W.CONFIG.FIGHT_MODEL === 'risk') return riskRound(w, p);
+    return waveFightRound(w, p);
   }
   function riskRound(w, p) {
     var f = p.fight, A = f.count, D = p.gar || 0;
@@ -123,45 +123,87 @@
     }
     if (p.gar < 1) takeFight(w, p);
   }
-  // ---- phased fights (province battles) -----------------------------------------------------------------------------
-  // See PHASED in config.js. Each turn the next wave of each army fights, its dice helped or hurt by morale; the casualties
-  // move morale, which decides how the next turn goes.
-  function PH() { return K().PHASED; }
-  function status(m) { return m >= PH().FORM ? 'formed' : m >= PH().ROUT ? 'wavering' : 'routing'; }
-  var WORD = { formed: 'in formation', wavering: 'wavering', routing: 'routing' };
-  function clamp(m) { return Math.max(0, Math.min(100, m)); }
 
-  function phasedRound(w, p) {
-    var c = PH(), f = p.fight, i = Math.min(f.phase || 0, c.WAVES.length - 1), last = i === c.WAVES.length - 1;
-    if (f.a0 === undefined) {                       // the first turn: the armies and their morale are fixed
+  // ---- grades: how strong a province is ------------------------------------------------------------------------------
+  // 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fortress with an upgraded tower; a half upgrade adds 0.5.
+  P.grade = function (w, p) {
+    if (p.tier === 'f' && (p.tower === 2 || p.up)) return 5;
+    return W.TIERS[p.tier].rank + (p.up ? 0.5 : 0);
+  };
+  // A number from the GRADE table, read between the two grades either side of g.
+  P.stat = function (name, g) {
+    var t = K().GRADE[name], lo = Math.max(0, Math.min(t.length - 1, Math.floor(g))), hi = Math.min(t.length - 1, lo + 1);
+    return t[lo] + (t[hi] - t[lo]) * (g - lo);
+  };
+  // The grade a province defends at. A split of a bigger province defends at the bigger province's grade, but only for the
+  // nation that holds the whole of it; whoever takes part of it gets that protection only once it has taken all of it.
+  P.defGrade = function (w, p) {
+    var g = P.grade(w, p), top = p.group !== undefined && p.group !== p.id ? w.provs[p.group] : null;
+    if (top && top.holder === p.owner) g = Math.max(g, P.grade(w, top));
+    return g;
+  };
+  P.cap = function (w, p) { return P.stat('CAP', P.grade(w, p)); };
+
+  // A half upgrade, bought with the province's own soldiers: half the next grade's cap. Once per province. A fortress's
+  // upgrade is its tower. Returns a message, or null.
+  P.upgradeCost = function (w, p) { return Math.ceil(P.stat('CAP', Math.min(5, Math.floor(P.grade(w, p)) + 1)) / 2); };
+  P.upgrade = function (w, owner, id) {
+    var p = w.provs[id];
+    if (!p || p.kind !== 'province' || p.owner !== owner) return 'Upgrade one of your own provinces.';
+    if (p.up || P.grade(w, p) >= 5) return 'This province is already upgraded.';
+    var cost = P.upgradeCost(w, p);
+    if ((p.gar || 0) < cost) return 'An upgrade here costs ' + cost + ' soldiers from this province.';
+    p.gar -= cost;
+    p.up = true;
+    if (p.tier === 'f') p.tower = 2;
+    W.log(w, W.ownerName(w, owner) + ' upgrades ' + W.aLabel(p.tier) + ' (' + cost + ' soldiers).');
+    return null;
+  };
+
+  // ---- wave fights -----------------------------------------------------------------------------------------------------
+  // One round between the soldiers each side commits (a attackers, d defenders) on ground of protection def, see FIGHT in
+  // config.js. shA and shD: how shaken each side is from earlier routs (1 is steady). Pure, so it can be tested on its own.
+  P.waveRound = function (a, d, def, shA, shD, rnd) {
+    var c = K().FIGHT, r = rnd || Math.random;
+    var aliveA = a, aliveD = d, lostA = 0, lostD = 0, routA = false, routD = false;
+    c.STRIKES.forEach(function (s) {
+      if (aliveA <= 0 || aliveD <= 0) return;
+      var noise = 1 + c.NOISE * (2 * r() - 1), k;
+      if (s[0] === 'a') {
+        k = Math.min(aliveD, Math.min(aliveA, s[1] * a) * c.KILL_A * (1 - def) * (shA || 1) * (routA ? c.ROUT_STRIKE : 1) * noise);
+        aliveD -= k; lostD += k;
+        if (lostD >= c.BREAK * d) routD = true;
+      } else {
+        k = Math.min(aliveA, Math.min(aliveD, s[1] * d) * c.KILL_D * (1 + def) * (shD || 1) * (routD ? c.ROUT_STRIKE : 1) * noise);
+        aliveA -= k; lostA += k;
+        if (lostA >= c.BREAK * a) routA = true;
+      }
+    });
+    return { lostA: lostA, lostD: lostD, routA: routA, routD: routD };
+  };
+
+  function waveFightRound(w, p) {
+    var c = K().FIGHT, f = p.fight;
+    if (f.a0 === undefined) {                       // the first round: the armies, and how many rounds the ground gives
       f.a0 = f.count; f.d0 = p.gar || 0;
-      f.mA = c.START; f.mD = clamp(c.START + c.DEF_BONUS * XW.country.featureDef(w, p));
+      f.n = Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
+      f.shA = 1; f.shD = 1;
     }
-    var A = Math.floor(f.count), D = Math.floor(p.gar || 0);
+    var A = f.count, D = p.gar || 0;
     if (A < 1) return holdFight(w, p, f);
     if (D < 1) return takeFight(w, p);
-    var ea = Math.min(A, Math.ceil(c.WAVES[i] * f.a0)), ed = Math.min(D, Math.ceil(c.WAVES[i] * f.d0));
-    var sa = status(f.mA), sd = status(f.mD), lostA = 0, lostD = 0;
-    // Each soldier in a wave kills KILL of the enemy wave, more with morale and a little at random. A routing wave kills
-    // none and is cut down as it runs. Both sides strike at once, and neither can lose more than its wave.
-    function strike(n, m, mood) { return mood === 'routing' ? 0 : n * c.KILL * (c.EFF_BASE + m / 100) * (1 + c.NOISE * (2 * Math.random() - 1)); }
-    lostD = Math.round(strike(ea, f.mA, sa));
-    lostA = Math.round(strike(ed, f.mD, sd));
-    if (sa === 'routing' && sd !== 'routing') lostA += Math.ceil(c.ROUT_LOSS * ea);
-    if (sd === 'routing' && sa !== 'routing') lostD += Math.ceil(c.ROUT_LOSS * ed);
-    lostA = Math.min(lostA, ea); lostD = Math.min(lostD, ed);
-    f.count = Math.max(0, f.count - lostA);
-    p.gar = Math.max(0, (p.gar || 0) - lostD);
-    var cA = ea ? lostA / ea : 0, cD = ed ? lostD / ed : 0;
-    f.mA = clamp(f.mA + c.SWING[i] * (cD - cA));
-    f.mD = clamp(f.mD + c.SWING[i] * (cA - cD));
-    f.phase = i + 1;
+    var last = (f.rounds || 0) >= f.n - 1;
+    var ca = last ? A : Math.min(A, f.a0 / f.n), cd = last ? D : Math.min(D, f.d0 / f.n);   // the last round commits everyone
+    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD);
+    f.count = Math.max(0, A - r.lostA);
+    p.gar = Math.max(0, D - r.lostD);
+    if (r.routA) f.shA = Math.max(0.5, f.shA * c.SHAKEN);
+    if (r.routD) f.shD = Math.max(0.5, f.shD * c.SHAKEN);
+    f.routA = r.routA; f.routD = r.routD;
     f.rounds = (f.rounds || 0) + 1;
     if (f.count < 1) return holdFight(w, p, f);
     if (p.gar < 1) return takeFight(w, p);
-    if (last) {                                     // three turns done: the side with more left, weighted by morale, wins
-      if (f.count * (f.mA + 50) > (p.gar || 0) * (f.mD + 50)) takeFight(w, p); else holdFight(w, p, f);
-    }
+    if (last) holdFight(w, p, f);                   // everyone has fought and the defenders still stand: they hold
   }
 
   // The defenders hold. Attackers still alive withdraw to the province they came from (or their field army).
@@ -175,11 +217,20 @@
     W.log(w, W.ownerName(w, p.owner) + ' holds ' + W.aLabel(p.tier) + ' against ' + W.ownerName(w, f.owner) + (left >= 1 ? ' (' + left + ' attackers withdraw).' : '.'));
   }
 
+  // A province split into parts (province battles) has a holder: the nation that holds every part. Taking the last part
+  // makes the taker the holder, and with it the protection of the whole.
+  P.claimGroup = function (w, p) {
+    if (p.group === undefined) return;
+    var parts = w.provs.filter(function (q) { return q.group === p.group; });
+    if (parts.every(function (q) { return q.owner === p.owner; })) w.provs[p.group].holder = p.owner;
+  };
+
   // The attackers take the province with what is left of them.
   function takeFight(w, p) {
     var f = p.fight, before = p.owner;
     p.fight = null;
     W.capture(w, p, f.owner, f.count);
+    P.claimGroup(w, p);
     W.log(w, W.ownerName(w, f.owner) + ' takes ' + W.aLabel(p.tier) + ' from ' + W.ownerName(w, before) + '.');
     XW.country.checkFallen(w);
     XW.country.checkWin(w);
@@ -191,11 +242,11 @@
   P.fights = function (w, dt, real) {
     if (real === undefined) real = dt;
     if (!(dt > 0) && !(real > 0)) return;
-    var phased = W.CONFIG.FIGHT_MODEL === 'phased';
+    var realClock = W.CONFIG.FIGHT_CLOCK === 'real';
     w.provs.forEach(function (p) {
       if (!p.fight) return;
-      var len = phased ? PH().ROUND : W.CONFIG.FIGHT_ROUND;
-      p.fight.t = (p.fight.t || 0) + (phased ? real : dt);
+      var len = realClock ? K().FIGHT.ROUND : W.CONFIG.FIGHT_ROUND;
+      p.fight.t = (p.fight.t || 0) + (realClock ? real : dt);
       while (p.fight && p.fight.t >= len) {
         p.fight.t -= len;
         round(w, p);
@@ -207,15 +258,27 @@
   P.fightLine = function (w, p) {
     var f = p.fight;
     if (!f) return '';
-    if (W.CONFIG.FIGHT_MODEL === 'phased') {
-      var left = Math.max(0, PH().ROUND - (f.t || 0)), turn = Math.min(f.phase || 0, PH().WAVES.length - 1) + 1;
-      var mood = function (m) { return m === undefined ? '' : ' (' + WORD[status(m)] + ')'; };
-      return 'turn ' + turn + ' of ' + PH().WAVES.length + ' in ' + Math.ceil(left) + ' s · attackers ' + Math.floor(f.count) + mood(f.mA) +
-        ' · defenders ' + Math.floor(p.gar || 0) + mood(f.mD);
+    if (W.CONFIG.FIGHT_MODEL === 'waves') {
+      var len = W.CONFIG.FIGHT_CLOCK === 'real' ? K().FIGHT.ROUND : W.CONFIG.FIGHT_ROUND;
+      var secs = Math.max(0, (len - (f.t || 0)) / (W.CONFIG.FIGHT_CLOCK === 'real' ? 1 : W.rateFor(w, w.view.scale)));
+      var n = f.n || Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
+      var mood = function (rout, sh) { return rout ? ' (routing)' : sh < 1 ? ' (shaken)' : ''; };
+      return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + mood(f.routA, f.shA || 1) +
+        ' · defenders ' + Math.floor(p.gar || 0) + mood(f.routD, f.shD || 1);
     }
     var rate = W.rateFor(w, w.view.scale);
     var next = Math.max(0, (W.CONFIG.FIGHT_ROUND - (f.t || 0)) / rate);
     return 'attackers ' + Math.floor(f.count) + ' · defenders ' + Math.floor(p.gar || 0) + ' · round ' + ((f.rounds || 0) + 1) + ' in ' + Math.ceil(next) + ' s';
+  };
+
+  // How far a fortress tower shoots. Upgraded, its range doubles; a fortress split into parts (province battles) with an
+  // upgraded tower in the middle reaches every part of itself.
+  P.towerRange = function (w, f) {
+    var up = f.tower === 2 || f.up, range = K().FORT.range * (up ? K().FORT.upgradedMul : 1);
+    if (up && f.group === f.id) {
+      w.provs.forEach(function (q) { if (q.group === f.id) range = Math.max(range, Math.hypot(q.x - f.x, q.y - f.y) + 12); });
+    }
+    return range;
   };
 
   // Enemy fortress towers in range slow a march to SLOW of its speed and shoot it. Returns the speed factor.
@@ -223,7 +286,7 @@
     var at = P.marchAt(w, m), dmg = 0, slowed = false;
     w.provs.forEach(function (f) {
       if (f.kind !== 'province' || f.tier !== 'f' || f.owner < 0 || f.owner === m.owner || !W.rel(w, f.owner, m.owner).war) return;
-      var range = K().FORT.range * (f.tower === 2 ? K().FORT.upgradedMul : 1);
+      var range = P.towerRange(w, f);
       if (Math.hypot(f.x - at.x, f.y - at.y) <= range) { slowed = true; dmg += K().FORT.dmg; }
     });
     if (dmg) m.count -= dmg * dt;
@@ -253,8 +316,9 @@
       var p = w.provs[id];
       if (p.owner < 0) return;
       var n = w.nations[p.owner], cap = K().CAP[p.tier] || 10;
-      if (W.CONFIG.POOL === false) {                  // province battles: a province grows its own soldiers
-        if ((p.gar || 0) < cap) p.gar = Math.min(cap, (p.gar || 0) + (K().RECRUIT[p.tier] || 0) * dt);
+      if (W.CONFIG.POOL === false) {                  // province battles: a province grows its own soldiers, by its grade
+        var g = P.grade(w, p), top = P.stat('CAP', g);
+        if ((p.gar || 0) < top) p.gar = Math.min(top, (p.gar || 0) + P.stat('GROW', g) * dt);
         return;
       }
       if ((p.gar || 0) >= cap || n.soldiers < 1) return;
@@ -263,6 +327,45 @@
       n.soldiers -= add;
     });
   }
+
+  // Surrender (province battles, when it is on in ⚙️, as in the first draft): a side outnumbered SURRENDER to one by the
+  // strongest side gives up. Its provinces go neutral with the soldiers in them. A side is a nation and its allies.
+  // Returns the nations that gave up.
+  P.surrender = function (w) {
+    var alive = w.nations.filter(function (n) { return n.alive; }), power = {};
+    w.provs.forEach(function (p) {
+      if (p.kind === 'province' && p.owner >= 0) power[p.owner] = (power[p.owner] || 0) + (p.gar || 0);
+      if (p.fight) power[p.fight.owner] = (power[p.fight.owner] || 0) + p.fight.count;
+    });
+    w.marches.forEach(function (m) { power[m.owner] = (power[m.owner] || 0) + m.count; });
+    var sides = [], seen = {};
+    alive.forEach(function (n) {
+      if (seen[n.id]) return;
+      var side = alive.filter(function (k) { return k.id === n.id || W.rel(w, n.id, k.id).ally; }).map(function (k) { return k.id; });
+      side.forEach(function (id) { seen[id] = true; });
+      sides.push({ ids: side, power: side.reduce(function (s, id) { return s + (power[id] || 0); }, 0) });
+    });
+    var top = Math.max.apply(null, sides.map(function (s) { return s.power; }));
+    var gave = [];
+    sides.forEach(function (s) {
+      if (sides.length < 2 || s.power * K().SURRENDER >= top) return;
+      s.ids.forEach(function (id) {
+        w.provs.forEach(function (p) {
+          if (p.owner === id) p.owner = -1;
+          if (p.fight && p.fight.owner === id) p.fight = null;
+        });
+        w.marches.forEach(function (m) { if (m.owner === id) m.done = true; });
+        w.nations[id].alive = false;
+        gave.push(id);
+        W.log(w, w.nations[id].name + ' gives up, outnumbered ' + K().SURRENDER + ' to 1. Its provinces are neutral now.');
+      });
+    });
+    if (gave.length) {
+      w.marches = w.marches.filter(function (m) { return !m.done; });
+      XW.country.checkWin(w);
+    }
+    return gave;
+  };
 
   // One step of province time (dt real seconds) inside the window. opts.grow false: marches only (used when settling).
   P.step = function (w, win, dt, opts) {

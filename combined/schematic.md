@@ -18,7 +18,7 @@ The campaign is the whole game: all three scales in one world. Three battle mode
 | Province battles | `index.html?mode=province` | province, as a ladder of levels (a small map and one opponent first); the whole map; played like the first draft (provinces grow their own soldiers, tap or drag to send, 3, 2, 1, Go); phased fights, no battles to join | no |
 | Country battles | `index.html?mode=country` | country: turns, diplomacy, war, fights in rounds | yes |
 
-Province fights have two models, set by the mode (`FIGHT_MODEL` in `js/world/config.js`): the campaign and the country mode use **risk rounds** (every soldier rolls, round after round); province battles use **three phased turns** (waves of 20%, 50% and 30%, with morale and routing; `PHASED` in `js/province/config.js`).
+Every mode settles a province fight in **waves** (`FIGHT` in `js/province/config.js`): as many rounds as the ground's grade gives (3 at a village to 10 at a tower), each round each side commits its share, and the committed soldiers strike in turn (attackers 20%, defenders 50%, attackers 50%, defenders 50%, attackers 30%), with routing. The ground (`GRADE`) cuts the attackers' kills and raises the defenders'. Province battles run a round a real second; the campaign a round every 2 world seconds. Province battles also split towns, cities and fortresses into 2, 3 and 5 provinces (`js/province/split.js`).
 
 ## One world (single source of truth)
 

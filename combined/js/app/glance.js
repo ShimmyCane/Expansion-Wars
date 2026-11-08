@@ -55,7 +55,7 @@
       mine.forEach(function (p) { soldiers += p.gar || 0; });
       var s = D.el('span', '');
       s.appendChild(D.el('i', 'swatch o' + n.id));
-      s.appendChild(D.el('b', '', ' ' + n.name + ' '));
+      s.appendChild(D.el('b', '', ' ' + n.name + (n.id !== w.you && W.rel(w, w.you, n.id).ally ? ' 🤝' : '') + ' '));
       s.appendChild(document.createTextNode(mine.length + ' province' + (mine.length === 1 ? '' : 's') + ' · ' + Math.floor(soldiers) + ' soldiers'));
       box.appendChild(s);
     });

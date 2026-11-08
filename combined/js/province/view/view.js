@@ -22,7 +22,7 @@
   };
 
   // The countdown at the start of a province battles level: the number big over the map, then Go. True while it runs.
-  var goT = 0;
+  var goT = 0, surT = 0;
   function countdown(w, dt) {
     var el = D.$('province-count');
     if (!el) return false;
@@ -164,6 +164,8 @@
       if (!w.over) {
         P.step(w, win, dt);
         P.aiThink(w, win, dt);
+        surT += dt;
+        if (surT >= 1) { surT = 0; if (!A.mode.turns && A.surrenderOn() && P.surrender(w).length) W.changed('surrender'); }
       }
       // The ground and spots every frame; the bar and card a few times a second.
       var key = P.view.groundKey(w, win, ui);

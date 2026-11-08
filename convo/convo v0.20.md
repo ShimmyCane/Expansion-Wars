@@ -47,43 +47,43 @@
 
 1. **Version number.** (From v0.19, unanswered.) 3.0 is a guess for "major". Keep it?
 
-   > **Answer:**
+   > **Answer:** Yes v3.
 
 2. **Unit battles.** (From v0.19, unanswered.) Each battle is a fresh map between two of your provinces, from a seed. Would you rather pick the two sides yourself, as the old unit scale's custom battle did?
 
-   > **Answer:**
+   > **Answer:** We will defer this to the future, but yes, in general if you're playing without campaign mode then it could be a randomized province map.
 
 3. **Province battles with no country turns.** (From v0.19; "Yes" was ambiguous.) Neighbours stay at the peace or war they started with, and in this mode everyone is at war with you and nothing changes. Is that right, or should this mode run country turns too?
 
-   > **Answer:**
+   > **Answer:** There are multiple players in the province battles and they are all opponents, unless predetermined to be allies, no diplomacy here. (Later: in general yes, already answered.)
 
 4. **Growth rates.** Built as empty dot 0.25, village 0.5, town 1, city 1.5, fortress 2 soldiers a second. Is that the direction you meant (fortresses grow fastest), and are the values right?
 
-   > **Answer:**
+   > **Answer:** Yes, I like this approach. I think this could be tweaked in the future as needed. (Later: same, already answered, in general yes.)
 
 5. **Phased fight numbers.** Morale starts at 70, a wave kills 0.5 of the enemy wave at morale 50, and the swings are 60, 120 and 60. The attacker needs about 1.04 to 1 to win half the time (104 against 100 wins 53%), and the same ratios hold for small armies. Do the odds feel right, and should morale carry between fights (a beaten army starts the next one shaken)?
 
-   > **Answer:**
+   > **Answer:** The point of this in a way is that waves always ran, so that perhaps generals or leaders have an impact, but still oversized armies will eventually prevail. If the first wave crashes the defenders, then the second and the third will be full routs. In these battles the scale of the population centre should also be a factor: a fortress offers more protection, so its first wave, even if small, could defend against a much larger army. The first 20% should not attack just 20% of the defenders: it attacks the entire defence, then the defenders strike with 50% of their initial strength, then the attackers' next 50%, then the defenders' remaining 50%. Example, 100 against 100: the attackers' 20 kill 20, the defenders' 50 kill 50, the attackers' 50 kill 50, the defenders' second 50 kill 50; the attackers are exhausted and the defenders have 30 left. The ratios need tweaking so that 200 against 100 the attackers win with about 120 left, 100 against 100 the defenders win, and 500 against 100 the attackers win with about 475 left; and in an even-ish case the defenders would have about 80 left. These numbers are at the city level. Towers should give about 25% defence and villages -25%, scaled in between. (Later: the explanation above is the better one for how the fight works.) _(Built in v0.21.)_
 
 6. **The campaign's fights.** The campaign still uses the all-roll rounds, where an attacker needs about 1.2 to 1 and there is little luck. Should the campaign get the phased fights too, or stay as it is?
 
-   > **Answer:**
+   > **Answer:** Yes, but the full attack should resolve in less than 10 rounds. The larger the population centre, the more rounds: a village takes about 3 rounds, each round two seconds and 33% of the initial army; a fully upgraded tower takes 10 rounds, each side committing 10% of its army a round. Each round, the committed army goes through the three-wave evaluation above. _(Built in v0.21; see its question 1 on the round time.)_
 
 7. **Pace and the computer.** A phased fight is 9 seconds in all (three turns of 3). Is that the speed you want, and should the computer be bolder than its 1.7 to 1 rule, since a lead of 1.2 to 1 now wins almost every time?
 
-   > **Answer:**
+   > **Answer:** I don't know what you are talking about; if it is country I don't know yet, but if it is the province level, the fight should only take three seconds to solve.
 
 8. **First-draft feel.** Fights are the one thing that is not like the first draft, where soldiers simply reduced the defenders on arrival. I kept the 9-second phased fights because you asked for them. Do they fit, or should this mode settle a fight on arrival after all?
 
-   > **Answer:**
+   > **Answer:** Yes, this is true. Let's try three seconds first.
 
 9. **Upgrades.** The first draft let you tap a city to upgrade it. Province battles have none: a province stays the tier it started as, or drops one when captured. Should upgrades come back, and if so, by tapping the province and paying soldiers, as in the first draft?
 
-   > **Answer:**
+   > **Answer:** I really liked the upgrade capabilities. To keep these amounts in step with the campaign, you cannot upgrade a city into the next tier here; what you can upgrade is its capabilities, halfway between the current level and the next, still using the half-soldier requirement. Also, at the province level each bigger province should split into parts: zoomed in near a fortress there will be about five splits, a city three, a town two, a village none. A tower (an upgraded fortress) also has five, with the tower in the middle and a shooting range covering as much of the province as possible, so the heavier places are harder to take all at once. Every part has the same defensive bonus, and only when the whole province is taken over does that bonus pass to the new owner. _(Built in v0.21.)_
 
 10. **What else from the first draft?** The first draft also had team games, fortresses that shoot, a surrender setting, and a "game over when the other players are gone" rule. The last two of those and the shooting fortresses are already in. Is anything else from the first draft missing from how this mode plays?
 
-   > **Answer:**
+   > **Answer:** Yes, I would like to incorporate all of these elements from the first draft. _(Built in v0.21: team games, surrender setting; shooting fortresses and game over when the others are gone were already in.)_
 
 ## Still open
 

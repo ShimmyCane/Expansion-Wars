@@ -43,6 +43,12 @@
       body.appendChild(el('h3', '', 'Level'));
       lines.levels = el('div', 'row');
       body.appendChild(lines.levels);
+      var sur = el('label', 'check'), box = el('input');
+      box.type = 'checkbox'; box.checked = A.surrenderOn();
+      box.addEventListener('change', function () { A.setSurrender(box.checked); });
+      sur.appendChild(box);
+      sur.appendChild(document.createTextNode(' Surrender: a side outnumbered ' + XW.province.CONFIG.SURRENDER + ' to 1 gives up (you too)'));
+      body.appendChild(sur);
     }
     body.appendChild(el('h3', '', 'World'));
     lines.world = el('p', 'small');

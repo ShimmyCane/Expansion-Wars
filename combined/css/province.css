@@ -10,6 +10,7 @@
 #province-map .spot.sel { stroke: var(--ally); stroke-width: 3; }
 #province-map .spot.target { stroke: var(--war); stroke-width: 3; }
 #province-map .spot-icon { pointer-events: none; }
+#province-map .spot-up { pointer-events: none; fill: var(--trade); font-weight: 800; }
 #province-map .spot-count { font-weight: 800; fill: var(--ink); pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
 #province-map .range { fill: rgba(209, 73, 91, 0.08); stroke: var(--war); stroke-width: 0.6; stroke-dasharray: 2 2; pointer-events: none; }
 #province-map .march circle { stroke: var(--ink); stroke-width: 0.8; }

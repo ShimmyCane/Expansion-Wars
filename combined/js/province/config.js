@@ -13,24 +13,34 @@
     FORT: { range: 40, dmg: 2, slow: 0.5, upgradedMul: 2 },
     SEND_STEPS: [10, 25, 50, 100],   // % of a province's garrison sent by one order
     MUSTER: 10,             // soldiers moved between the field army and a garrison with one tap
-    // Province battles only (no field army): soldiers a second each province grows by itself, up to its cap, by tier. Higher tiers grow faster.
-    RECRUIT: { e: 0.25, v: 0.5, t: 1.0, c: 1.5, f: 2.0 },
-    // Province battles settle a fight in three turns (as in Torn Wars): the first 20% of each army fights, then 50%, then the
-    // last 30%. Morale decides how it goes. At the start of each turn an army is in formation (morale at least FORM), wavering,
-    // or routing (below ROUT). Each soldier in a wave kills KILL of the enemy wave, times (EFF_BASE + morale / 100), give or take NOISE,
-    // and a routing wave kills none and loses ROUT_LOSS of itself as it runs. A turn moves morale by SWING times the difference in losses, so the middle turn,
-    // with half the army in it, can tilt the whole battle. After the last turn the side with more left, weighted by morale, wins.
-    PHASED: {
-      ROUND: 3,                       // real seconds a turn takes
-      WAVES: [0.2, 0.5, 0.3],         // the share of each army fighting in turns 1, 2 and 3
-      SWING: [60, 120, 60],           // morale points moved by a turn for a 100% difference in losses
-      KILL: 0.5,                      // enemy soldiers a soldier kills in a turn at morale 50
-      EFF_BASE: 0.5,                  // the kill rate is KILL * (EFF_BASE + morale / 100): from half to one and a half times
-      NOISE: 0.35,                    // each strike is scaled by 1 plus or minus this much, at random
-      START: 70,                      // morale at the start
-      DEF_BONUS: 3,                   // more morale to the defender for each point of defence (ground, slope, fortress)
-      FORM: 50, ROUT: 25,             // in formation at or above FORM, routing below ROUT
-      ROUT_LOSS: 0.35                 // the share of a routing wave cut down as it runs
+    // A province's grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fortress with an upgraded tower. A half
+    // upgrade (province scale, paid in soldiers) adds 0.5, and every number below is read halfway between the two grades.
+    //   DEF     the ground: the attackers' kills are cut by this share and the defenders' raised by it (a village: -25%)
+    //   ROUNDS  how many rounds a fight there takes; each round each side commits 1/ROUNDS of its army
+    //   GROW    soldiers a second the province grows by itself (province battles, where there is no field army)
+    //   CAP     the most soldiers it grows to
+    // Province battles: how many provinces a town, city and fortress become when zoomed in (the settlement and villages).
+    SPLITS: { t: 2, c: 3, f: 5 },
+    SURRENDER: 10,          // province battles, when Surrender is on in ⚙️: a side outnumbered this many to one gives up
+    GRADE: {
+      DEF: [-0.25, -0.25, -0.125, 0, 0.125, 0.25],
+      ROUNDS: [3, 3, 4, 6, 8, 10],
+      GROW: [0.25, 0.5, 1, 1.5, 2, 2.5],
+      CAP: [40, 80, 160, 240, 480, 600]
+    },
+    // A fight is a few rounds (ROUNDS above). In each round the soldiers each side commits strike in turn: the attackers'
+    // first 20%, then the defenders' first 50%, the attackers' next 50%, the defenders' other 50%, and the attackers' last
+    // 30%. A strike kills KILL_A (attackers) or KILL_D (defenders) for each soldier in it, give or take NOISE. A side that has
+    // lost BREAK of what it committed this round routs: its strikes for the rest of the round hit at ROUT_STRIKE, and it
+    // starts every later round shaken (its strikes times SHAKEN for each rout, no lower than half).
+    // Fitted at city level: 100 against 100 the defenders hold with about 89; 200 against 100 the attackers win with about
+    // 121; 500 against 100 the attackers win with about 475.
+    FIGHT: {
+      ROUND: 1,                       // real seconds a round takes in province battles (the campaign uses FIGHT_ROUND world seconds)
+      STRIKES: [['a', 0.2], ['d', 0.5], ['a', 0.5], ['d', 0.5], ['a', 0.3]],
+      KILL_A: 0.6, KILL_D: 1.8,
+      BREAK: 0.5, ROUT_STRIKE: 0.5, SHAKEN: 0.9,
+      NOISE: 0.1
     },
     // Computer players in the window: how often they think, the share they send, the least garrison that moves,
     // and the most moves a minute.
