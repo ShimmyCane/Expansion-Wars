@@ -42,6 +42,16 @@
   }
 
   // Damage is worked out for every hit first, then applied together, so the order of hits does not favour a side.
+  // True when unit a is within its side's general's aura (the general's own unit included).
+  function inAura(st, a) {
+    for (var i = 0; i < st.units.length; i++) {
+      var g = st.units[i];
+      if (g.general && g.side === a.side && g.state === 'active' && K.dist(g.x, g.y, a.x, a.y) <= C.GENERAL.radius) return true;
+    }
+    return false;
+  }
+  K.inAura = inAura;
+
   function applyHits(st, hits) {
     var pending = [];
     hits.forEach(function (h) {
@@ -52,6 +62,7 @@
       var code = K.tileCode(st, b.x, b.y);
 
       var base = U.atk * a.atkMul;
+      if (K.inAura(st, a)) base *= C.GENERAL.mul;
       if (h.burst) base *= C.STRIKE.mul;
       if (K.fatigueOn(st)) base *= 1 - C.FATIGUE.atkLoss * a.fat / 100;
       if (!U.melee && h.d < 1.2) base *= C.RANGED_IN_MELEE;

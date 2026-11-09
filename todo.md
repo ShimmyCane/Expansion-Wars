@@ -314,4 +314,21 @@ Answers to `convo/convo v0.20.md`.
 - [ ] **Flaky test:** "the computer offers peace" fails about one run in six (before this round too); seed the computer's choice.
 - [x] **Rounds no longer than 5 seconds**, in real time at every scale: 1 second in province battles, 3 in the campaign (`FIGHT_SECONDS`).
 - [x] **Level 1 has two opponents**; the ladder starts from there.
+- [x] **A hopeless side breaks at once.** At the end of a round, a side that routed and is outnumbered 10 to 1 (counting the ground) breaks: 144 against 11 is over in the first round, and a crushed attack pulls back with its survivors (`OVERWHELM`). The fitted targets still hold (500 v 100 ends in round 4 with about 479).
+
+## Notes round (read 2026-11-09): 10 notes in the family database, all built and marked done
+
+Province battles
+- [x] **Full screen** (⛶ on the map): the map fills the screen, the send buttons stay under it, and the soldiers of each nation sit in the lower left corner of the map. ✕ or Escape leaves it.
+- [x] **Mini map on the left**, with a small arrow that folds it away (remembered on this device).
+
+Campaign (and country battles)
+- [x] **Difficulty** picked when a world starts, and shown in ⚙️: Easy (you start with 200 more food), Medium (the computer nations start with 200 food, 100 gold and 40 stone more; same computer), Hard (as medium, and the computer claims land every turn while there is any, then goes to war on the neighbour it outmatches most, leaving alone one already fighting two). `DIFFICULTY` in `country/config.js`.
+
+Unit battles
+- [x] **Moving as a team.** Units with no order: the line (pikemen, swordsmen) keeps within 2.5 tiles of its rearmost unit; archers, slingers and catapults wait 1.5 tiles behind the front of the line until an enemy is in their range. Cavalry ride the flanks as before.
+- [x] **Squads of at least 5**, types in the unlock order pikemen, archers, swordsmen, slingers, cavalry, catapults (a type joins only once every type before it is in), and a second squad of a type only when a squad of it would be over 10 soldiers.
+- [x] **Generals.** An army of more than 100 has a general: in the battle, on a line unit, with a ⭐, and every unit of its side within 4 tiles strikes 50% harder; at province level, its side strikes 10% harder (⭐ in the fight line). With the general, 200 v 100 at a city now leaves the attackers about 132 (121 before).
+- [x] **Scouts see three times as far:** cavalry sight 8 → 24 tiles.
+- [ ] **Battle balance** after team movement, generals and scout sight: the matrix moved and is not re-tuned.
 

@@ -225,6 +225,27 @@
     }
   };
 
+  // Difficulty (the campaign and country battles): asked once when a new world starts. Easy, medium or hard sets the
+  // starting stocks and how the computer plays (country/config.js DIFFICULTY).
+  A.modes.pickDifficulty = function (w) {
+    if (!A.mode.turns || typeof document === 'undefined' || w.difficulty) return;
+    var D = C.CONFIG.DIFFICULTY, box = D_el('div', 'overlay'), card = D_el('div', 'overlay-card');
+    card.appendChild(D_el('h2', '', 'Choose a difficulty'));
+    Object.keys(D).forEach(function (level) {
+      var b = XW.core.button(D[level].label, function () {
+        C.applyDifficulty(w, level);
+        box.parentNode.removeChild(box);
+        W.changed('difficulty');
+        A.saveNow('button');
+      }, { cls: 'big' });
+      card.appendChild(b);
+      card.appendChild(D_el('p', 'small', D[level].note));
+    });
+    box.appendChild(card);
+    document.body.appendChild(box);
+  };
+  function D_el(tag, cls, text) { return XW.core.el(tag, cls, text); }
+
   // The line in ⚙️ and the notes page name.
   A.describeMode = function () { return 'Expansion Wars ' + A.VERSION + ' · ' + A.mode.title; };
 })();

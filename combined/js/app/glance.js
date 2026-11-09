@@ -81,6 +81,7 @@
 
   A.glance = {
     render: function (w) { crumbs(w); clock(w); glance(w); },
+    population: population,
     clock: clock,
     numbers: glance
   };

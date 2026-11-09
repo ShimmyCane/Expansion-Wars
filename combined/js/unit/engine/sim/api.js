@@ -41,6 +41,13 @@
 
     var specs = [req.attacker.units || [], req.defender.units || [], req.third ? (req.third.units || []) : []];
     for (var t = 0; t < teams; t++) K.placeArmy(st, t, specs[t], t === you);
+    // A big army has a general, with its first line unit (or its first unit).
+    [req.attacker, req.defender, req.third].forEach(function (side, i) {
+      if (!side || i >= teams || !((side.pool || 0) > C.GENERAL.pool)) return;
+      var mine = st.units.filter(function (u) { return u.side === i; });
+      var g = mine.filter(function (u) { return C.TEAM.line.indexOf(u.type) >= 0; })[0] || mine[0];
+      if (g) g.general = true;
+    });
 
     // Groups: the player's army is in up to two groups, with a place in the formation.
     if (you !== null) {

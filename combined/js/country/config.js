@@ -20,6 +20,15 @@
     MIN_WAR_TURNS: 4,                // a war runs at least this many turns before peace can be offered
     ACCEPT_RATIO: 0.7,               // a nation accepts a ceasefire when its power is at most this share of the other's
     DECLARE_RATIO: 1.5,              // the computer declares war only with this lead, on a neighbour whose power is falling
+    // Difficulty, chosen when a campaign starts. you / ai: added to the starting stocks. hard: the computer expands as
+    // fast as it can, and once there is no land left to claim it goes to war, picking the neighbour it outmatches most
+    // (HARD_RATIO) and leaving alone one that is already fighting two or more (no ganging up).
+    DIFFICULTY: {
+      easy: { label: 'Easy', you: { food: 200 }, ai: {}, hard: false, note: 'You start with 200 more food. The computer plays as it always has.' },
+      medium: { label: 'Medium', you: {}, ai: { food: 200, gold: 100, stone: 40 }, hard: false, note: 'The computer nations start with plenty: 200 food, 100 gold, 40 stone. Same computer.' },
+      hard: { label: 'Hard', you: {}, ai: { food: 200, gold: 100, stone: 40 }, hard: true, note: 'As medium, and the computer expands as fast as it can, then goes to war strategically.' }
+    },
+    HARD_RATIO: 1.3,
     OFFER_TURNS: 2,                  // a ceasefire offered to you stands for this many turns, then lapses
     MARCH: { food: 0.05, gold: 1 },  // an attack: food per soldier sent, gold per step plus one
     // Magic: made by fortresses only. An attack or defence spends up to one per four soldiers; each adds a soldier's strength.

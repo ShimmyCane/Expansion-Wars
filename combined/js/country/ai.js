@@ -4,10 +4,49 @@
   var XW = window.XW, C = XW.country, W = XW.world;
   function K() { return C.CONFIG; }
 
+  // Difficulty: the starting stocks of the level chosen (once, when a campaign starts), and the level kept in the world.
+  C.applyDifficulty = function (w, level) {
+    var D = K().DIFFICULTY[level];
+    if (!D) return 'No such difficulty.';
+    w.difficulty = level;
+    w.nations.forEach(function (n) {
+      var add = n.id === w.you ? D.you : D.ai;
+      Object.keys(add).forEach(function (k) { n[k] = (n[k] || 0) + add[k]; });
+    });
+    W.log(w, 'Difficulty: ' + D.label + '. ' + D.note);
+    return null;
+  };
+  function isHard(w) { var D = K().DIFFICULTY[w.difficulty]; return !!(D && D.hard); }
+
+  // Hard: once nothing is left to claim, war on the neighbour this nation outmatches most, but not one that is already
+  // fighting two or more nations. Returns that neighbour, or null.
+  function hardPrey(w, a) {
+    var best = null;
+    a.nb.forEach(function (id) {
+      var b = w.nations[id];
+      if (!b.alive || W.rel(w, a.id, id).war || W.rel(w, a.id, id).ally) return;
+      var fighting = C.alive(w).filter(function (k) { return k.id !== b.id && W.rel(w, k.id, b.id).war; }).length;
+      if (fighting >= 2) return;
+      var ratio = C.power(w, a) / Math.max(1, C.power(w, b));
+      if (ratio >= K().HARD_RATIO && (!best || ratio > best.ratio)) best = { b: b, ratio: ratio };
+    });
+    return best ? best.b : null;
+  }
+
   // The computer nations plan their orders from the same world as yours.
   C.planAI = function (w) {
+    var hard = isHard(w);
     C.alive(w).forEach(function (a) {
       if (a.id === w.you) return;
+      // Hard: claim neutral land every turn while there is any; once there is none, go to war strategically.
+      if (hard && !a.neutral) {
+        var land = C.claimTarget(w, a);
+        if (land !== null) { a.aim = 'growth'; w.queue.push({ type: 'claim', from: a.id, to: -1, prov: land, pct: 50 }); }
+        else {
+          a.aim = 'war';
+          if (!C.atWar(w, a.id)) { var prey = hardPrey(w, a); if (prey) w.queue.push({ type: 'declare', from: a.id, to: prey.id }); }
+        }
+      }
       var foes = C.alive(w).filter(function (b) { return b.id !== a.id && W.rel(w, a.id, b.id).war; });
       if (foes.length) {
         // Attack the foe worth the most for the distance, when the army can beat it. Not every turn.
@@ -17,7 +56,7 @@
           var value = C.targetValue(w, b) / (1 + C.route(w, a.id, b.id).dist);
           if (!best || value > best.value) best = { b: b, value: value };
         });
-        var attackP = (a.neutral ? 0.3 : 0.6) * (a.aim === 'war' ? 1.3 : a.aim === 'wealth' ? 0.5 : 1);
+        var attackP = hard && !a.neutral ? 1 : (a.neutral ? 0.3 : 0.6) * (a.aim === 'war' ? 1.3 : a.aim === 'wealth' ? 0.5 : 1);
         // At war the computer commits everything: the whole army, not half.
         if (best && a.soldiers * C.quality(a) >= (a.neutral ? 1.5 : 0.9) * best.b.soldiers * C.quality(best.b) && Math.random() < attackP) {
           w.queue.push({ type: 'attack', from: a.id, to: best.b.id, pct: 100 });
@@ -56,7 +95,7 @@
         if (friends.length) w.queue.push({ type: 'trade', from: a.id, to: friends[0].id });
       }
       // At war a nation fights its enemy rather than claim neutral land, so it claims less.
-      var claimP = (a.neutral ? 0.15 : 0.45) * (a.aim === 'growth' ? 1.5 : a.aim === 'wealth' ? 0.5 : 1) * (C.atWar(w, a.id) ? 0.5 : 1);
+      var claimP = hard && !a.neutral ? 0 : (a.neutral ? 0.15 : 0.45) * (a.aim === 'growth' ? 1.5 : a.aim === 'wealth' ? 0.5 : 1) * (C.atWar(w, a.id) ? 0.5 : 1);   // hard claimed above
       if (Math.random() < claimP) {
         var pid = C.claimTarget(w, a);
         if (pid !== null) w.queue.push({ type: 'claim', from: a.id, to: -1, prov: pid, pct: 50 });

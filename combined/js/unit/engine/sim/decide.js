@@ -4,6 +4,23 @@
   'use strict';
   var V4 = window.V4, C = V4.CONFIG, K = V4._ = V4._ || {};
 
+  // Moving as a team, for units with no order on the two main sides: how far a unit has come towards the enemy, and
+  // whether it should wait this step. The line (pikemen, swordsmen) waits for its rearmost unit; ranged units wait behind
+  // the front of the line. Neither waits once an enemy is in its own range.
+  function progress(st, u) { return u.side === 0 ? u.x : st.cols - u.x; }
+  function waitForTeam(st, u, en) {
+    if (u.side > 1 || u.order || u.station) return false;
+    var U = C.UNIT[u.type], T = C.TEAM;
+    if (en && en.d <= U.range) return false;
+    var line = st.units.filter(function (v) { return v.side === u.side && v.state === 'active' && T.line.indexOf(v.type) >= 0; });
+    if (!line.length) return false;
+    var p = progress(st, u), ps = line.map(function (v) { return progress(st, v); });
+    if (T.line.indexOf(u.type) >= 0) return p > Math.min.apply(null, ps) + T.cohesion;
+    if (!U.melee) return p > Math.max.apply(null, ps) - T.behind;
+    return false;   // cavalry ride the flanks as before
+  }
+  K.waitForTeam = waitForTeam;
+
   function decide(st, u, dt, hits) {
     var U = C.UNIT[u.type];
     u.fireT -= dt;
@@ -58,7 +75,7 @@
     if (!en) {
       // An ambush waits in cover and does not move up. Everyone else walks on to their approach point.
       if (u.strategy === 'ambush' && !u.sprung) { u.strikePrompt = false; return; }
-      if (u.approach && K.dist(u.x, u.y, u.approach.x, u.approach.y) > 0.5) {
+      if (u.approach && K.dist(u.x, u.y, u.approach.x, u.approach.y) > 0.5 && !waitForTeam(st, u, null)) {
         K.goTo(st, u, u.approach.x, u.approach.y, C.STRATEGY[u.strategy].speed, dt);
       }
       return;
@@ -88,6 +105,7 @@
         if (U.melee && en.d > U.range + 0.5 && local.friends > 0) { K.face(st, u, en.e); return; }
       }
     }
+    if (strat !== 'rush' && waitForTeam(st, u, en)) { K.face(st, u, en.e); return; }
     K.engage(st, u, en, dt, hits, C.STRATEGY[strat].speed);
   }
 

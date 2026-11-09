@@ -34,7 +34,8 @@
     POWER: { cavalry: 3, pikemen: 2, swordsmen: 2.5, archers: 2, slingers: 1.5, catapults: 3.5 },
 
     // How far a unit can see enemies, in tiles. Defenders see further (see DEFENDER_SIGHT_BONUS).
-    SIGHT: { cavalry: 8, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6 },
+    // Cavalry are the scouts: they see three times as far as they used to (8 tiles).
+    SIGHT: { cavalry: 24, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6 },
     DEFENDER_SIGHT_BONUS: 4,
 
     // Counters: a strong pairing deals COUNTER.up, a weak pairing COUNTER.down, otherwise 1.
@@ -151,6 +152,12 @@
 
     // Computer-planned defence. A share of the infantry ambushes from woods, the rest hold a station.
     AI: { ambushShare: 0.34, leash: 8 },
+    // Moving as a team (units with no order): the line (pikemen and swordsmen) keeps within COHESION tiles of its rearmost
+    // unit, and ranged units stay BEHIND tiles behind the front of the line until an enemy is in their range.
+    TEAM: { line: ['pikemen', 'swordsmen'], cohesion: 2.5, behind: 1.5 },
+    // A side that brings more than POOL soldiers has a general, with one of its line units. Its own units within RADIUS
+    // tiles of the general strike MUL times as hard.
+    GENERAL: { pool: 100, radius: 4, mul: 1.5 },
 
     // Deployment: the player's units may be placed within this many tiles of their edge (small field).
     DEPLOY_X: 6,

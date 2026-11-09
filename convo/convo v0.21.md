@@ -71,6 +71,12 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
 "On level one you should have more than one opponent on your map." Level 1 now has two opponents, and the ladder starts from there: two opponents on levels 1 and 2, three on levels 3 and 4, two against you and an ally on level 5, four on level 6, and three teams of two on level 7.
 
+"If I have 144 against 11 defenders, I expected it to be over in the first round." Right: each round only committed its share, so most of the 11 waited for later rounds however hopeless it was. Now, at the end of a round, a side that routed and is outnumbered 10 to 1 (counting the ground) breaks. 144 against 11 is over in the first round, at a village or a city, with almost no losses. A crushed attack pulls back with its survivors, so withdrawals are back (question 4). The fitted targets still hold: 100 v 100 the defenders keep about 89, 200 v 100 the attackers keep about 121, and 500 v 100 ends in round 4 with about 479.
+
+## Notes round (10 notes, read 2026-11-09)
+
+Built and marked done in the family database: full screen for province battles with the soldiers in the lower left corner; the mini map on the left with a fold arrow; campaign difficulty (easy, medium, hard); unit battles moving as a team; squads of at least 5 in the unlock order; second squads only over 10; generals over 100 soldiers (+10% at province level, a 50% aura in battle); scouts (cavalry) seeing three times as far. Details in `todo.md`. Readings I chose are questions 11 to 13 below.
+
 ## Questions
 
 1. **Round time.** You wrote "each round will take two seconds" and also that a province fight "should only take three seconds". I made a round 1 second, so a village fight (3 rounds) takes 3 seconds and a tower fight (10 rounds) 10. Two seconds a round would make them 6 and 20 seconds. Which?
@@ -85,7 +91,7 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
    > **Answer:**
 
-4. **Withdrawals.** With these numbers one side is always wiped out by the last round, so a beaten attack no longer comes home with survivors. Fine, or should a losing attack pull back before it is destroyed?
+4. **Withdrawals.** A crushed attack now breaks and pulls back with its survivors once it is outnumbered 10 to 1 after a rout; otherwise it fights to the end. Should a losing attack pull back sooner (say at 3 to 1)?
 
    > **Answer:**
 
@@ -110,6 +116,18 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
    > **Answer:**
 
 10. **The campaign's pace.** The campaign now fights in waves too, a round every 3 real seconds at any scale: a village fight is 9 seconds, a tower fight 30. Enough time to press Join, or too long?
+
+   > **Answer:**
+
+11. **Medium.** "For a medium, start with lots of resources and same AI": I gave the computer nations the extra resources (200 food, 100 gold, 40 stone), so medium is harder than easy. If you meant that you start with lots of resources, say so.
+
+   > **Answer:**
+
+12. **Scouts.** There is no scout unit, so I took cavalry as the scouts and tripled their sight (8 to 24 tiles). Is that right, or do you want a separate scout unit?
+
+   > **Answer:**
+
+13. **The general.** It rides with the first line unit (pikemen or swordsmen) and lifts every unit within 4 tiles by 50%. Should it be a unit of its own, and should losing it hurt morale?
 
    > **Answer:**
 

@@ -44,6 +44,7 @@
       D.svg('circle', { r: 17, 'class': 'ring ' + colours[u.side], stroke: '#fff' }, g);
       D.svgText(g, 0, -1, I.animal[u.type], { 'font-size': 19 });
       D.svgText(g, 0, 24, String(Math.ceil(u.people - 0.001)), { 'class': 'people' });
+      if (u.general) D.svgText(g, 14, -14, '⭐', { 'font-size': 11 });
       if (ui.sel === u.id && u.order && u.order.kind === 'route') {
         var p = u.order.points[u.order.points.length - 1];
         D.svg('line', { x1: 0, y1: 0, x2: (p.x - u.x) * T, y2: (p.y - u.y) * T, 'class': 'order' }, g);

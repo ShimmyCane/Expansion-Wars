@@ -30,9 +30,26 @@
     }
   }
 
+  function difficultyButtons() {
+    var w = W.get();
+    if (!lines.difficulty || !w) return;
+    D.clear(lines.difficulty);
+    var DD = C.CONFIG.DIFFICULTY;
+    Object.keys(DD).forEach(function (level) {
+      lines.difficulty.appendChild(button(DD[level].label, function () {
+        var cur = W.get();
+        cur.difficulty = level;
+        W.log(cur, 'Difficulty changed to ' + DD[level].label + ' (the computer plays that way from now on).');
+        difficultyButtons();
+        W.changed('difficulty');
+      }, { pressed: (w.difficulty || 'easy') === level }));
+    });
+  }
+
   function worldLine() {
     var w = W.get();
     levelButtons();
+    difficultyButtons();
     if (!w || !lines.world) return;
     lines.world.textContent = 'Map seed ' + w.seed + ' · turn ' + w.time.turn + ' · world ' + w.id.slice(0, 8) + '.';
   }
@@ -50,6 +67,13 @@
       sur.appendChild(document.createTextNode(' Surrender: a side outnumbered ' + XW.province.CONFIG.SURRENDER + ' to 1 gives up (you too)'));
       body.appendChild(sur);
     }
+    if (A.mode.turns) {
+      // The difficulty of the world being played. Changing it here changes how the computer plays from now on;
+      // the starting stocks were given when the world began.
+      body.appendChild(el('h3', '', 'Difficulty'));
+      lines.difficulty = el('div', 'row');
+      body.appendChild(lines.difficulty);
+    }
     body.appendChild(el('h3', '', 'World'));
     lines.world = el('p', 'small');
     body.appendChild(lines.world);
@@ -64,6 +88,7 @@
       A.scales.open(w, w.view.scale);
       A.saveNow('button');
       worldLine();
+      A.modes.pickDifficulty(w);
     }));
     body.appendChild(row);
 
