@@ -19,7 +19,7 @@ const ENGINE = [
 // The world and the rules of each scale: everything except drawing and input.
 const RULES = [
   'core/ns', 'core/rng', 'core/geom', 'core/bus',
-  'world/config', 'world/state', 'world/rules', 'world/clock', 'world/save',
+  'world/config', 'world/state', 'world/rules', 'world/generals', 'world/clock', 'world/save',
   'country/config', 'country/query', 'country/route', 'country/build', 'country/diplomacy',
   'country/war', 'country/economy', 'country/move', 'country/ai', 'country/turn', 'country/mapgen',
   'province/config', 'province/scene', 'province/rules', 'province/split', 'province/ai'

@@ -73,12 +73,14 @@
       if (p.fight) D.svg('circle', { cx: p.x, cy: p.y, r: R + 5, 'class': 'fight' + (XW.app.can('unit') ? '' : ' quiet') }, layer);
       if (p.tier !== 'e') D.svgText(layer, p.x, p.y - 1, W.TIERS[p.tier].icon, { 'class': 'spot-icon', 'font-size': 12 });
       if (p.up) D.svgText(layer, p.x + R - 1, p.y - R + 2, '⬆', { 'class': 'spot-up', 'font-size': 7 });
+      if (p.gens && p.gens.length) D.svgText(layer, p.x - R + 1, p.y - R + 2, W.genText(w, p.gens), { 'class': 'spot-gen', 'font-size': 7 });
       D.svgText(layer, p.x, p.y + R + 5, String(Math.floor(p.gar || 0)), { 'class': 'spot-count', 'font-size': 9 });
     });
     w.marches.forEach(function (m) {
       var at = P.marchAt(w, m), g = D.svg('g', { 'class': 'march' }, layer);
       D.svg('circle', { cx: at.x, cy: at.y, r: 6, 'class': 'o' + m.owner }, g);
       D.svgText(g, at.x, at.y, String(Math.ceil(m.count)), { 'font-size': 6 });
+      if (m.gens && m.gens.length) D.svgText(g, at.x + 7, at.y - 6, '⭐', { 'font-size': 6 });
     });
   };
 })();

@@ -12,16 +12,17 @@
   // The army a side brings. Soldiers become squads (dots) of at least MIN_SQUAD soldiers, in the unlock order: a type
   // joins only once every type before it is in (pikemen, archers, scouts, swordsmen, slingers, catapults). A second squad
   // of a type comes only when a squad of it would be more than SPLIT_OVER soldiers; otherwise there is just one. An army of
-  // GENERAL_AT or more first gets one squad of heavy cavalry: its general.
+  // general (world/generals.js) brings one squad of heavy cavalry: an army of 100 has one, 500 has two.
   var ORDER = ['pikemen', 'archers', 'cavalry', 'swordsmen', 'slingers', 'catapults'];
-  var MAX_DOTS = 10, MIN_SQUAD = 5, SPLIT_OVER = 10, GENERAL_AT = 100;
+  var MAX_DOTS = 10, MIN_SQUAD = 5, SPLIT_OVER = 10;
 
   // People in one squad for a battle of these sizes: the bigger side fields MAX_DOTS squads, and a squad is never under MIN_SQUAD.
   U.grainFor = function (a, d) { return Math.max(MIN_SQUAD, Math.ceil(Math.max(a, d, 1) / MAX_DOTS)); };
 
-  function army(side, soldiers, grain, strategy) {
+  function army(side, soldiers, grain, strategy, generals) {
     var left = soldiers, per = {}, units = [], dots = 0;
-    if (soldiers >= GENERAL_AT) { per.heavy = 1; left -= V4.sim.peopleFor(grain, 'heavy'); dots++; }
+    var heavy = Math.min(V4.CONFIG.MAX_PER_TYPE, generals);
+    if (heavy) { per.heavy = heavy; left -= heavy * V4.sim.peopleFor(grain, 'heavy'); dots += heavy; }
     for (var pass = 0; pass < 2; pass++) {
       if (pass === 1 && grain <= SPLIT_OVER) break;
       for (var i = 0; i < ORDER.length && dots < MAX_DOTS; i++) {
@@ -42,9 +43,21 @@
 
   // The battle request for `count` soldiers from province `from` attacking province `to`. attOwner is who attacks (it is
   // the owner of `from` unless a fight says otherwise); the defender is whoever holds `to` now, with its garrison.
-  U.requestFor = function (w, from, to, count, attOwner) {
+  // The generals a side brings, as their stars, strongest first. ids: the side's generals in the world; with none (an
+  // army that has not been looked at yet), as many as its size calls for, with no stars.
+  function generals(w, ids, n) {
+    var ranked = W.ranked(w, ids);
+    if (ranked.length) return ranked.slice(0, V4.CONFIG.MAX_PER_TYPE).map(function (g) { return W.stars(g); });
+    var out = [];
+    for (var i = 0; i < W.genCount(n); i++) out.push(0);
+    return out;
+  }
+
+  U.requestFor = function (w, from, to, count, attOwner, attGens, defGens) {
     var a = w.provs[from], d = w.provs[to], def = Math.floor(d.gar || 0);
     var att = attOwner === undefined ? a.owner : attOwner;
+    var gA = generals(w, attGens === undefined ? (a.owner === att ? a.gens : []) : attGens, count);
+    var gD = generals(w, defGens === undefined ? d.gens : defGens, def);
     var grain = U.grainFor(count, def);
     var you = att === w.you ? 0 : d.owner === w.you ? 1 : null;
     var woods = d.adj.some(function (q) { return w.provs[q].terrain === 'forest'; });
@@ -52,10 +65,10 @@
     var walls = ['t', 'c', 'f'].indexOf(d.tier) >= 0;   // towns, cities and fortresses have walls; villages do not
     return {
       seed: seedFor(w, w.battles.length + 1), scale: 'fortress', grain: grain, mode: you === null ? 'auto' : 'play', you: you === null ? undefined : you,
-      attacker: { nation: W.ownerName(w, att), provinces: [from], pool: count, units: army('attacker', count, grain, 'engage'), reserve: [] },
+      attacker: { nation: W.ownerName(w, att), provinces: [from], pool: count, units: army('attacker', count, grain, 'engage', gA.length), reserve: [], generals: gA },
       defender: {
         nation: W.ownerName(w, d.owner), province: to, pool: def, population: 0,
-        settlement: W.TIERS[d.tier].settlement, units: army('defender', def, grain, 'engage')
+        settlement: W.TIERS[d.tier].settlement, units: army('defender', def, grain, 'engage', gD.length), generals: gD
       },
       border: { river: river, road: true },
       gen: {
@@ -77,12 +90,15 @@
     if (why) return why;
     var have = Math.floor(a.gar || 0), count = Math.min(have, Math.max(2, Math.floor(have * pct / 100)));
     if (count < 2) return 'Muster soldiers into that province first (at least 2).';
-    var req = U.requestFor(w, from, to, count);
+    var gens = count >= have - count ? (a.gens || []) : [];     // the generals go with the bigger part
+    var req = U.requestFor(w, from, to, count, undefined, gens);
     var bad = V4.validateRequest(req);
     if (bad.length) return 'The battle could not be set up: ' + bad[0];
     a.gar -= count;
+    if (gens.length) a.gens = [];
     w.battle = { id: XW.core.uuid(), from: from, to: to, attacker: a.owner, defender: d.owner, count: count, defCount: Math.floor(d.gar || 0),
-      tier: d.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: false };
+      tier: d.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: false, gens: gens, defGens: d.gens || [] };
+    d.gens = [];
     W.log(w, 'Battle: ' + count + ' soldiers attack ' + W.aLabel(d.tier) + ' held by ' + W.ownerName(w, d.owner) + '.');
     return null;
   };
@@ -96,13 +112,14 @@
     if (f.owner !== w.you && p.owner !== w.you) return 'You are not in this fight.';
     if (f.from === undefined || f.from < 0 || w.provs[f.from].adj.indexOf(p.id) < 0) return 'The attackers are not next to this province.';
     var count = Math.max(1, Math.floor(f.count)), def = Math.floor(p.gar || 0);
-    var req = U.requestFor(w, f.from, p.id, count, f.owner);
+    var req = U.requestFor(w, f.from, p.id, count, f.owner, f.gens || [], p.gens || []);
     var bad = V4.validateRequest(req);
     if (bad.length) return 'The battle could not be set up: ' + bad[0];
     w.battle = { id: XW.core.uuid(), from: f.from, to: p.id, attacker: f.owner, defender: p.owner, count: count, defCount: def,
-      tier: p.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: true };
+      tier: p.tier, request: req, commands: [], tick: 0, started: w.time.t, fight: true, gens: f.gens || [], defGens: p.gens || [] };
     p.fight = null;
     p.gar = 0;
+    p.gens = [];
     W.log(w, 'Joined the fight at ' + W.aLabel(p.tier) + ': ' + count + ' attacking, ' + def + ' defending.');
     return null;
   };
@@ -144,13 +161,20 @@
     var a = w.provs[b.from], d = w.provs[b.to];
     var attLeft = Math.max(0, Math.round(result.pool.attacker)), defLeft = Math.max(0, Math.round(result.pool.defender));
     var won = result.winner === 'attacker' && d.owner === b.defender;
+    // The generals: a win +1 and a loss -1; each goes on with its army if that army is big enough to keep it.
+    var gA = b.gens || [], gD = b.defGens || [];
+    if (won) W.recordFight(w, gA, gD); else W.recordFight(w, gD, gA);
+    if (attLeft < W.GEN.KEEP) gA = W.loseGenerals(w, gA, 'its army fell in battle');
+    if (won || defLeft < W.GEN.KEEP) gD = W.loseGenerals(w, gD, won ? 'the province fell' : 'its army fell in battle');
     if (won) {
       W.capture(w, d, b.attacker, attLeft);
+      d.gens = gA;
       W.log(w, W.ownerName(w, b.attacker) + ' wins the battle and takes ' + W.aLabel(d.tier) + ' (' + attLeft + ' soldiers hold it).');
     } else {
       d.gar = defLeft;
-      if (!b.fight && a.owner === b.attacker) a.gar = (a.gar || 0) + attLeft;
-      else w.nations[b.attacker].soldiers += attLeft;
+      d.gens = W.mergeGenerals(w, d.gens, gD, d.gar);
+      if (!b.fight && a.owner === b.attacker) { a.gar = (a.gar || 0) + attLeft; a.gens = W.mergeGenerals(w, a.gens, gA, a.gar); }
+      else { var n = w.nations[b.attacker]; n.soldiers += attLeft; n.gens = W.mergeGenerals(w, n.gens, gA, n.soldiers); }
       W.log(w, W.ownerName(w, b.defender) + ' holds ' + W.aLabel(d.tier) + ' (' + defLeft + ' left). ' + attLeft + ' attackers fall back.');
     }
     w.battles.push({

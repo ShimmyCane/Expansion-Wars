@@ -41,10 +41,15 @@
 
     var specs = [req.attacker.units || [], req.defender.units || [], req.third ? (req.third.units || []) : []];
     for (var t = 0; t < teams; t++) K.placeArmy(st, t, specs[t], t === you);
-    // The general is each side's (first) heavy cavalry.
+    // The generals are each side's heavy cavalry, strongest first; each star lifts its strength and its aura.
+    var sides = [req.attacker, req.defender, req.third];
     for (t = 0; t < teams; t++) {
-      var g = st.units.filter(function (u) { return u.side === t && u.type === 'heavy'; })[0];
-      if (g) g.general = true;
+      var stars = (sides[t] && sides[t].generals) || [];
+      st.units.filter(function (u) { return u.side === t && u.type === 'heavy'; }).forEach(function (g, i) {
+        g.general = true;
+        g.stars = stars[i] || 0;
+        g.atkMul *= 1 + C.GENERAL.star * g.stars;
+      });
     }
 
     // Groups: the player's army is in up to two groups, with a place in the formation.

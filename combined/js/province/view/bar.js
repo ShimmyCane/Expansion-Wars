@@ -77,6 +77,13 @@
       ? 'Real time, on the provinces around it. Time here runs at ×' + W.CONFIG.RATE.province +
         ': a country turn takes ' + Math.round(W.realTurn('province') / 60) + ' minutes. Garrisons grow from each nation\'s field army.'
       : 'Each province grows its own soldiers, faster the higher its grade. Send them to take land; fights settle themselves in rounds, more of them at stronger places. Upgrade a province with its own soldiers. Take every opponent province to win.'));
+    // The generals of the province you selected: stars, wins and losses, who leads.
+    var gp = W.prov(w, ui.sel);
+    if (gp && gp.gens && gp.gens.length) {
+      W.ranked(w, gp.gens).forEach(function (g, k) {
+        card.appendChild(el('p', 'small', '⭐' + (W.stars(g) ? '★'.repeat(W.stars(g)) : '') + ' ' + g.name + (k === 0 ? ' (leads)' : '') + ': ' + (g.wins || 0) + ' won, ' + (g.losses || 0) + ' lost'));
+      });
+    }
     var held = {};
     win.ids.forEach(function (id) {
       var p = w.provs[id], k = p.owner;

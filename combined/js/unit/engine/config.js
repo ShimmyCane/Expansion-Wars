@@ -159,9 +159,10 @@
     // Moving as a team (units with no order): the line (pikemen and swordsmen) keeps within COHESION tiles of its rearmost
     // unit, and ranged units stay BEHIND tiles behind the front of the line until an enemy is in their range.
     TEAM: { line: ['pikemen', 'swordsmen'], cohesion: 2.5, behind: 1.5 },
-    // The general is a side's heavy cavalry (an army of POOL or more has one squad of it). Its own units within RADIUS
-    // tiles strike MUL times as hard. If the general is destroyed, every unit of its side loses LOSS morale.
-    GENERAL: { pool: 100, radius: 4, mul: 1.5, loss: 25 },
+    // A general is a squad of heavy cavalry (an army of 100 has one, 500 two). Its own units within RADIUS tiles strike MUL
+    // times as hard; each of its stars adds STAR to that and to its own strength. If a general is destroyed, every unit
+    // of its side loses LOSS morale.
+    GENERAL: { radius: 4, mul: 1.5, star: 0.15, loss: 25 },
 
     // Deployment: the player's units may be placed within this many tiles of their edge (small field).
     DEPLOY_X: 6,

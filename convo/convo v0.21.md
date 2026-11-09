@@ -77,6 +77,10 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
 Built and marked done in the family database: full screen for province battles with the soldiers in the lower left corner; the mini map on the left with a fold arrow; campaign difficulty (easy, medium, hard); unit battles moving as a team; squads of at least 5 in the unlock order; second squads only over 10; generals over 100 soldiers (+10% at province level, a 50% aura in battle); scouts (cavalry) seeing three times as far. Details in `todo.md`. Readings I chose are questions 11 to 13 below.
 
+## Generals that last
+
+Direction: an army of 500 has two generals; a march with a general is 15% faster; a general stays with its army until it is under 25; wins +1, losses -1, stars at 2ⁿ, each star +15% in unit battles and +5% in province and country battles; when armies merge, the strongest general leads. All built (`combined/js/world/generals.js`); details in `todo.md`. Question 14 asks about the star steps.
+
 ## Questions
 
 1. **Round time.** You wrote "each round will take two seconds" and also that a province fight "should only take three seconds". I made a round 1 second, so a village fight (3 rounds) takes 3 seconds and a tower fight (10 rounds) 10. Two seconds a round would make them 6 and 20 seconds. Which?
@@ -130,6 +134,10 @@ Built and marked done in the family database: full screen for province battles w
 13. **The general.** It rides with the first line unit (pikemen or swordsmen) and lifts every unit within 4 tiles by 50%. Should it be a unit of its own, and should losing it hurt morale?
 
    > **Answer:** With 100 units or more the army is complex enough to have a heavy cavalry unit. That will be the general. Having it completely defeated will hurt morale. _(Done: an army of 100 or more gets one squad of heavy cavalry, the general; when it is destroyed every unit of its side loses 25 morale. At province level the 10% general bonus now starts at 100.)_
+
+14. **Stars.** "Generals level up with 2^n wins … 2 wins becomes 1 star, 16 wins has 3 stars." 2ⁿ gives one star at 2, two at 4, three at 8 and four at 16, and that is what is built (the score is wins less losses). If you want three stars at 16, say what the steps should be (perhaps 2, 4, 16?).
+
+   > **Answer:**
 
 ## Notes
 

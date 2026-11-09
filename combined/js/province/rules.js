@@ -19,8 +19,8 @@
     return { x: a.x + (b.x - a.x) * m.p, y: a.y + (b.y - a.y) * m.p };
   };
 
-  function spawn(w, owner, from, to, count, route) {
-    var m = { id: (w.nextMarch = (w.nextMarch || 0) + 1), owner: owner, from: from, to: to, count: count, p: 0, route: route || [] };
+  function spawn(w, owner, from, to, count, route, gens) {
+    var m = { id: (w.nextMarch = (w.nextMarch || 0) + 1), owner: owner, from: from, to: to, count: count, p: 0, route: route || [], gens: gens || [] };
     w.marches.push(m);
     return m;
   }
@@ -40,7 +40,10 @@
     var count = Math.min(have, Math.max(2, Math.floor(have * pct / 100)));
     if (count < 1) return 'No soldiers in that province. Muster some from the field army first.';
     a.gar -= count;
-    spawn(w, owner, from, path[0], count, path.slice(1));
+    // The generals go with the bigger part: with the march when it takes at least as many as it leaves.
+    var gens = [];
+    if (count >= (a.gar || 0) && a.gens && a.gens.length) { gens = a.gens; a.gens = []; }
+    spawn(w, owner, from, path[0], count, path.slice(1), gens);
     return null;
   };
 
@@ -69,24 +72,33 @@
     m.done = true;
     var friendly = p.owner === m.owner || (p.owner >= 0 && W.rel(w, m.owner, p.owner).ally);
     if (friendly) {
-      if (m.route.length) { spawn(w, m.owner, p.id, m.route[0], m.count, m.route.slice(1)); return; }
+      if (m.route.length) { spawn(w, m.owner, p.id, m.route[0], m.count, m.route.slice(1), m.gens); return; }
       p.gar = (p.gar || 0) + m.count;
-      if (p.owner !== m.owner) W.log(w, 'Soldiers of ' + W.ownerName(w, m.owner) + ' join the garrison of ' + W.ownerName(w, p.owner) + ' (a gift to an ally).');
+      if (p.owner === m.owner) p.gens = W.mergeGenerals(w, p.gens, m.gens, p.gar);
+      else { goHome(w, m); W.log(w, 'Soldiers of ' + W.ownerName(w, m.owner) + ' join the garrison of ' + W.ownerName(w, p.owner) + ' (a gift to an ally).'); }
       return;
     }
-    if (!W.mayEnter(w, m.owner, p)) { w.nations[m.owner].soldiers += m.count; return; }
+    if (!W.mayEnter(w, m.owner, p)) { w.nations[m.owner].soldiers += m.count; goHome(w, m); return; }
     startFight(w, p, m);
+  }
+
+  // Generals of a march that does not join a garrison of its own nation go back to its field army.
+  function goHome(w, m) {
+    var n = w.nations[m.owner];
+    if (m.gens && m.gens.length) n.gens = W.mergeGenerals(w, n.gens, m.gens, n.soldiers || 0);
+    m.gens = [];
   }
 
   // Attackers reach a province: they join a fight already there, or start one. Fights resolve in rounds (P.fights).
   function startFight(w, p, m) {
     if (p.fight) {
       p.fight.count += m.count;
-      if (p.fight.a0 !== undefined) p.fight.a0 += m.count;    // a phased fight already under way: the waves grow too
+      if (p.fight.a0 !== undefined) p.fight.a0 += m.count;    // a fight already under way: the waves grow too
+      p.fight.gens = W.mergeGenerals(w, p.fight.gens, m.gens, p.fight.count);
       W.log(w, m.count + ' more soldiers of ' + W.ownerName(w, m.owner) + ' join the fight at ' + W.aLabel(p.tier) + '.');
       return;
     }
-    p.fight = { owner: m.owner, count: m.count, from: m.from, t: 0, rounds: 0 };
+    p.fight = { owner: m.owner, count: m.count, from: m.from, t: 0, rounds: 0, gens: m.gens || [] };
     W.log(w, W.ownerName(w, m.owner) + ' attacks ' + W.aLabel(p.tier) + ' of ' + W.ownerName(w, p.owner) + ' with ' + Math.floor(m.count) + ' soldiers.');
     bus.emit('fight:new', { prov: p.id, you: p.owner === w.you || m.owner === w.you });
   }
@@ -116,11 +128,7 @@
     f.count = Math.max(0, A);
     p.gar = Math.max(0, D);
     f.rounds = (f.rounds || 0) + 1;
-    if (f.count < 1) {
-      p.fight = null;
-      W.log(w, W.ownerName(w, p.owner) + ' holds ' + W.aLabel(p.tier) + ' against ' + W.ownerName(w, f.owner) + '.');
-      return;
-    }
+    if (f.count < 1) return holdFight(w, p, f);
     if (p.gar < 1) takeFight(w, p);
   }
 
@@ -165,16 +173,17 @@
   // config.js. shA and shD: how shaken each side is from earlier routs (1 is steady). Pure, so it can be tested on its own.
   P.waveRound = function (a, d, def, shA, shD, rnd, genA, genD) {
     var c = K().FIGHT, r = rnd || Math.random;
+    var mA = genA === true ? c.GENERAL_MUL : (genA || 1), mD = genD === true ? c.GENERAL_MUL : (genD || 1);   // generals
     var aliveA = a, aliveD = d, lostA = 0, lostD = 0, routA = false, routD = false;
     c.STRIKES.forEach(function (s) {
       if (aliveA <= 0 || aliveD <= 0) return;
       var noise = 1 + c.NOISE * (2 * r() - 1), k;
       if (s[0] === 'a') {
-        k = Math.min(aliveD, Math.min(aliveA, s[1] * a) * c.KILL_A * (1 - def) * (shA || 1) * (routA ? c.ROUT_STRIKE : 1) * (genA ? c.GENERAL_MUL : 1) * noise);
+        k = Math.min(aliveD, Math.min(aliveA, s[1] * a) * c.KILL_A * (1 - def) * (shA || 1) * (routA ? c.ROUT_STRIKE : 1) * mA * noise);
         aliveD -= k; lostD += k;
         if (lostD >= c.BREAK * d) routD = true;
       } else {
-        k = Math.min(aliveA, Math.min(aliveD, s[1] * d) * c.KILL_D * (1 + def) * (shD || 1) * (routD ? c.ROUT_STRIKE : 1) * (genD ? c.GENERAL_MUL : 1) * noise);
+        k = Math.min(aliveA, Math.min(aliveD, s[1] * d) * c.KILL_D * (1 + def) * (shD || 1) * (routD ? c.ROUT_STRIKE : 1) * mD * noise);
         aliveA -= k; lostA += k;
         if (lostA >= c.BREAK * a) routA = true;
       }
@@ -194,7 +203,8 @@
     if (D < 1) return takeFight(w, p);
     var last = (f.rounds || 0) >= f.n - 1;
     var ca = last ? A : Math.min(A, f.a0 / f.n), cd = last ? D : Math.min(D, f.d0 / f.n);   // the last round commits everyone
-    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD, null, f.a0 >= c.GENERAL, f.d0 >= c.GENERAL);
+    var genA = W.genMul(w, f.gens, c.GENERAL_MUL, W.GEN.BATTLE_STAR), genD = W.genMul(w, p.gens, c.GENERAL_MUL, W.GEN.BATTLE_STAR);
+    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD, null, genA, genD);
     f.count = Math.max(0, A - r.lostA);
     p.gar = Math.max(0, D - r.lostD);
     if (r.routA) f.shA = Math.max(0.5, f.shA * c.SHAKEN);
@@ -213,10 +223,12 @@
   // The defenders hold. Attackers still alive withdraw to the province they came from (or their field army).
   function holdFight(w, p, f) {
     p.fight = null;
-    var left = Math.floor(f.count);
+    W.recordFight(w, p.gens, f.gens);
+    var left = Math.floor(f.count), gens = left >= W.GEN.KEEP ? f.gens : W.loseGenerals(w, f.gens, 'the attack was beaten');
     if (left >= 1) {
       var src = w.provs[f.from];
-      if (src && src.owner === f.owner) src.gar = (src.gar || 0) + left; else w.nations[f.owner].soldiers += left;
+      if (src && src.owner === f.owner) { src.gar = (src.gar || 0) + left; src.gens = W.mergeGenerals(w, src.gens, gens, src.gar); }
+      else { var n = w.nations[f.owner]; n.soldiers += left; n.gens = W.mergeGenerals(w, n.gens, gens, n.soldiers); }
     }
     W.log(w, W.ownerName(w, p.owner) + ' holds ' + W.aLabel(p.tier) + ' against ' + W.ownerName(w, f.owner) + (left >= 1 ? ' (' + left + ' attackers withdraw).' : '.'));
   }
@@ -233,7 +245,10 @@
   function takeFight(w, p) {
     var f = p.fight, before = p.owner;
     p.fight = null;
+    W.recordFight(w, f.gens, p.gens);
+    W.loseGenerals(w, p.gens, 'the province fell');
     W.capture(w, p, f.owner, f.count);
+    p.gens = f.gens || [];
     P.claimGroup(w, p);
     W.log(w, W.ownerName(w, f.owner) + ' takes ' + W.aLabel(p.tier) + ' from ' + W.ownerName(w, before) + '.');
     XW.country.checkFallen(w);
@@ -267,9 +282,9 @@
       var secs = Math.max(0, (len - (f.t || 0)) / (W.CONFIG.FIGHT_CLOCK === 'real' ? 1 : W.rateFor(w, w.view.scale)));
       var n = f.n || Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
       var mood = function (rout, sh) { return rout ? ' (routing)' : sh < 1 ? ' (shaken)' : ''; };
-      var G = K().FIGHT.GENERAL, star = function (n0) { return n0 >= G ? ' ⭐' : ''; };
-      return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + star(f.a0 === undefined ? f.count : f.a0) + mood(f.routA, f.shA || 1) +
-        ' · defenders ' + Math.floor(p.gar || 0) + star(f.d0 === undefined ? (p.gar || 0) : f.d0) + mood(f.routD, f.shD || 1);
+      var star = function (ids) { var t = W.genText(w, ids); return t ? ' ' + t : ''; };
+      return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + star(f.gens) + mood(f.routA, f.shA || 1) +
+        ' · defenders ' + Math.floor(p.gar || 0) + star(p.gens) + mood(f.routD, f.shD || 1);
     }
     var rate = W.rateFor(w, w.view.scale);
     var next = Math.max(0, (W.CONFIG.FIGHT_ROUND - (f.t || 0)) / rate);
@@ -380,7 +395,7 @@
       if (m.done) return;
       var slow = towers(w, m, dt);
       if (m.done) return;
-      var speed = K().SPEED * slow * (P.riverBetween(w, m.from, m.to) ? K().RIVER_SLOW : 1);
+      var speed = K().SPEED * slow * (P.riverBetween(w, m.from, m.to) ? K().RIVER_SLOW : 1) * (m.gens && m.gens.length ? W.GEN.SPEED : 1);
       m.p += speed * dt / marchLen(w, m);
     });
     clashOnRoads(w);
@@ -391,7 +406,7 @@
   // Leaving the province: every march finishes at once, so no soldiers are left on a road the country map cannot show.
   P.settle = function (w, win) {
     for (var i = 0; i < 2000 && w.marches.length; i++) P.step(w, win, K().SETTLE_STEP, { grow: false });
-    w.marches.forEach(function (m) { w.nations[m.owner].soldiers += m.count; });   // anything still out goes home
+    w.marches.forEach(function (m) { w.nations[m.owner].soldiers += m.count; goHome(w, m); });   // anything still out goes home
     w.marches = [];
   };
 

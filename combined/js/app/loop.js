@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var XW = window.XW, A = XW.app, W = XW.world, C = XW.country, bus = XW.core.bus;
-  var last = null, saveT = 0, glanceT = 0, dirty = false, pendingRender = false, running = false;
+  var last = null, saveT = 0, glanceT = 0, genT = 0, dirty = false, pendingRender = false, running = false;
 
   // Save on this device at once, and to the family database (at once for a turn or a battle, otherwise when due).
   A.saveNow = function (reason) {
@@ -36,6 +36,8 @@
       A.views[w.view.scale].tick(w, dt);
       glanceT += dt;
       if (glanceT > 0.25) { glanceT = 0; A.glance.clock(w); A.glance.numbers(w); }
+      genT += dt;
+      if (genT >= 1) { genT = 0; W.tendGenerals(w); }
       saveT += dt;
       if (saveT > W.CONFIG.AUTOSAVE) { saveT = 0; W.saveLocal(w); W.cloud.sync(w, false); }
     }

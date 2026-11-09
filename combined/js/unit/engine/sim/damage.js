@@ -42,15 +42,19 @@
   }
 
   // Damage is worked out for every hit first, then applied together, so the order of hits does not favour a side.
-  // True when unit a is within its side's general's aura (the general's own unit included).
-  function inAura(st, a) {
+  // The strongest aura of its side's generals that unit a stands in (the general's own unit included), or 1 for none.
+  function auraMul(st, a) {
+    var best = 1;
     for (var i = 0; i < st.units.length; i++) {
       var g = st.units[i];
-      if (g.general && g.side === a.side && g.state === 'active' && K.dist(g.x, g.y, a.x, a.y) <= C.GENERAL.radius) return true;
+      if (g.general && g.side === a.side && g.state === 'active' && K.dist(g.x, g.y, a.x, a.y) <= C.GENERAL.radius) {
+        best = Math.max(best, C.GENERAL.mul + C.GENERAL.star * (g.stars || 0));
+      }
     }
-    return false;
+    return best;
   }
-  K.inAura = inAura;
+  K.auraMul = auraMul;
+  K.inAura = function (st, a) { return auraMul(st, a) > 1; };
 
   function applyHits(st, hits) {
     var pending = [];
@@ -62,7 +66,7 @@
       var code = K.tileCode(st, b.x, b.y);
 
       var base = U.atk * a.atkMul;
-      if (K.inAura(st, a)) base *= C.GENERAL.mul;
+      base *= auraMul(st, a);
       if (h.burst) base *= C.STRIKE.mul;
       if (K.fatigueOn(st)) base *= 1 - C.FATIGUE.atkLoss * a.fat / 100;
       if (!U.melee && h.d < 1.2) base *= C.RANGED_IN_MELEE;
