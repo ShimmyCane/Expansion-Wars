@@ -335,3 +335,12 @@ Unit battles
 - [x] **Scouts and heavy cavalry** (question 12). The old cavalry are the Scouts (sight 24, good against archers, bad against pikemen), third in the unlock order: pikemen, archers, scouts, swordsmen, slingers, catapults. Heavy cavalry is a new unit (🦬): strong against archers, slingers, catapults and swordsmen, weak against pikemen.
 - [x] **The general is the heavy cavalry** (question 13): an army of 100 or more gets one squad of it; its aura lifts nearby units 50%; when it is destroyed, every unit of its side loses 25 morale. At province level the general bonus (10%) now starts at 100 soldiers.
 
+## Generals that last (world/generals.js)
+
+- [x] **Forming.** Every army (a garrison, a march, the attackers of a fight, a nation's field army) gets a general at 100 soldiers and a second at 500. A general stays with its army as it shrinks, until the army is under 25; then it is lost.
+- [x] **Speed.** A march with a general moves 15% faster.
+- [x] **Record and stars.** A won fight is +1 for every general in it, a lost one -1. Stars at a score of 2, 4, 8, 16 (one star each). Each star: +15% to the general's own strength and its aura in unit battles; +5% in province battles (on top of the general's 10%) and in country attacks.
+- [x] **Merging.** Armies that join pool their generals; the strongest leads, and the army keeps as many as its size allows (one, or two from 500). Generals go with the bigger part of an army that splits.
+- [x] **On screen:** ⭐ and stars on provinces and marches, the selected province's generals (who leads, wins, losses) on the card, ⭐★ on the general's squad in battle and in fight lines.
+- [ ] **Decide:** stars at 16 wins (2ⁿ gives four; the note said three). Convo v0.21 question 14.
+

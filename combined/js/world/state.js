@@ -14,7 +14,8 @@
 //   rivers[]                          the province ids each river runs between
 //   rel{ 'i-j' }                      war, trade, ally, truce, rep between two nations
 //   queue[]                           country orders waiting for the end of the turn
-//   marches[]                         soldiers on the road at province scale (owner, from, to, count, p, route)
+//   marches[]                         soldiers on the road at province scale (owner, from, to, count, p, route, gens)
+//   generals{ id }                    every general (owner, name, wins, losses); armies hold their ids in .gens (world/generals.js)
 //   battle                            the battle being fought at unit scale, or null (see unit/bridge.js)
 //   battles[]                         finished battles (who, where, the result)
 //   view: { scale, prov, sendPct,     where the player was looking, so a reload comes back there, and the share of an

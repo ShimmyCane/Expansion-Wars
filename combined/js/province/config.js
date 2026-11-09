@@ -42,8 +42,8 @@
       // At the end of a round, a side that routed and is outnumbered OVERWHELM to one (counting the ground) breaks: the rest
       // of the defenders give up the province at once, or the rest of the attackers pull back with what they have left.
       OVERWHELM: 10,
-      // An army of GENERAL soldiers or more at the start of a fight has a general: its strikes are GENERAL_MUL times as hard.
-      GENERAL: 100, GENERAL_MUL: 1.1,
+      // A side with a general (world/generals.js) strikes GENERAL_MUL times as hard, and 5% more for each of its lead general's stars.
+      GENERAL_MUL: 1.1,
       NOISE: 0.1
     },
     // Computer players in the window: how often they think, the share they send, the least garrison that moves,

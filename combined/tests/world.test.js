@@ -745,6 +745,108 @@ t.test('hard: the computer claims land every turn while there is any, then goes 
   }
 });
 
+// ---- generals ---------------------------------------------------------------------------------------------------
+t.test('generals: an army of 100 gets one, 500 two; once formed one stays until the army is under 25', () => {
+  const { XW, w } = fresh(51);
+  const W = XW.world, p = w.provs.find(q => q.kind === 'province' && q.owner === w.you);
+  p.gar = 99; W.tendGenerals(w);
+  assert.strictEqual((p.gens || []).length, 0, '99: none');
+  p.gar = 120; W.tendGenerals(w);
+  assert.strictEqual(p.gens.length, 1, '120: one');
+  p.gar = 520; W.tendGenerals(w);
+  assert.strictEqual(p.gens.length, 2, '520: two');
+  p.gar = 40; W.tendGenerals(w);
+  assert.strictEqual(p.gens.length, 2, 'they stay as the army shrinks');
+  const ids = p.gens.slice();
+  p.gar = 24; W.tendGenerals(w);
+  assert.strictEqual(p.gens.length, 0, 'under 25: lost');
+  ids.forEach(id => assert.strictEqual(W.general(w, id), null));
+});
+
+t.test('generals: wins +1 and losses -1; stars at 2, 4, 8 and 16', () => {
+  const { XW } = fresh(1);
+  const W = XW.world, star = (wins, losses) => W.stars({ wins, losses: losses || 0 });
+  assert.deepStrictEqual([star(0), star(1), star(2), star(3), star(4), star(7), star(8), star(16)], [0, 0, 1, 1, 2, 2, 3, 4]);
+  assert.strictEqual(star(5, 3), 1, '5 wins and 3 losses score 2: one star');
+});
+
+t.test('a march with a general moves 15% faster', () => {
+  const { XW, w } = fresh(52);
+  const pair = neutralNextToYou(w), win = XW.province.window(w, pair.mine.id);
+  pair.mine.gar = 300; XW.world.tendGenerals(w);
+  XW.province.send(w, win, w.you, pair.mine.id, pair.target.id, 100);     // the whole garrison: its general goes too
+  const led = w.marches[w.marches.length - 1];
+  assert.strictEqual(led.gens.length, 1, 'the general marches with the bigger part');
+  const plain = Object.assign({}, led, { id: 999, gens: [] });
+  w.marches.push(plain);
+  XW.province.step(w, win, 0.5, { grow: false });
+  assert.ok(Math.abs(led.p / plain.p - 1.15) < 1e-6, 'with the general: ' + (led.p / plain.p).toFixed(3) + ' times as far');
+});
+
+t.test('when two armies join, the strongest general leads and the army keeps as many as its size allows', () => {
+  const { XW, w } = fresh(53);
+  const W = XW.world, p = w.provs.find(q => q.kind === 'province' && q.owner === w.you);
+  p.gar = 100; W.tendGenerals(w);
+  const weak = p.gens[0];
+  const q = w.provs.find(x => x.kind === 'province' && x.owner === w.you && x.id !== p.id);
+  q.gar = 100; W.tendGenerals(w);
+  const strong = q.gens[0];
+  W.general(w, strong).wins = 4;                                         // two stars
+  const both = W.mergeGenerals(w, p.gens, q.gens, 200);
+  assert.deepStrictEqual(Array.from(both), [strong], 'one army of 200: one general, the strongest');
+  assert.strictEqual(W.general(w, weak), null);
+  const r = fresh(54), W2 = r.XW.world;
+  const a = W2.fitGenerals(r.w, 0, [], 300), b = W2.fitGenerals(r.w, 0, [], 300);
+  assert.strictEqual(W2.mergeGenerals(r.w, a, b, 600).length, 2, 'an army of 600 keeps two');
+});
+
+t.test('a fight decides: the winners\' generals +1, the losers\' -1; a province lost loses its generals', () => {
+  const { XW, w } = fresh(55);
+  const W = XW.world, pair = neutralNextToYou(w);
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
+  const g = W.fitGenerals(w, w.you, [], 150)[0];
+  pair.target.gar = 10;
+  pair.target.fight = { owner: w.you, count: 150, from: pair.mine.id, t: 0, rounds: 0, gens: [g] };
+  for (let i = 0; i < 20 && pair.target.fight; i++) XW.province.fights(w, 0, 1);
+  assert.strictEqual(pair.target.owner, w.you);
+  assert.strictEqual(W.general(w, g).wins, 1, 'a win');
+  assert.deepStrictEqual(Array.from(pair.target.gens), [g], 'the general holds the province it took');
+  // A defence with a general that holds.
+  const other = w.provs.find(q => q.kind === 'province' && q.owner < 0 && q.id !== pair.target.id && pair.target.adj.includes(q.id)) || w.provs.find(q => q.kind === 'province' && q.owner < 0);
+  const lossG = W.fitGenerals(w, w.you, [], 120)[0];
+  other.gar = 400; other.tier = 'f';
+  other.fight = { owner: w.you, count: 60, from: pair.target.id, t: 0, rounds: 0, gens: [lossG] };
+  for (let i = 0; i < 20 && other.fight; i++) XW.province.fights(w, 0, 1);
+  const lg = W.general(w, lossG);
+  assert.ok(!lg || lg.losses === 1, 'a loss (or lost with its army)');
+});
+
+t.test('province battles: a general adds 10%, and 5% more for each star', () => {
+  const { XW, w } = fresh(56);
+  const W = XW.world, g = W.fitGenerals(w, 0, [], 150)[0];
+  assert.strictEqual(W.genMul(w, [], 1.1, 0.05), 1);
+  assert.ok(Math.abs(W.genMul(w, [g], 1.1, 0.05) - 1.1) < 1e-9);
+  W.general(w, g).wins = 8;                                              // three stars
+  assert.ok(Math.abs(W.genMul(w, [g], 1.1, 0.05) - 1.1 * 1.15) < 1e-9);
+});
+
+t.test('unit battles: an army of 500 brings two heavy cavalry generals; each star lifts strength and aura 15%', () => {
+  const { XW, w, ctx } = fresh(57);
+  const W = XW.world, V4 = ctx.V4, pair = neutralNextToYou(w);
+  pair.mine.gar = 600; W.tendGenerals(w);
+  W.general(w, pair.mine.gens[0]).wins = 4;                              // two stars
+  pair.target.gar = 60;
+  const req = XW.unit.requestFor(w, pair.mine.id, pair.target.id, 520);
+  assert.strictEqual(req.attacker.units.find(u => u.type === 'heavy').count, 2);
+  assert.strictEqual(JSON.stringify(req.attacker.generals), JSON.stringify([2, 0]), 'the strongest first');
+  const st = V4.createBattle(req, {});
+  const gens = st.units.filter(u => u.general && u.side === 0);
+  assert.strictEqual(gens.length, 2);
+  const lead = gens.find(u => u.stars === 2);
+  assert.ok(lead && Math.abs(lead.atkMul - 1.3) < 1e-9, 'two stars: 30% stronger');
+  assert.ok(Math.abs(V4._.auraMul(st, lead) - (1.5 + 0.3)) < 1e-9, 'and its aura 1.8');
+});
+
 t.test('taking the last province of the last opponent wins', () => {
   const { XW, w } = fresh(780);
   w.nations.forEach(k => { if (k.id !== w.you && k.id !== 1) { w.provs.forEach(p => { if (p.owner === k.id) p.owner = -1; }); k.alive = false; } });

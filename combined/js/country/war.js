@@ -58,7 +58,9 @@
     parts.forEach(function (p) { w.used[p.id] = true; });
     var sent = parts.reduce(function (s, p) { return s + p.sent; }, 0);
     var coord = C.coordFactor(parts.length);
-    var strength = parts.reduce(function (s, p) { return s + p.strength; }, 0) * coord;
+    // Generals of the field armies: each star of the lead general adds 5% (world/generals.js).
+    var genA = W.genMul(w, a.gens, 1, W.GEN.BATTLE_STAR);
+    var strength = parts.reduce(function (s, p) { return s + p.strength; }, 0) * coord * genA;
     var qa = strength / sent;
     var entry = w.provs[R.entry], front = C.featureDef(w, entry) / 2;
     var field = b.soldiers, gar = entry.gar || 0, d0 = field + gar;
@@ -66,7 +68,8 @@
     b.magic -= dSpent;
     var defBonus = 1 + (d0 > 0 ? dSpent / d0 : 0);
     if (dSpent >= 1) W.log(w, b.name + ' spends ' + Math.floor(dSpent) + ' magic on the defence.');
-    var perDef = C.quality(b) * (1 + K().FORT_BONUS * C.count(w, b, 'f')) * K().DEFENDER * front * defBonus;
+    var defGens = (b.gens || []).concat(entry.gens || []);
+    var perDef = C.quality(b) * (1 + K().FORT_BONUS * C.count(w, b, 'f')) * K().DEFENDER * front * defBonus * W.genMul(w, defGens, 1, W.GEN.BATTLE_STAR);
     var defence = d0 * perDef, grade = C.weakestGrade(w, b);
     var pool = sent, d = d0;
     for (var k = 0; k < K().WAVES && pool >= 1 && d > 0; k++) {
@@ -102,6 +105,7 @@
       home(Math.max(0, pool));
       W.log(w, b.name + ' holds against ' + a.name + '.');
     }
+    if (taken.length || ratio >= K().SURRENDER) W.recordFight(w, a.gens, defGens); else W.recordFight(w, defGens, a.gens);
     var winner = taken.length ? a : b, gain = K().CULTURE[grade] * C.foodMult(winner);
     winner.culture += gain;
     W.log(w, winner.name + ' earns culture +' + gain.toFixed(1) + (taken.length ? '.' : ' for holding.'));
