@@ -314,4 +314,5 @@ Answers to `convo/convo v0.20.md`.
 - [ ] **Flaky test:** "the computer offers peace" fails about one run in six (before this round too); seed the computer's choice.
 - [x] **Rounds no longer than 5 seconds**, in real time at every scale: 1 second in province battles, 3 in the campaign (`FIGHT_SECONDS`).
 - [x] **Level 1 has two opponents**; the ladder starts from there.
+- [x] **A hopeless side breaks at once.** At the end of a round, a side that routed and is outnumbered 10 to 1 (counting the ground) breaks: 144 against 11 is over in the first round, and a crushed attack pulls back with its survivors (`OVERWHELM`). The fitted targets still hold (500 v 100 ends in round 4 with about 479).
 

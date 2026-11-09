@@ -71,6 +71,8 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
 "On level one you should have more than one opponent on your map." Level 1 now has two opponents, and the ladder starts from there: two opponents on levels 1 and 2, three on levels 3 and 4, two against you and an ally on level 5, four on level 6, and three teams of two on level 7.
 
+"If I have 144 against 11 defenders, I expected it to be over in the first round." Right: each round only committed its share, so most of the 11 waited for later rounds however hopeless it was. Now, at the end of a round, a side that routed and is outnumbered 10 to 1 (counting the ground) breaks. 144 against 11 is over in the first round, at a village or a city, with almost no losses. A crushed attack pulls back with its survivors, so withdrawals are back (question 4). The fitted targets still hold: 100 v 100 the defenders keep about 89, 200 v 100 the attackers keep about 121, and 500 v 100 ends in round 4 with about 479.
+
 ## Questions
 
 1. **Round time.** You wrote "each round will take two seconds" and also that a province fight "should only take three seconds". I made a round 1 second, so a village fight (3 rounds) takes 3 seconds and a tower fight (10 rounds) 10. Two seconds a round would make them 6 and 20 seconds. Which?
@@ -85,7 +87,7 @@ A province has a grade: 0 empty dot, 1 village, 2 town, 3 city, 4 fortress, 5 fo
 
    > **Answer:**
 
-4. **Withdrawals.** With these numbers one side is always wiped out by the last round, so a beaten attack no longer comes home with survivors. Fine, or should a losing attack pull back before it is destroyed?
+4. **Withdrawals.** A crushed attack now breaks and pulls back with its survivors once it is outnumbered 10 to 1 after a rout; otherwise it fights to the end. Should a losing attack pull back sooner (say at 3 to 1)?
 
    > **Answer:**
 

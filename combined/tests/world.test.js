@@ -554,9 +554,30 @@ t.test('the ground matters: 150 v 100 takes a village but not a fortress; a towe
   assert.strictEqual(waveFights(907, 300, 100, 'f', 30, true).wins, 30, 'but not three to one');
 });
 
-t.test('a fight takes as many rounds as the ground gives: 3 at a village, 10 at a tower', () => {
-  assert.strictEqual(waveFights(908, 100, 100, 'v', 10).rounds, 30);
-  assert.strictEqual(waveFights(909, 100, 100, 'f', 10, true).rounds, 100);
+t.test('a fight takes at most as many rounds as the ground gives: 3 at a village, 10 at a tower', () => {
+  const v = waveFights(908, 100, 100, 'v', 10).rounds, f = waveFights(909, 100, 100, 'f', 10, true).rounds;
+  assert.ok(v <= 30 && v >= 20, 'village: ' + v / 10 + ' rounds a fight');
+  assert.ok(f <= 100 && f >= 80, 'tower: ' + f / 10 + ' rounds a fight (a crushed attack can break before the last)');
+});
+
+t.test('a hopeless defence breaks at once: 144 against 11 is over in the first round', () => {
+  for (const tier of ['v', 'c']) {
+    const r = waveFights(920, 144, 11, tier, 20);
+    assert.strictEqual(r.wins, 20, tier + ': taken');
+    assert.strictEqual(r.rounds, 20, tier + ': in one round each');
+    assert.ok(r.left / 20 > 140, 'almost nobody lost: ' + Math.round(r.left / 20));
+  }
+});
+
+t.test('a crushed attack breaks and pulls back with what it has left', () => {
+  const { XW, w } = fresh(921);
+  XW.world.CONFIG.FIGHT_CLOCK = 'real'; XW.world.CONFIG.FIGHT_SECONDS = 1;
+  const pair = neutralNextToYou(w);
+  pair.target.gar = 100; pair.target.tier = 'c'; pair.mine.gar = 0;
+  pair.target.fight = { owner: w.you, count: 50, from: pair.mine.id, t: 0, rounds: 0 };
+  for (let i = 0; i < 20 && pair.target.fight; i++) XW.province.fights(w, 0, 1);
+  assert.strictEqual(pair.target.owner, -1, 'the defenders hold');
+  assert.ok(pair.mine.gar > 0, 'survivors came home: ' + Math.round(pair.mine.gar));
 });
 
 t.test('a wave round: the first strike breaks a much smaller army, and the rest of the round is a rout', () => {

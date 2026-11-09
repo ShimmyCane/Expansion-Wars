@@ -203,6 +203,10 @@
     f.rounds = (f.rounds || 0) + 1;
     if (f.count < 1) return holdFight(w, p, f);
     if (p.gar < 1) return takeFight(w, p);
+    // A routed side that is hopelessly outnumbered breaks, and the fight is over now.
+    var def = P.stat('DEF', P.defGrade(w, p)), strA = f.count * (1 - def), strD = p.gar * (1 + def);
+    if (r.routD && strA >= c.OVERWHELM * strD) { W.log(w, 'The defenders of ' + W.aLabel(p.tier) + ' break and run.'); p.gar = 0; return takeFight(w, p); }
+    if (r.routA && strD >= c.OVERWHELM * strA) return holdFight(w, p, f);
     if (last) holdFight(w, p, f);                   // everyone has fought and the defenders still stand: they hold
   }
 
