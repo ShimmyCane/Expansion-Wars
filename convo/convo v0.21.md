@@ -121,15 +121,15 @@ Built and marked done in the family database: full screen for province battles w
 
 11. **Medium.** "For a medium, start with lots of resources and same AI": I gave the computer nations the extra resources (200 food, 100 gold, 40 stone), so medium is harder than easy. If you meant that you start with lots of resources, say so.
 
-   > **Answer:**
+   > **Answer:** With medium there should be no extra resources for anyone. _(Done: medium and hard give no extras; only easy's 200 food for you.)_
 
 12. **Scouts.** There is no scout unit, so I took cavalry as the scouts and tripled their sight (8 to 24 tiles). Is that right, or do you want a separate scout unit?
 
-   > **Answer:**
+   > **Answer:** Create another, heavy cavalry, unit. The first one becomes the scout, placed after archers; treated like cavalry, so OK against archers but horrible against pikemen. _(Done: cavalry are now Scouts, third in the unlock order; Heavy cavalry is a new unit.)_
 
 13. **The general.** It rides with the first line unit (pikemen or swordsmen) and lifts every unit within 4 tiles by 50%. Should it be a unit of its own, and should losing it hurt morale?
 
-   > **Answer:**
+   > **Answer:** With 100 units or more the army is complex enough to have a heavy cavalry unit. That will be the general. Having it completely defeated will hurt morale. _(Done: an army of 100 or more gets one squad of heavy cavalry, the general; when it is destroyed every unit of its side loses 25 morale. At province level the 10% general bonus now starts at 100.)_
 
 ## Notes
 

@@ -153,15 +153,15 @@ t.test('a province fight becomes a valid battle request', () => {
   assert.strictEqual(req.grain, 5, 'a squad is never under 5 soldiers');
 });
 
-t.test('armies unlock types in order: pikemen, archers, swordsmen, slingers, cavalry, catapults', () => {
+t.test('armies unlock types in order: pikemen, archers, scouts, swordsmen, slingers, catapults', () => {
   const { XW, w } = fresh(31);
   const pair = neutralNextToYou(w);
-  const ORDER = ['pikemen', 'archers', 'swordsmen', 'slingers', 'cavalry', 'catapults'];
+  const ORDER = ['pikemen', 'archers', 'cavalry', 'swordsmen', 'slingers', 'catapults'];
   const twenty = XW.unit.requestFor(w, pair.mine.id, pair.target.id, 20);
-  assert.strictEqual(JSON.stringify(twenty.attacker.units.map(u => [u.type, u.count])), JSON.stringify([['pikemen', 1], ['archers', 1], ['swordsmen', 1], ['slingers', 1]]), '20 soldiers: the first four types, one squad each');
+  assert.strictEqual(JSON.stringify(twenty.attacker.units.map(u => [u.type, u.count])), JSON.stringify([['pikemen', 1], ['archers', 1], ['cavalry', 1], ['swordsmen', 1]]), '20 soldiers: the first four types (scouts third), one squad each');
   for (let n = 5; n <= 300; n += 7) {
     const types = XW.unit.requestFor(w, pair.mine.id, pair.target.id, n).attacker.units.map(u => u.type);
-    types.forEach(t => ORDER.slice(0, ORDER.indexOf(t)).forEach(before => assert.ok(types.includes(before), n + ' soldiers: ' + t + ' without ' + before)));
+    types.filter(t => t !== 'heavy').forEach(t => ORDER.slice(0, ORDER.indexOf(t)).forEach(before => assert.ok(types.includes(before), n + ' soldiers: ' + t + ' without ' + before)));
   }
 });
 
@@ -176,19 +176,43 @@ t.test('a second squad of a type only when a squad of it would be over 10 soldie
   assert.ok(big.attacker.units.some(u => u.count === 2), '200 soldiers (squads of 20): second squads');
 });
 
-t.test('an army of more than 100 has a general on a line unit; its aura makes nearby units strike harder', () => {
+t.test('an army of 100 or more has heavy cavalry, and it is the general; its aura makes nearby units strike harder', () => {
+  const { XW, w, ctx } = fresh(31);
+  const V4 = ctx.V4, pair = neutralNextToYou(w);
+  pair.target.gar = 60;
+  const req = XW.unit.requestFor(w, pair.mine.id, pair.target.id, 150);
+  assert.ok(req.attacker.units.some(u => u.type === 'heavy' && u.count === 1), '150 soldiers: one squad of heavy cavalry');
+  assert.ok(!req.defender.units.some(u => u.type === 'heavy'), '60 soldiers: none');
+  const st = V4.createBattle(req, {});
+  const gens = st.units.filter(u => u.general);
+  assert.strictEqual(gens.length, 1);
+  assert.strictEqual(gens[0].type, 'heavy');
+  assert.strictEqual(gens[0].side, 0);
+  const near = st.units.find(u => u.side === 0 && !u.general && Math.hypot(u.x - gens[0].x, u.y - gens[0].y) <= V4.CONFIG.GENERAL.radius);
+  if (near) assert.ok(V4._.inAura(st, near), 'a unit near the general is in its aura');
+  assert.ok(!XW.unit.requestFor(w, pair.mine.id, pair.target.id, 99).attacker.units.some(u => u.type === 'heavy'), '99 soldiers: no heavy cavalry');
+});
+
+t.test('when the general is destroyed, every unit of its side loses morale', () => {
   const { XW, w, ctx } = fresh(31);
   const V4 = ctx.V4, pair = neutralNextToYou(w);
   pair.target.gar = 60;
   const st = V4.createBattle(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 150), {});
-  const gens = st.units.filter(u => u.general);
-  assert.strictEqual(gens.length, 1, 'one general, on the side of 150');
-  assert.strictEqual(gens[0].side, 0);
-  assert.ok(['pikemen', 'swordsmen'].includes(gens[0].type));
-  const near = st.units.find(u => u.side === 0 && !u.general && Math.hypot(u.x - gens[0].x, u.y - gens[0].y) <= V4.CONFIG.GENERAL.radius);
-  if (near) assert.ok(V4._.inAura(st, near), 'a unit near the general is in its aura');
-  const small = V4.createBattle(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 80), {});
-  assert.strictEqual(small.units.filter(u => u.general).length, 0, 'no general at 80 against 60');
+  const g = st.units.find(u => u.general), others = st.units.filter(u => u.side === 0 && !u.general);
+  const before = others.map(u => u.morale);
+  g.people = 0.000001; g.incoming = 1; g.hitThis = 1;
+  for (let i = 0; i < 3 && g.state === 'active'; i++) V4.step(st);
+  assert.strictEqual(g.state, 'dead', 'the general falls');
+  others.forEach((u, i) => { if (u.state === 'active') assert.ok(u.morale <= before[i] - V4.CONFIG.GENERAL.loss + 1, u.type + ' morale ' + before[i] + ' -> ' + u.morale); });
+});
+
+t.test('heavy cavalry beats archers and swordsmen, and is beaten by pikemen; scouts are good against archers, bad against pikemen', () => {
+  const { ctx } = fresh(1);
+  const C = ctx.V4.CONFIG;
+  assert.ok(C.STRONG.heavy.includes('archers') && C.STRONG.heavy.includes('swordsmen'));
+  assert.ok(C.WEAK.heavy.includes('pikemen') && C.STRONG.pikemen.includes('heavy'));
+  assert.ok(C.STRONG.cavalry.includes('archers') && C.WEAK.cavalry.includes('pikemen'));
+  assert.strictEqual(C.UNIT.cavalry.label, 'Scouts');
 });
 
 t.test('scouts (cavalry) see three times as far as before', () => {
@@ -618,10 +642,10 @@ t.test('wave fights at city level fit the targets: 100 v 100 holds, 200 v 100 le
 });
 
 t.test('the ground matters: 150 v 100 takes a village but not a fortress; a tower needs about 3 to 1', () => {
-  assert.strictEqual(waveFights(904, 150, 100, 'v', 30).wins, 30);
+  assert.ok(waveFights(904, 150, 100, 'v', 30).wins >= 27, 'nearly always takes a village (a defence of 100 has a general too)');
   assert.strictEqual(waveFights(905, 150, 100, 'f', 30).wins, 0);
   assert.strictEqual(waveFights(906, 200, 100, 'f', 30, true).wins, 0, 'a tower holds against two to one');
-  assert.strictEqual(waveFights(907, 300, 100, 'f', 30, true).wins, 30, 'but not three to one');
+  assert.ok(waveFights(907, 300, 100, 'f', 30, true).wins >= 27, 'but it nearly always falls to three to one (both sides have a general)');
 });
 
 t.test('a fight takes at most as many rounds as the ground gives: 3 at a village, 10 at a tower', () => {
@@ -688,7 +712,7 @@ t.test('fights run in waves on real time: a round is 3 seconds in the campaign, 
   assert.ok(XW.world.CONFIG.FIGHT_SECONDS <= 5);
 });
 
-t.test('difficulty: easy gives you 200 more food; medium and hard make the computer nations rich', () => {
+t.test('difficulty: easy gives you 200 more food; medium and hard give no extra resources to anyone', () => {
   const easy = fresh(41), before = easy.w.nations.map(n => n.food);
   assert.strictEqual(easy.XW.country.applyDifficulty(easy.w, 'easy'), null);
   assert.strictEqual(easy.w.nations[easy.w.you].food, before[easy.w.you] + 200);
@@ -696,7 +720,7 @@ t.test('difficulty: easy gives you 200 more food; medium and hard make the compu
   const med = fresh(41), mb = med.w.nations.map(n => [n.food, n.gold, n.stone]);
   med.XW.country.applyDifficulty(med.w, 'medium');
   assert.strictEqual(med.w.nations[med.w.you].food, mb[med.w.you][0], 'you as you were');
-  med.w.nations.forEach((n, i) => { if (i !== med.w.you) assert.ok(n.food === mb[i][0] + 200 && n.gold === mb[i][1] + 100 && n.stone === mb[i][2] + 40); });
+  med.w.nations.forEach((n, i) => assert.ok(n.food === mb[i][0] && n.gold === mb[i][1] && n.stone === mb[i][2], 'nobody gets extra'));
   assert.strictEqual(med.w.difficulty, 'medium');
 });
 

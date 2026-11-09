@@ -14,12 +14,12 @@
     var want = woods.length ? Math.floor(units.length * C.AI.ambushShare) : 0;
     var ambushers = 0, stations = 0;
     units.forEach(function (u) {
-      if (ambushers < want && u.type !== 'cavalry' && u.type !== 'catapults') {
+      if (ambushers < want && u.type !== 'cavalry' && u.type !== 'heavy' && u.type !== 'catapults') {
         var w = woods[ambushers % woods.length];
         u.x = w.x; u.y = w.y;
         u.strategy = 'ambush'; u.plan.strategy = 'ambush';
         ambushers++;
-      } else if (u.type === 'cavalry') {
+      } else if (u.type === 'cavalry' || u.type === 'heavy') {
         u.station = { x: c.x - 4, y: stations % 2 ? st.rows / 2 - 5 : st.rows / 2 + 5 };
         stations++;
       } else {

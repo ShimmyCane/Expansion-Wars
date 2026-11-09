@@ -25,8 +25,8 @@
     // (HARD_RATIO) and leaving alone one that is already fighting two or more (no ganging up).
     DIFFICULTY: {
       easy: { label: 'Easy', you: { food: 200 }, ai: {}, hard: false, note: 'You start with 200 more food. The computer plays as it always has.' },
-      medium: { label: 'Medium', you: {}, ai: { food: 200, gold: 100, stone: 40 }, hard: false, note: 'The computer nations start with plenty: 200 food, 100 gold, 40 stone. Same computer.' },
-      hard: { label: 'Hard', you: {}, ai: { food: 200, gold: 100, stone: 40 }, hard: true, note: 'As medium, and the computer expands as fast as it can, then goes to war strategically.' }
+      medium: { label: 'Medium', you: {}, ai: {}, hard: false, note: 'No extra resources for anyone. The computer plays as it always has.' },
+      hard: { label: 'Hard', you: {}, ai: {}, hard: true, note: 'No extra resources. The computer expands as fast as it can, then goes to war strategically.' }
     },
     HARD_RATIO: 1.3,
     OFFER_TURNS: 2,                  // a ceasefire offered to you stands for this many turns, then lapses

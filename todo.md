@@ -331,4 +331,7 @@ Unit battles
 - [x] **Generals.** An army of more than 100 has a general: in the battle, on a line unit, with a ⭐, and every unit of its side within 4 tiles strikes 50% harder; at province level, its side strikes 10% harder (⭐ in the fight line). With the general, 200 v 100 at a city now leaves the attackers about 132 (121 before).
 - [x] **Scouts see three times as far:** cavalry sight 8 → 24 tiles.
 - [ ] **Battle balance** after team movement, generals and scout sight: the matrix moved and is not re-tuned.
+- [x] **Medium and hard give no extra resources** to anyone (convo v0.21 question 11). Easy keeps your 200 food.
+- [x] **Scouts and heavy cavalry** (question 12). The old cavalry are the Scouts (sight 24, good against archers, bad against pikemen), third in the unlock order: pikemen, archers, scouts, swordsmen, slingers, catapults. Heavy cavalry is a new unit (🦬): strong against archers, slingers, catapults and swordsmen, weak against pikemen.
+- [x] **The general is the heavy cavalry** (question 13): an army of 100 or more gets one squad of it; its aura lifts nearby units 50%; when it is destroyed, every unit of its side loses 25 morale. At province level the general bonus (10%) now starts at 100 soldiers.
 

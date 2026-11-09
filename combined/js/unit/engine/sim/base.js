@@ -59,7 +59,7 @@
   // Cavalry are half a grain, catapults a crew of up to four.
   function peopleFor(scale, type) {
     var g = typeof scale === 'number' ? scale : C.GRAIN[scale];
-    if (type === 'cavalry') return Math.max(1, Math.round(g / 2));
+    if (type === 'cavalry' || type === 'heavy') return Math.max(1, Math.round(g / 2));
     if (type === 'catapults') return Math.max(1, Math.min(4, g));
     return g;
   }
