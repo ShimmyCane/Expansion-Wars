@@ -42,7 +42,7 @@
       // At the end of a round, a side that routed and is outnumbered OVERWHELM to one (counting the ground) breaks: the rest
       // of the defenders give up the province at once, or the rest of the attackers pull back with what they have left.
       OVERWHELM: 10,
-      // An army of more than GENERAL soldiers at the start of a fight has a general: its strikes are GENERAL_MUL times as hard.
+      // An army of GENERAL soldiers or more at the start of a fight has a general: its strikes are GENERAL_MUL times as hard.
       GENERAL: 100, GENERAL_MUL: 1.1,
       NOISE: 0.1
     },

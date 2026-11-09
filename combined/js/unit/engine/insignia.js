@@ -4,7 +4,7 @@
   'use strict';
   var V4 = window.V4;
   V4.INSIGNIA = {
-    animal: { cavalry: '🐴', pikemen: '🐗', swordsmen: '🐺', archers: '🐇', slingers: '🦊', catapults: '🐻' },
+    animal: { cavalry: '🐴', pikemen: '🐗', swordsmen: '🐺', archers: '🐇', slingers: '🦊', catapults: '🐻', heavy: '🦬' },
     frame: ['#4a7bd0', '#d05a4a']
   };
 })();

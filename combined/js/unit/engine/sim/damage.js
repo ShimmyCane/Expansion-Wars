@@ -115,6 +115,10 @@
         u.people = 0;
         u.state = 'dead';
         K.log(st, K.name(u.side) + ' ' + C.UNIT[u.type].label.toLowerCase() + ' is destroyed.');
+        if (u.general) {                            // the general has fallen: the whole side is shaken
+          st.units.forEach(function (v) { if (v.side === u.side && v.state === 'active') v.morale = Math.max(0, v.morale - C.GENERAL.loss); });
+          K.log(st, K.name(u.side) + ' general has fallen.');
+        }
         boostNear(st, u.side, u.x, u.y, C.MORALE.enemyFleeRange, C.MORALE.death, true);
       }
     });

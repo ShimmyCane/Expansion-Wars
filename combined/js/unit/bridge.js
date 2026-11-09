@@ -10,16 +10,18 @@
   var V4 = window.V4;
 
   // The army a side brings. Soldiers become squads (dots) of at least MIN_SQUAD soldiers, in the unlock order: a type
-  // joins only once every type before it is in (pikemen, archers, swordsmen, slingers, cavalry, catapults). A second squad
-  // of a type comes only when a squad of it would be more than SPLIT_OVER soldiers; otherwise there is just one.
-  var ORDER = ['pikemen', 'archers', 'swordsmen', 'slingers', 'cavalry', 'catapults'];
-  var MAX_DOTS = 10, MIN_SQUAD = 5, SPLIT_OVER = 10;
+  // joins only once every type before it is in (pikemen, archers, scouts, swordsmen, slingers, catapults). A second squad
+  // of a type comes only when a squad of it would be more than SPLIT_OVER soldiers; otherwise there is just one. An army of
+  // GENERAL_AT or more first gets one squad of heavy cavalry: its general.
+  var ORDER = ['pikemen', 'archers', 'cavalry', 'swordsmen', 'slingers', 'catapults'];
+  var MAX_DOTS = 10, MIN_SQUAD = 5, SPLIT_OVER = 10, GENERAL_AT = 100;
 
   // People in one squad for a battle of these sizes: the bigger side fields MAX_DOTS squads, and a squad is never under MIN_SQUAD.
   U.grainFor = function (a, d) { return Math.max(MIN_SQUAD, Math.ceil(Math.max(a, d, 1) / MAX_DOTS)); };
 
   function army(side, soldiers, grain, strategy) {
     var left = soldiers, per = {}, units = [], dots = 0;
+    if (soldiers >= GENERAL_AT) { per.heavy = 1; left -= V4.sim.peopleFor(grain, 'heavy'); dots++; }
     for (var pass = 0; pass < 2; pass++) {
       if (pass === 1 && grain <= SPLIT_OVER) break;
       for (var i = 0; i < ORDER.length && dots < MAX_DOTS; i++) {
@@ -29,7 +31,7 @@
         per[t] = (per[t] || 0) + 1; left -= need; dots++;
       }
     }
-    ORDER.forEach(function (t) {
+    ['heavy'].concat(ORDER).forEach(function (t) {
       if (per[t]) units.push({ type: t, count: per[t], strategy: t === 'archers' || t === 'slingers' ? 'kite' : strategy, formation: 'line' });
     });
     return units;

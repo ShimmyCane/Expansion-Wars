@@ -194,7 +194,7 @@
     if (D < 1) return takeFight(w, p);
     var last = (f.rounds || 0) >= f.n - 1;
     var ca = last ? A : Math.min(A, f.a0 / f.n), cd = last ? D : Math.min(D, f.d0 / f.n);   // the last round commits everyone
-    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD, null, f.a0 > c.GENERAL, f.d0 > c.GENERAL);
+    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD, null, f.a0 >= c.GENERAL, f.d0 >= c.GENERAL);
     f.count = Math.max(0, A - r.lostA);
     p.gar = Math.max(0, D - r.lostD);
     if (r.routA) f.shA = Math.max(0.5, f.shA * c.SHAKEN);
@@ -267,7 +267,7 @@
       var secs = Math.max(0, (len - (f.t || 0)) / (W.CONFIG.FIGHT_CLOCK === 'real' ? 1 : W.rateFor(w, w.view.scale)));
       var n = f.n || Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
       var mood = function (rout, sh) { return rout ? ' (routing)' : sh < 1 ? ' (shaken)' : ''; };
-      var G = K().FIGHT.GENERAL, star = function (n0) { return n0 > G ? ' ⭐' : ''; };
+      var G = K().FIGHT.GENERAL, star = function (n0) { return n0 >= G ? ' ⭐' : ''; };
       return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + star(f.a0 === undefined ? f.count : f.a0) + mood(f.routA, f.shA || 1) +
         ' · defenders ' + Math.floor(p.gar || 0) + star(f.d0 === undefined ? (p.gar || 0) : f.d0) + mood(f.routD, f.shD || 1);
     }

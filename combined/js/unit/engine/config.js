@@ -17,43 +17,47 @@
     // Fixed simulation step, in seconds. Replays depend on this being constant.
     TICK: 0.05,
 
-    TYPES: ['cavalry', 'pikemen', 'swordsmen', 'archers', 'slingers', 'catapults'],
+    // 'cavalry' are the scouts (light horse). 'heavy' is heavy cavalry: an army of 100 or more has one squad, and it is the general.
+    TYPES: ['cavalry', 'pikemen', 'swordsmen', 'archers', 'slingers', 'catapults', 'heavy'],
 
     // speed: tiles per second on foot. atk: damage per person per second (before counters).
     // range and minRange in tiles. reload: seconds between volleys (animation only).
     UNIT: {
-      cavalry:   { label: 'Cavalry',   speed: 2.0, atk: 0.9, range: 1.2, melee: true,  mounted: true,  minRange: 0, reload: 0 },
+      cavalry:   { label: 'Scouts',    speed: 2.0, atk: 0.9, range: 1.2, melee: true,  mounted: true,  minRange: 0, reload: 0 },
       pikemen:   { label: 'Pikemen',   speed: 0.8, atk: 0.6, range: 1.2, melee: true,  mounted: false, minRange: 0, reload: 0 },
       swordsmen: { label: 'Swordsmen', speed: 1.0, atk: 0.9, range: 1.2, melee: true,  mounted: false, minRange: 0, reload: 0 },
       archers:   { label: 'Archers',   speed: 1.0, atk: 0.35, range: 6,   melee: false, mounted: false, minRange: 0, reload: 1.5 },
       slingers:  { label: 'Slingers',  speed: 1.2, atk: 0.5, range: 4,   melee: false, mounted: false, minRange: 0, reload: 1.0 },
-      catapults: { label: 'Catapults', speed: 0.4, atk: 0.6, range: 9,   melee: false, mounted: false, minRange: 2, reload: 2.5 }
+      catapults: { label: 'Catapults', speed: 0.4, atk: 0.6, range: 9,   melee: false, mounted: false, minRange: 2, reload: 2.5 },
+      heavy:     { label: 'Heavy cavalry', speed: 1.5, atk: 1.4, range: 1.2, melee: true, mounted: true, minRange: 0, reload: 0 }
     },
 
     // Rough strength of one dot, used to balance random teams. Not used in battle.
-    POWER: { cavalry: 3, pikemen: 2, swordsmen: 2.5, archers: 2, slingers: 1.5, catapults: 3.5 },
+    POWER: { cavalry: 3, pikemen: 2, swordsmen: 2.5, archers: 2, slingers: 1.5, catapults: 3.5, heavy: 4.5 },
 
     // How far a unit can see enemies, in tiles. Defenders see further (see DEFENDER_SIGHT_BONUS).
-    // Cavalry are the scouts: they see three times as far as they used to (8 tiles).
-    SIGHT: { cavalry: 24, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6 },
+    // The scouts (cavalry) see three times as far as they used to (8 tiles).
+    SIGHT: { cavalry: 24, pikemen: 6, swordsmen: 6, archers: 7, slingers: 6, catapults: 6, heavy: 8 },
     DEFENDER_SIGHT_BONUS: 4,
 
     // Counters: a strong pairing deals COUNTER.up, a weak pairing COUNTER.down, otherwise 1.
     STRONG: {
       cavalry: ['archers', 'slingers', 'catapults'],
-      pikemen: ['cavalry'],
+      pikemen: ['cavalry', 'heavy'],
       swordsmen: ['pikemen'],
       archers: ['swordsmen', 'cavalry'],
       slingers: ['catapults', 'archers'],
-      catapults: []
+      catapults: [],
+      heavy: ['archers', 'slingers', 'catapults', 'swordsmen']
     },
     WEAK: {
       cavalry: ['pikemen'],
       pikemen: ['archers'],
-      swordsmen: ['archers', 'cavalry'],
+      swordsmen: ['archers', 'cavalry', 'heavy'],
       archers: [],
-      slingers: ['cavalry'],
-      catapults: []
+      slingers: ['cavalry', 'heavy'],
+      catapults: [],
+      heavy: ['pikemen']
     },
     COUNTER: { up: 1.5, down: 0.6 },
     RANGED_IN_MELEE: 0.6,   // ranged units hitting at arm's length
@@ -155,9 +159,9 @@
     // Moving as a team (units with no order): the line (pikemen and swordsmen) keeps within COHESION tiles of its rearmost
     // unit, and ranged units stay BEHIND tiles behind the front of the line until an enemy is in their range.
     TEAM: { line: ['pikemen', 'swordsmen'], cohesion: 2.5, behind: 1.5 },
-    // A side that brings more than POOL soldiers has a general, with one of its line units. Its own units within RADIUS
-    // tiles of the general strike MUL times as hard.
-    GENERAL: { pool: 100, radius: 4, mul: 1.5 },
+    // The general is a side's heavy cavalry (an army of POOL or more has one squad of it). Its own units within RADIUS
+    // tiles strike MUL times as hard. If the general is destroyed, every unit of its side loses LOSS morale.
+    GENERAL: { pool: 100, radius: 4, mul: 1.5, loss: 25 },
 
     // Deployment: the player's units may be placed within this many tiles of their edge (small field).
     DEPLOY_X: 6,
@@ -194,8 +198,8 @@
     // Formations. Each side can arrange up to two groups. A unit's role sets where it stands when the army is arranged.
     GROUPS: 2,
     GROUP_NAME: { 1: 'Line', 2: 'Horse' },
-    ROLE: { pikemen: 'front', swordsmen: 'front', archers: 'centre', slingers: 'centre', catapults: 'centre', cavalry: 'flank' },
-    DEFAULT_GROUP: { pikemen: 1, swordsmen: 1, archers: 1, slingers: 1, catapults: 1, cavalry: 2 },
+    ROLE: { pikemen: 'front', swordsmen: 'front', archers: 'centre', slingers: 'centre', catapults: 'centre', cavalry: 'flank', heavy: 'flank' },
+    DEFAULT_GROUP: { pikemen: 1, swordsmen: 1, archers: 1, slingers: 1, catapults: 1, cavalry: 2, heavy: 2 },
     TEAM_NAME: ['attacker', 'defender', 'third']
   };
 })();
