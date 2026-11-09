@@ -163,18 +163,18 @@
   // ---- wave fights -----------------------------------------------------------------------------------------------------
   // One round between the soldiers each side commits (a attackers, d defenders) on ground of protection def, see FIGHT in
   // config.js. shA and shD: how shaken each side is from earlier routs (1 is steady). Pure, so it can be tested on its own.
-  P.waveRound = function (a, d, def, shA, shD, rnd) {
+  P.waveRound = function (a, d, def, shA, shD, rnd, genA, genD) {
     var c = K().FIGHT, r = rnd || Math.random;
     var aliveA = a, aliveD = d, lostA = 0, lostD = 0, routA = false, routD = false;
     c.STRIKES.forEach(function (s) {
       if (aliveA <= 0 || aliveD <= 0) return;
       var noise = 1 + c.NOISE * (2 * r() - 1), k;
       if (s[0] === 'a') {
-        k = Math.min(aliveD, Math.min(aliveA, s[1] * a) * c.KILL_A * (1 - def) * (shA || 1) * (routA ? c.ROUT_STRIKE : 1) * noise);
+        k = Math.min(aliveD, Math.min(aliveA, s[1] * a) * c.KILL_A * (1 - def) * (shA || 1) * (routA ? c.ROUT_STRIKE : 1) * (genA ? c.GENERAL_MUL : 1) * noise);
         aliveD -= k; lostD += k;
         if (lostD >= c.BREAK * d) routD = true;
       } else {
-        k = Math.min(aliveA, Math.min(aliveD, s[1] * d) * c.KILL_D * (1 + def) * (shD || 1) * (routD ? c.ROUT_STRIKE : 1) * noise);
+        k = Math.min(aliveA, Math.min(aliveD, s[1] * d) * c.KILL_D * (1 + def) * (shD || 1) * (routD ? c.ROUT_STRIKE : 1) * (genD ? c.GENERAL_MUL : 1) * noise);
         aliveA -= k; lostA += k;
         if (lostA >= c.BREAK * a) routA = true;
       }
@@ -194,7 +194,7 @@
     if (D < 1) return takeFight(w, p);
     var last = (f.rounds || 0) >= f.n - 1;
     var ca = last ? A : Math.min(A, f.a0 / f.n), cd = last ? D : Math.min(D, f.d0 / f.n);   // the last round commits everyone
-    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD);
+    var r = P.waveRound(ca, cd, P.stat('DEF', P.defGrade(w, p)), f.shA, f.shD, null, f.a0 > c.GENERAL, f.d0 > c.GENERAL);
     f.count = Math.max(0, A - r.lostA);
     p.gar = Math.max(0, D - r.lostD);
     if (r.routA) f.shA = Math.max(0.5, f.shA * c.SHAKEN);
@@ -267,8 +267,9 @@
       var secs = Math.max(0, (len - (f.t || 0)) / (W.CONFIG.FIGHT_CLOCK === 'real' ? 1 : W.rateFor(w, w.view.scale)));
       var n = f.n || Math.round(P.stat('ROUNDS', P.defGrade(w, p)));
       var mood = function (rout, sh) { return rout ? ' (routing)' : sh < 1 ? ' (shaken)' : ''; };
-      return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + mood(f.routA, f.shA || 1) +
-        ' · defenders ' + Math.floor(p.gar || 0) + mood(f.routD, f.shD || 1);
+      var G = K().FIGHT.GENERAL, star = function (n0) { return n0 > G ? ' ⭐' : ''; };
+      return 'round ' + Math.min(n, (f.rounds || 0) + 1) + ' of ' + n + ' in ' + Math.ceil(secs) + ' s · attackers ' + Math.floor(f.count) + star(f.a0 === undefined ? f.count : f.a0) + mood(f.routA, f.shA || 1) +
+        ' · defenders ' + Math.floor(p.gar || 0) + star(f.d0 === undefined ? (p.gar || 0) : f.d0) + mood(f.routD, f.shD || 1);
     }
     var rate = W.rateFor(w, w.view.scale);
     var next = Math.max(0, (W.CONFIG.FIGHT_ROUND - (f.t || 0)) / rate);

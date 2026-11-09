@@ -150,7 +150,77 @@ t.test('a province fight becomes a valid battle request', () => {
   assert.deepStrictEqual(Array.from(ctx.V4.validateRequest(req)), []);
   assert.strictEqual(req.attacker.pool, 40);
   assert.strictEqual(req.defender.pool, 12);
-  assert.strictEqual(req.grain, 4);
+  assert.strictEqual(req.grain, 5, 'a squad is never under 5 soldiers');
+});
+
+t.test('armies unlock types in order: pikemen, archers, swordsmen, slingers, cavalry, catapults', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  const ORDER = ['pikemen', 'archers', 'swordsmen', 'slingers', 'cavalry', 'catapults'];
+  const twenty = XW.unit.requestFor(w, pair.mine.id, pair.target.id, 20);
+  assert.strictEqual(JSON.stringify(twenty.attacker.units.map(u => [u.type, u.count])), JSON.stringify([['pikemen', 1], ['archers', 1], ['swordsmen', 1], ['slingers', 1]]), '20 soldiers: the first four types, one squad each');
+  for (let n = 5; n <= 300; n += 7) {
+    const types = XW.unit.requestFor(w, pair.mine.id, pair.target.id, n).attacker.units.map(u => u.type);
+    types.forEach(t => ORDER.slice(0, ORDER.indexOf(t)).forEach(before => assert.ok(types.includes(before), n + ' soldiers: ' + t + ' without ' + before)));
+  }
+});
+
+t.test('a second squad of a type only when a squad of it would be over 10 soldiers', () => {
+  const { XW, w } = fresh(31);
+  const pair = neutralNextToYou(w);
+  for (let n = 5; n <= 300; n += 11) {
+    const req = XW.unit.requestFor(w, pair.mine.id, pair.target.id, n);
+    if (req.grain <= 10) req.attacker.units.forEach(u => assert.strictEqual(u.count, 1, n + ' soldiers (squads of ' + req.grain + '): one squad of ' + u.type));
+  }
+  const big = XW.unit.requestFor(w, pair.mine.id, pair.target.id, 200);
+  assert.ok(big.attacker.units.some(u => u.count === 2), '200 soldiers (squads of 20): second squads');
+});
+
+t.test('an army of more than 100 has a general on a line unit; its aura makes nearby units strike harder', () => {
+  const { XW, w, ctx } = fresh(31);
+  const V4 = ctx.V4, pair = neutralNextToYou(w);
+  pair.target.gar = 60;
+  const st = V4.createBattle(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 150), {});
+  const gens = st.units.filter(u => u.general);
+  assert.strictEqual(gens.length, 1, 'one general, on the side of 150');
+  assert.strictEqual(gens[0].side, 0);
+  assert.ok(['pikemen', 'swordsmen'].includes(gens[0].type));
+  const near = st.units.find(u => u.side === 0 && !u.general && Math.hypot(u.x - gens[0].x, u.y - gens[0].y) <= V4.CONFIG.GENERAL.radius);
+  if (near) assert.ok(V4._.inAura(st, near), 'a unit near the general is in its aura');
+  const small = V4.createBattle(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 80), {});
+  assert.strictEqual(small.units.filter(u => u.general).length, 0, 'no general at 80 against 60');
+});
+
+t.test('scouts (cavalry) see three times as far as before', () => {
+  const { ctx } = fresh(1);
+  assert.strictEqual(ctx.V4.CONFIG.SIGHT.cavalry, 24);
+});
+
+t.test('moving as a team: ranged units wait behind the line, and the line waits for its rearmost unit', () => {
+  const { XW, w, ctx } = fresh(31);
+  const V4 = ctx.V4, pair = neutralNextToYou(w);
+  pair.target.gar = 30;
+  const st = V4.createBattle(XW.unit.requestFor(w, pair.mine.id, pair.target.id, 60), {});
+  const mine = st.units.filter(u => u.side === 0);
+  const line = mine.filter(u => ['pikemen', 'swordsmen'].includes(u.type));
+  const archer = mine.find(u => u.type === 'archers');
+  const front = Math.max(...line.map(u => u.x));
+  archer.order = null; archer.station = null;
+  archer.x = front + 2;
+  assert.strictEqual(V4._.waitForTeam(st, archer, null), true, 'an archer ahead of the line waits');
+  archer.x = front - 3;
+  assert.strictEqual(V4._.waitForTeam(st, archer, null), false, 'behind the line it moves up');
+  const pike = line[0];
+  pike.order = null; pike.station = null;
+  pike.x = Math.min(...line.map(u => u.x)) + 5;
+  assert.strictEqual(V4._.waitForTeam(st, pike, null), true, 'a line unit far ahead of the rest waits for them');
+});
+
+t.test('province level: an army of more than 100 has a general, and strikes 10% harder', () => {
+  const { XW } = fresh(1);
+  const P = XW.province, fixed = () => 0.5;
+  const plain = P.waveRound(50, 50, 0, 1, 1, fixed, false, false), led = P.waveRound(50, 50, 0, 1, 1, fixed, true, false);
+  assert.ok(led.lostD > plain.lostD, 'the general\'s side kills more');
 });
 
 t.test('a battle from the province scale writes its result back into the world', () => {
@@ -616,6 +686,39 @@ t.test('fights run in waves on real time: a round is 3 seconds in the campaign, 
   assert.strictEqual(XW.world.CONFIG.FIGHT_MODEL, 'waves');
   assert.strictEqual(XW.world.CONFIG.FIGHT_CLOCK, 'real');
   assert.ok(XW.world.CONFIG.FIGHT_SECONDS <= 5);
+});
+
+t.test('difficulty: easy gives you 200 more food; medium and hard make the computer nations rich', () => {
+  const easy = fresh(41), before = easy.w.nations.map(n => n.food);
+  assert.strictEqual(easy.XW.country.applyDifficulty(easy.w, 'easy'), null);
+  assert.strictEqual(easy.w.nations[easy.w.you].food, before[easy.w.you] + 200);
+  easy.w.nations.forEach((n, i) => { if (i !== easy.w.you) assert.strictEqual(n.food, before[i], 'the computer as it was'); });
+  const med = fresh(41), mb = med.w.nations.map(n => [n.food, n.gold, n.stone]);
+  med.XW.country.applyDifficulty(med.w, 'medium');
+  assert.strictEqual(med.w.nations[med.w.you].food, mb[med.w.you][0], 'you as you were');
+  med.w.nations.forEach((n, i) => { if (i !== med.w.you) assert.ok(n.food === mb[i][0] + 200 && n.gold === mb[i][1] + 100 && n.stone === mb[i][2] + 40); });
+  assert.strictEqual(med.w.difficulty, 'medium');
+});
+
+t.test('hard: the computer claims land every turn while there is any, then goes to war strategically', () => {
+  const { XW, w } = fresh(42);
+  XW.country.applyDifficulty(w, 'hard');
+  XW.country.planAI(w);
+  const active = w.nations.filter(n => n.id !== w.you && n.alive && !n.neutral);
+  const claims = w.queue.filter(q => q.type === 'claim');
+  assert.ok(claims.length >= active.filter(n => XW.country.claimTarget(w, n) !== null).length, 'every active computer nation with land to claim claims: ' + claims.length);
+  // No land left: it declares on the neighbour it outmatches most, not on one already fighting two others.
+  w.queue = [];
+  w.provs.forEach(p => { if (p.kind === 'province' && p.owner < 0) p.owner = 1; });
+  XW.country.updateNeighbours(w);
+  const a = w.nations[1];
+  a.soldiers = 5000;
+  XW.country.planAI(w);
+  const war = w.queue.find(q => q.type === 'declare' && q.from === 1);
+  if (war) {
+    const target = war.to, fighting = w.nations.filter(k => k.alive && k.id !== target && XW.world.rel(w, k.id, target).war).length;
+    assert.ok(fighting < 2, 'not a nation already fighting two');
+  }
 });
 
 t.test('taking the last province of the last opponent wins', () => {

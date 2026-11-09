@@ -21,6 +21,29 @@
     done: function (msg) { if (msg) A.toast(msg); W.changed('province'); }
   };
 
+  // Full screen: the province fills the screen (the browser's full screen too, where it allows it), with the soldiers
+  // of each nation in the lower left corner of the map.
+  function setFull(on, fromBrowser) {
+    var sect = D.$('scale-province'), btn = D.$('province-full');
+    sect.classList.toggle('full', on);
+    btn.textContent = on ? '✕' : '⛶';
+    btn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+    if (fromBrowser) return;
+    try {
+      if (on && sect.requestFullscreen && !document.fullscreenElement) sect.requestFullscreen().catch(function () {});
+      if (!on && document.fullscreenElement) document.exitFullscreen().catch(function () {});
+    } catch (e) { /* the page still fills the window */ }
+  }
+  var FOLD_KEY = 'xw-province-mini-folded';
+  function readFold() { try { return localStorage.getItem(FOLD_KEY) === '1'; } catch (e) { return false; } }
+  function foldMini(on) {
+    mini.classList.toggle('folded', on);
+    var t = D.$('province-mini-toggle');
+    t.textContent = on ? '▶' : '◀';
+    t.setAttribute('aria-label', on ? 'Show the mini map' : 'Hide the mini map');
+    try { localStorage.setItem(FOLD_KEY, on ? '1' : '0'); } catch (e) { /* not remembered */ }
+  }
+
   // The countdown at the start of a province battles level: the number big over the map, then Go. True while it runs.
   var goT = 0, surT = 0;
   function countdown(w, dt) {
@@ -113,6 +136,11 @@
       act.done(sent ? (sent === 1 ? 'Soldiers sent.' : 'Sent from ' + sent + ' provinces.') : first);
     });
     svgEl.addEventListener('pointercancel', function () { drag = null; drawDrag(null); });
+    // Full screen, and the mini map folded away (remembered on this device).
+    D.$('province-full').addEventListener('click', function () { setFull(!D.$('scale-province').classList.contains('full')); });
+    document.addEventListener('fullscreenchange', function () { if (!document.fullscreenElement) setFull(false, true); });
+    D.$('province-mini-toggle').addEventListener('click', function () { foldMini(!mini.classList.contains('folded')); });
+    foldMini(readFold());
     svgEl.addEventListener('click', function (e) {
       if (dragged) { dragged = false; return; }
       tap(idAt(e) === null ? -1 : idAt(e));
@@ -155,7 +183,7 @@
       redraw();
     },
     // Leaving: every march lands, so the country map shows where every soldier is.
-    hide: function (w) { if (win) P.settle(w, win); win = null; },
+    hide: function (w) { if (win) P.settle(w, win); win = null; setFull(false); },
     render: function () { redraw(); },
     tick: function (w, dt) {
       if (!win) return;
@@ -172,7 +200,12 @@
       if (key !== groundKey) { P.view.drawGround(ground, w, win, ui); groundKey = key; }
       P.view.drawLive(live, w, win, ui);
       cardT += dt;
-      if (cardT > 0.5) { cardT = 0; P.view.drawCard(card, w, win, ui); P.view.drawBar(bar, w, win, ui, act); A.mini.draw(mini, w, win); }
+      if (cardT > 0.5) {
+        cardT = 0;
+        P.view.drawCard(card, w, win, ui); P.view.drawBar(bar, w, win, ui, act); A.mini.draw(mini, w, win);
+        var pop = D.$('province-pop');
+        if (pop) { D.clear(pop); A.glance.population(w, pop); }
+      }
     },
     window: function () { return win; }
   };

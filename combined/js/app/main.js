@@ -4,7 +4,7 @@
   'use strict';
   var XW = window.XW, A = XW.app, W = XW.world, C = XW.country, D = XW.core;
 
-  var w = A.modes.ensure(W.loadLocal());
+  var saved = W.loadLocal(), w = A.modes.ensure(saved);
   W.set(w);
   A.settings.init();
   // ×2 fast-forward: the country and province scales run at double time while it is on.
@@ -22,4 +22,5 @@
   A.scales.open(w, w.view.scale);
   W.saveLocal(w);
   A.start();
+  if (!saved) A.modes.pickDifficulty(w);   // a new campaign starts with the difficulty
 })();

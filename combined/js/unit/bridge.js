@@ -9,29 +9,28 @@
   var XW = window.XW, U = XW.unit, W = XW.world;
   var V4 = window.V4;
 
-  // The army a side brings: soldiers become dots of up to two of each type, in the side's preferred order.
-  var MIX = {
-    attacker: ['swordsmen', 'pikemen', 'archers', 'cavalry', 'slingers', 'catapults'],
-    defender: ['pikemen', 'archers', 'swordsmen', 'slingers', 'cavalry', 'catapults']
-  };
-  var MAX_DOTS = 10;   // dots a side may field at most (each type at most V4.CONFIG.MAX_PER_TYPE)
+  // The army a side brings. Soldiers become squads (dots) of at least MIN_SQUAD soldiers, in the unlock order: a type
+  // joins only once every type before it is in (pikemen, archers, swordsmen, slingers, cavalry, catapults). A second squad
+  // of a type comes only when a squad of it would be more than SPLIT_OVER soldiers; otherwise there is just one.
+  var ORDER = ['pikemen', 'archers', 'swordsmen', 'slingers', 'cavalry', 'catapults'];
+  var MAX_DOTS = 10, MIN_SQUAD = 5, SPLIT_OVER = 10;
 
-  // People in one dot for a battle of these sizes: the bigger side fields MAX_DOTS dots.
-  U.grainFor = function (a, d) { return Math.max(1, Math.ceil(Math.max(a, d, 1) / MAX_DOTS)); };
+  // People in one squad for a battle of these sizes: the bigger side fields MAX_DOTS squads, and a squad is never under MIN_SQUAD.
+  U.grainFor = function (a, d) { return Math.max(MIN_SQUAD, Math.ceil(Math.max(a, d, 1) / MAX_DOTS)); };
 
   function army(side, soldiers, grain, strategy) {
-    var left = soldiers, per = {}, units = [], order = MIX[side], guard = 0;
-    while (guard++ < 40) {
-      var placed = false;
-      for (var i = 0; i < order.length; i++) {
-        var t = order[i], need = V4.sim.peopleFor(grain, t);
-        if ((per[t] || 0) >= V4.CONFIG.MAX_PER_TYPE || left < need) continue;
-        per[t] = (per[t] || 0) + 1; left -= need; placed = true;
+    var left = soldiers, per = {}, units = [], dots = 0;
+    for (var pass = 0; pass < 2; pass++) {
+      if (pass === 1 && grain <= SPLIT_OVER) break;
+      for (var i = 0; i < ORDER.length && dots < MAX_DOTS; i++) {
+        var t = ORDER[i], need = V4.sim.peopleFor(grain, t);
+        if (left < need) break;                                   // the next type stays locked
+        if ((per[t] || 0) >= V4.CONFIG.MAX_PER_TYPE) continue;
+        per[t] = (per[t] || 0) + 1; left -= need; dots++;
       }
-      if (!placed) break;
     }
-    Object.keys(per).forEach(function (t) {
-      units.push({ type: t, count: per[t], strategy: t === 'archers' || t === 'slingers' ? 'kite' : strategy, formation: 'line' });
+    ORDER.forEach(function (t) {
+      if (per[t]) units.push({ type: t, count: per[t], strategy: t === 'archers' || t === 'slingers' ? 'kite' : strategy, formation: 'line' });
     });
     return units;
   }
