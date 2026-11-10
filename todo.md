@@ -194,7 +194,7 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [ ] **V4 phase 5: link battles into V2.** Needs the contract agreed and one change in `js/country.js` behind a setting. Not started.
 - [x] **V4 round 2: custom battle.** Replay fixed by fixed steps. Vision and fog, defender plan, attack and rush moves, morale rally. Tests: `node V4/tests/sim.test.js` (19 checks).
 - [ ] **V4 balance pass.** With the defender planned, the defender has a clear edge (pikemen mirror about 83% to the defender). Catapults and archers look strong. See "Balance notes" in `V4/schematic.md`.
-- [ ] **V4 replays to the family database.** Each finished battle is saved on the device, then pushed to table `xw_replays` once signed in (`V4/js/replays.js`, migration `supabase/003_xw_replays.sql`). The rollback test passed. The migration is NOT in the Family project: the apply call timed out waiting for a server-side confirmation, and a later check found no `xw_replays` table. Re-run `supabase/003_xw_replays.sql` in the Family project, then check a sign-in push. V4 sign-in is in the ⚙️ panel.
+- [x] **V4 replays to the family database.** (Table `xw_replays` is in the Family project; 14 replays saved, the last on 6 November 2026.) Each finished battle is saved on the device, then pushed to table `xw_replays` once signed in (`V4/js/replays.js`, migration `supabase/003_xw_replays.sql`). The rollback test passed. The migration is NOT in the Family project: the apply call timed out waiting for a server-side confirmation, and a later check found no `xw_replays` table. Re-run `supabase/003_xw_replays.sql` in the Family project, then check a sign-in push. V4 sign-in is in the ⚙️ panel.
 - [ ] **V4: confirm the morale reads** ("taking pause" as standing still, "or die" as an enemy dying nearby, 0.5 a second recovery).
 - [ ] **V4: confirm after first games.** Battle caps (120 s, and 5 min at country scale), tile distances per scale, the 20 to 1 surrender ratio, and the country grain (100 or more). See "To confirm later" in `V4/schematic.md`.
 
@@ -206,7 +206,7 @@ Built from Jimmy's direction, with the defaults listed in convo v0.14 for you to
 - [x] **Time dilation.** One world clock: ×1 on the country map, ×0.2 in a province, ×0.05 in a battle. Set in `combined/js/world/config.js`.
 - [x] **Battle engine split** into 12 files. It gives the same results as `V4/` on 160 test battles; its 51 tests pass.
 - [x] **Saving.** On this device after every turn, scale change and battle; to the family database as one row per world (`xw_worlds`).
-- [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Until then ⚙️ says the world is saved on this device only.
+- [x] **Apply `supabase/004_xw_worlds.sql`** to the Family project (rollback test: `supabase/test_004_xw_worlds_rollback.sql`). Applied: `xw_worlds` holds 13 worlds, the last saved 9 November 2026.
 - [ ] **Decide** the open questions in `combined/schematic.md`: dilation values, where soldiers live, country attacks as battles, growth outside the window, battle size.
 - [ ] **Rebalance** after real games on the iPad.
 
@@ -255,7 +255,7 @@ Major revision. The combined game is the campaign; its unit, province and countr
 - [x] **Individual games archived.** Unit scale 4.5 (`archive/unit-scale/`), country scale 2.20 (`archive/country-scale/`), province scale (`archive/province-scale/`), linked from the Archive page. Their paths are updated, and the Map creator plays from the archived unit scale.
 - [x] **Tests.** `node combined/tests/modes.test.js` (11 checks), and the browser check of every mode, the hub links and the archive.
 - [ ] **Decide** the questions in `convo/convo v0.19.md` (version number, unit battle sides, province neighbours).
-- [ ] **Apply `supabase/004_xw_worlds.sql`** to the Family project before the battle modes can sync to the database (as for the campaign).
+- [x] **Apply `supabase/004_xw_worlds.sql`** to the Family project before the battle modes can sync to the database (as for the campaign). Applied; the battle modes save worlds there.
 
 ## Version 3.0, round 2: province merged back from the archive (convo v0.19)
 
